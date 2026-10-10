@@ -59,8 +59,8 @@ async function setup(live = true) {
   })
   const editor = surface.__lexicalEditor!
   /** Select the whole first paragraph's text. */
-  const selectAll = () =>
-    act(() =>
+  const selectAll = (): void => {
+    void act(() =>
       editor.update(
         () => {
           const p = $getRoot().getFirstChild()
@@ -70,7 +70,12 @@ async function setup(live = true) {
         { discrete: true },
       ),
     )
-  const click = (id: string) => act(() => fireEvent.click(screen.getByTestId(`onpage-rt-${id}`)))
+  }
+  const click = (id: string): void => {
+    void act(() => {
+      fireEvent.click(screen.getByTestId(`onpage-rt-${id}`))
+    })
+  }
   const committed = () => commit.mock.calls.at(-1)?.[0] as RichTextState
   return { editor, selectAll, click, commit, close, ghost, committed }
 }
@@ -90,8 +95,8 @@ describe('rich-text toolbar', () => {
     )
     r.click('done')
     expect(r.commit).toHaveBeenCalled()
-    const text = r.committed().root.children![0]!.children![0]!
-    expect(text.format).toBe(1) // bold
+    const text = r.committed().root.children?.[0]?.children?.[0]
+    expect(text?.format).toBe(1) // bold
   })
 
   it('turns the block into a heading, a quote, a list — and back', async () => {
@@ -128,7 +133,9 @@ describe('rich-text toolbar', () => {
     r.click('link')
     const input = await screen.findByTestId('onpage-rt-link-input')
     fireEvent.change(input, { target: { value: 'https://example.com' } })
-    act(() => fireEvent.keyDown(input, { key: 'Enter' }))
+    void act(() => {
+      fireEvent.keyDown(input, { key: 'Enter' })
+    })
     r.click('done')
     const linked = JSON.stringify(r.committed())
     expect(linked).toContain('"type":"link"')
@@ -154,7 +161,7 @@ describe('rich-text toolbar', () => {
     )
     const outside = document.createElement('button')
     document.body.appendChild(outside)
-    act(() => {
+    void act(() => {
       outside.dispatchEvent(new Event('pointerdown', { bubbles: true }))
     })
     expect(r.commit).toHaveBeenCalled()
