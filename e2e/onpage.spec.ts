@@ -1,0 +1,196 @@
+import AxeBuilder from '@axe-core/playwright'
+import { expect, test, type BrowserContext, type Page } from '@playwright/test'
+
+const clean = (s: string | null) => (s ?? '').replace(/[\u200b-\u200d\u2060-\u2064]/g, '')
+
+/** Sign in (the example auto-logs in on /admin) and open a page in edit mode via the admin button. */
+async function editPage(
+  context: BrowserContext,
+  collectionPath = '/admin/collections/pages/1',
+): Promise<Page> {
+  const admin = await context.newPage()
+  await admin.goto(collectionPath)
+  const button = admin.getByTestId('onpage-edit-on-page')
+  await button.waitFor()
+  const [page] = await Promise.all([context.waitForEvent('page'), button.click()])
+  await page.waitForLoadState('load')
+  await admin.close()
+  await expect(page.getByTestId('onpage-status')).toHaveText(/Editing draft|Draft saved/)
+  return page
+}
+
+async function api<T>(page: Page, path: string): Promise<T> {
+  return page.evaluate(async (p) => (await fetch(p)).json(), path) as Promise<T>
+}
+
+test.describe.configure({ mode: 'serial' })
+
+test('visitors get clean HTML: no markers, no editor attributes', async ({ request }) => {
+  const html = await (await request.get('/')).text()
+  expect(html).not.toMatch(/[⁢⁣⁤]/)
+  expect(html).not.toContain('data-onpage')
+})
+
+test('edit text in place; the draft is saved without markers', async ({ context }) => {
+  const page = await editPage(context)
+  const heading = page.locator('h1').first()
+  await heading.click({ position: { x: 4, y: 10 } })
+  const inline = page.getByTestId('onpage-inline-text')
+  await expect(inline).toBeFocused()
+  await page.keyboard.type('E2E ')
+  await page.keyboard.press('Enter')
+  await expect(heading).toContainText('E2E ')
+  const draft = await api<{ layout: Array<{ heading?: string }> }>(
+    page,
+    '/api/pages/1?draft=true&depth=0',
+  )
+  expect(draft.layout[0].heading).toMatch(/^E2E /)
+  expect(JSON.stringify(draft)).not.toMatch(/[⁢⁣⁤]/)
+})
+
+test('a global and the page edit together', async ({ context }) => {
+  const page = await editPage(context)
+  await expect(page.getByTestId('onpage-doc-count')).toHaveText('2 documents')
+  const brand = page.locator('.site-header .brand')
+  const box = (await brand.boundingBox())!
+  await page.mouse.click(box.x + box.width - 2, box.y + box.height / 2)
+  await page.keyboard.press('End')
+  await page.keyboard.type(' Ltd')
+  await page.keyboard.press('Enter')
+  await expect(brand).toContainText('Ltd')
+  expect(
+    (await api<{ siteName: string }>(page, '/api/globals/header?draft=true')).siteName,
+  ).toMatch(/Ltd$/)
+})
+
+test('value editors: select, date, relationship, color', async ({ context }) => {
+  const page = await editPage(context)
+  await page.locator('.features li .icon').first().click()
+  await page.getByTestId('onpage-option-heart').click()
+  await expect(page.locator('.features li .icon').first()).toHaveText('♥')
+
+  await page.locator('[data-onpage-field="publishedAt"]').click()
+  await page.getByTestId('onpage-date-input').fill('2027-03-14')
+  await page.getByTestId('onpage-apply').click()
+  await expect(page.locator('[data-onpage-field="publishedAt"]')).toHaveText('March 14, 2027')
+
+  await page.locator('[data-onpage-field="author"]').click()
+  await expect(page.getByRole('option', { name: 'Dev Editor' })).toBeVisible()
+  await page.keyboard.press('Escape')
+
+  await page.locator('[data-onpage-field="accent"]').click()
+  await page.getByTestId('onpage-color-input').fill('#0ea5e9')
+  await page.getByTestId('onpage-apply').click()
+  await expect
+    .poll(() => page.locator('main').evaluate((el) => el.style.getPropertyValue('--accent')))
+    .toBe('#0ea5e9')
+})
+
+test('rich text', async ({ context }) => {
+  const page = await editPage(context)
+  const p = page.locator('.content p').first()
+  await p.scrollIntoViewIfNeeded()
+  const box = (await p.boundingBox())!
+  await page.mouse.click(box.x + 1, box.y + box.height / 2)
+  await expect(page.getByRole('toolbar', { name: 'Text formatting' })).toBeVisible()
+  await page.keyboard.type('Rich ')
+  await page.getByTestId('onpage-rt-done').click()
+  await expect(p).toContainText('Rich ')
+})
+
+test('keyboard: Enter edits, ⌥↓ moves a row, ⌘Z undoes', async ({ context }) => {
+  const page = await editPage(context)
+  const titles = page.locator('.features li h3')
+  const first = clean(await titles.first().textContent())
+  await page.locator('.features li').first().focus()
+  await page.keyboard.press('Alt+ArrowDown')
+  await expect.poll(async () => clean(await titles.nth(1).textContent())).toBe(first)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(async () => clean(await titles.first().textContent())).toBe(first)
+  await page.locator('h1').first().focus()
+  await page.keyboard.press('Enter')
+  await expect(page.getByTestId('onpage-inline-text')).toBeVisible()
+  await page.keyboard.press('Escape')
+})
+
+test('client mode updates live while typing', async ({ context }) => {
+  const page = await editPage(context, '/admin/collections/pages/2')
+  const h1 = page.locator('h1').first()
+  const box = (await h1.boundingBox())!
+  await page.mouse.click(box.x + box.width - 2, box.y + box.height / 2)
+  await page.keyboard.press('End')
+  await page.keyboard.type('!')
+  await expect(h1).toContainText('!') // rendered from editor state before any save
+  await page.keyboard.press('Enter')
+})
+
+test('editor UI has no serious accessibility violations', async ({ context }) => {
+  const page = await editPage(context)
+  await page
+    .locator('section')
+    .first()
+    .click({ position: { x: 5, y: 5 } })
+  const results = await new AxeBuilder({ page }).include('[data-onpage-ui]').analyze()
+  const serious = results.violations.filter(
+    (v) => v.impact === 'serious' || v.impact === 'critical',
+  )
+  expect(
+    serious.map(
+      (v) =>
+        `${v.id}: ${v.help} :: ${v.nodes.map((n) => `${n.target.join(' ')} ${n.any[0]?.message ?? ''}`).join(' | ')}`,
+    ),
+  ).toEqual([])
+})
+
+test('share links: draft on the shared page only, no draft credential in the browser', async ({
+  context,
+  browser,
+}) => {
+  const page = await editPage(context)
+  await page.getByTestId('onpage-share').click()
+  await expect(page.getByTestId('onpage-status')).toHaveText(/Preview link copied/)
+  const link = await page.evaluate(async () => {
+    const res = await fetch('/api/onpage/preview-link', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'collection', slug: 'pages', id: 1 }),
+    })
+    return ((await res.json()) as { url: string }).url
+  })
+  const anon = await browser.newContext()
+  const viewer = await anon.newPage()
+  await viewer.goto(link)
+  await expect(viewer.getByTestId('onpage-preview-toolbar')).toContainText('Shared preview')
+  await expect(viewer.locator('h1').first()).toContainText('E2E ') // the draft
+  const cookies = await anon.cookies()
+  expect(cookies.map((c) => c.name)).toEqual(['onpage_preview'])
+
+  // Another page stays published, even with a forged draft cookie.
+  await anon.addCookies([{ name: '__prerender_bypass', value: 'forged', url: viewer.url() }])
+  await viewer.goto('/about')
+  await expect(viewer.getByTestId('onpage-preview-toolbar')).toHaveCount(0)
+
+  // Tampered and missing tokens are refused.
+  expect((await viewer.goto(`${link.slice(0, -3)}AAA`))!.status()).toBe(403)
+
+  // Leaving clears the grant.
+  await viewer.goto(link)
+  await viewer.getByTestId('onpage-exit-preview').click()
+  await expect(viewer.getByTestId('onpage-preview-toolbar')).toHaveCount(0)
+  expect((await anon.cookies()).filter((c) => c.name.startsWith('onpage'))).toEqual([])
+  await anon.close()
+})
+
+test('preview mode for editors, then exit', async ({ context }) => {
+  const page = await editPage(context)
+  await page.getByTestId('onpage-preview').click()
+  await expect(page.getByTestId('onpage-preview-toolbar')).toContainText('Previewing the draft')
+  const axe = await new AxeBuilder({ page }).include('[data-onpage-ui]').analyze()
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+    [],
+  )
+  await page.getByTestId('onpage-edit').click()
+  await expect(page.getByTestId('onpage-dock')).toBeVisible()
+  await page.getByTestId('onpage-exit').click()
+  await expect(page.getByTestId('onpage-dock')).toHaveCount(0)
+})

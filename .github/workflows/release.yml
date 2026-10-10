@@ -1,13 +1,21 @@
 name: Release
-# Publishes every package whose version isn't on npm yet. Bump versions (and CHANGELOG.md), merge, then run this.
+# On main: Changesets opens/updates a "Version packages" PR. Merging it publishes
+# every package whose version isn't on npm yet (with provenance), tags and creates
+# GitHub Releases.
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 permissions:
-  contents: read
-  id-token: write # npm provenance
+  contents: write
+  pull-requests: write
+  id-token: write # npm provenance / trusted publishing
+concurrency: release
+
 jobs:
-  publish:
+  release:
+    if: github.repository == 'jellologic/payload-onpage'
     runs-on: ubuntu-latest
+    environment: npm
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -15,22 +23,16 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5
       - run: bun install --frozen-lockfile
-      - run: bun run test
-      - name: Publish
+      - run: bun run check
+      - uses: changesets/action@v1
+        with:
+          version: bunx changeset version
+          publish: node scripts/release.mjs
+          title: Version packages
+          commit: 'chore: version packages'
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional with npm trusted publishing configured; used when present.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          for pkg in core plugin react lexical next; do
-            cd packages/$pkg
-            name=$(node -p "require('./package.json').name")
-            version=$(node -p "require('./package.json').version")
-            if npm view "$name@$version" version >/dev/null 2>&1; then
-              echo "$name@$version already published"
-            else
-              # bun pack resolves workspace:* to real versions; npm publishes the tarball with provenance.
-              rm -rf /tmp/pack-$pkg && bun pm pack --destination /tmp/pack-$pkg
-              npm publish /tmp/pack-$pkg/*.tgz --access public --provenance
-            fi
-            cd ../..
-          done

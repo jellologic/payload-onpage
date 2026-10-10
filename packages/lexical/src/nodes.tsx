@@ -54,15 +54,26 @@ export class PayloadLinkNode extends ElementNode {
 
   override createDOM(): HTMLElement {
     const a = document.createElement('a')
-    a.href = this.__fields.url || '#'
-    if (this.__fields.newTab) a.target = '_blank'
+    a.setAttribute('href', this.__fields.url || '#')
+    if (this.__fields.newTab) {
+      a.setAttribute('target', '_blank')
+      a.setAttribute('rel', 'noopener noreferrer')
+    }
     a.addEventListener('click', (e) => e.preventDefault())
     return a
   }
 
   override updateDOM(prev: PayloadLinkNode, dom: HTMLElement): boolean {
-    if (prev.__fields.url !== this.__fields.url)
-      (dom as HTMLAnchorElement).href = this.__fields.url || '#'
+    if (prev.__fields.url !== this.__fields.url) dom.setAttribute('href', this.__fields.url || '#')
+    if (prev.__fields.newTab !== this.__fields.newTab) {
+      if (this.__fields.newTab) {
+        dom.setAttribute('target', '_blank')
+        dom.setAttribute('rel', 'noopener noreferrer')
+      } else {
+        dom.removeAttribute('target')
+        dom.removeAttribute('rel')
+      }
+    }
     return false
   }
 

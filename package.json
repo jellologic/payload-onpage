@@ -17,12 +17,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build && bun run size",
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run coverage && bun run build && bun run size",
     "dev:example": "bun run build && cd examples/basic && bun run dev",
-    "size": "size-limit"
+    "size": "size-limit",
+    "e2e": "bun run build && playwright test -c e2e/playwright.config.ts"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
+    "@axe-core/playwright": "^4.13.0",
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
     "@eslint/js": "^10.0.1",
@@ -34,6 +36,7 @@
     "@payloadcms/db-sqlite": "3.87.0",
     "@payloadcms/translations": "3.87.0",
     "@payloadcms/ui": "3.87.0",
+    "@playwright/test": "^1.64.0",
     "@size-limit/esbuild": "^11",
     "@size-limit/file": "^11",
     "@testing-library/dom": "^10.4.2",

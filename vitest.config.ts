@@ -33,8 +33,23 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['packages/*/src/**/*.{ts,tsx}'],
-      exclude: ['**/__tests__/**', '**/index.ts', '**/*.d.ts'],
-      reporter: ['text-summary', 'text', 'lcov'],
+      exclude: [
+        '**/__tests__/**',
+        '**/index.ts',
+        '**/*.d.ts',
+        '**/types.ts',
+        '**/ports.ts',
+        '**/schema.ts',
+      ],
+      reporter: ['text-summary', 'lcov'],
+      // Per-package gates (lines). CI fails below these.
+      thresholds: {
+        'packages/core/src/**': { lines: 90 },
+        'packages/plugin/src/**': { lines: 90 },
+        'packages/react/src/**': { lines: 85 },
+        'packages/next/src/**': { lines: 80 },
+        'packages/lexical/src/**': { lines: 80 },
+      },
     },
   },
 })

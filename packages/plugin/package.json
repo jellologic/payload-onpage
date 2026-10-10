@@ -56,8 +56,12 @@
     "@payload-onpage/core": "workspace:*"
   },
   "peerDependencies": {
-    "@payloadcms/ui": "^3.0.0",
-    "payload": "^3.0.0",
-    "react": "^19.0.0"
+    "payload": "^3.87.0",
+    "@payloadcms/ui": "^3.87.0",
+    "@payloadcms/translations": "^3.87.0",
+    "react": "^19.2.0"
+  },
+  "engines": {
+    "node": ">=20.9.0"
   }
 }

@@ -49,6 +49,7 @@ beforeAll(async () => {
     serverURL: ORIGIN,
     db: sqliteAdapter({ client: { url: ':memory:' } }),
     telemetry: false,
+    logger: { options: { level: 'silent' } },
     admin: { user: 'users' },
     collections: [
       {

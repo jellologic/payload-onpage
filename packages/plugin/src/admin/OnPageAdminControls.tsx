@@ -6,7 +6,15 @@
  * update the document.
  */
 import { payloadRest } from '@payload-onpage/core/payload'
-import { Button, toast, useConfig, useDocumentInfo, useLocale } from '@payloadcms/ui'
+import {
+  Button,
+  toast,
+  useConfig,
+  useDocumentInfo,
+  useLocale,
+  useTranslation,
+} from '@payloadcms/ui'
+import type { OnPageTranslationKey } from '../translations.ts'
 import { useMemo, useState } from 'react'
 
 export interface OnPageAdminControlsProps {
@@ -34,6 +42,9 @@ export function OnPageAdminControls({ kind, slug, prefix }: OnPageAdminControlsP
   const { id, hasSavePermission } = useDocumentInfo()
   const { config } = useConfig()
   const locale = useLocale()
+  const { t: translate } = useTranslation()
+  const t = (key: OnPageTranslationKey, vars?: Record<string, string>) =>
+    (translate as (k: string, v?: Record<string, string>) => string)(key, vars)
   const [busy, setBusy] = useState(false)
   const apiBase = `${config.serverURL ?? ''}${config.routes.api}`
   const dataSource = useMemo(() => payloadRest({ apiBase, prefix }), [apiBase, prefix])
@@ -54,7 +65,7 @@ export function OnPageAdminControls({ kind, slug, prefix }: OnPageAdminControlsP
         `Preview link copied — valid until ${new Date(link.expiresAt).toLocaleString()}`,
       )
     } catch (e) {
-      toast.error(`Couldn't create a preview link: ${(e as Error).message}`)
+      toast.error(t('onpage:linkFailed', { message: (e as Error).message }))
     } finally {
       setBusy(false)
     }
@@ -69,17 +80,17 @@ export function OnPageAdminControls({ kind, slug, prefix }: OnPageAdminControlsP
         onClick={() => postInNewTab(`${apiBase}${prefix}/enter?${params}`)}
         extraButtonProps={{ style, 'data-testid': 'onpage-edit-on-page' }}
       >
-        Edit on page
+        {t('onpage:editOnPage')}
       </Button>
       <Button
         buttonStyle="subtle"
         size="medium"
         onClick={() => void copyLink()}
         disabled={busy}
-        tooltip="Copy a read-only link to this draft"
+        tooltip={t('onpage:copyPreviewLinkHint')}
         extraButtonProps={{ style, 'data-testid': 'onpage-copy-preview-link' }}
       >
-        Copy preview link
+        {t('onpage:copyPreviewLink')}
       </Button>
     </div>
   )
