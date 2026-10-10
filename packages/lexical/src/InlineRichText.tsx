@@ -7,7 +7,15 @@
  * Only a real change is written: the value is compared with what the same
  * editor produced for the untouched content.
  */
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -44,14 +52,15 @@ import {
   UNDO_COMMAND,
   type LexicalEditor,
 } from 'lexical'
-import { safeLinkUrl } from '@payload-onpage/core'
+import { eachLexicalNode, newRowId, safeLinkUrl } from '@payload-onpage/core'
 import {
   HIDDEN,
   caretAt,
   placeOver,
-  useEachFrame,
+  useTrackElement,
   type FieldEditorProps,
-} from '@payload-onpage/react'
+  type Translate,
+} from '@payload-onpage/react/editor-kit'
 import { $createPayloadLinkNode, $isPayloadLinkNode, type PayloadLinkNode } from './nodes.tsx'
 import { RICH_TEXT_NODES } from './nodeList.ts'
 import { fromEditorState, plainText, toEditorState, type RichTextState } from './convert.ts'
@@ -146,7 +155,11 @@ function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection |
     for (const node of nodes) {
       if (!$isTextNode(node) || $findMatchingParent(node, $isPayloadLinkNode)) continue
       if (!link || node.getPreviousSibling() !== link) {
-        link = $createPayloadLinkNode({ url, newTab: /^https?:/.test(url), linkType: 'custom' })
+        // Payload's own link node carries an id; so do ours.
+        link = $createPayloadLinkNode(
+          { url, newTab: /^https?:/.test(url), linkType: 'custom' },
+          newRowId(),
+        )
         node.insertBefore(link)
       }
       link.append(node)
@@ -155,7 +168,41 @@ function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection |
   return true
 }
 
-function Toolbar({ onDone }: { onDone: () => void }) {
+/** A toolbar button that keeps the editor's selection (and syncs a keyboard selection first). */
+function ToolButton({
+  label,
+  title,
+  pressed = false,
+  onAction,
+  id,
+}: {
+  label: React.ReactNode
+  title: string
+  pressed?: boolean
+  onAction: () => void
+  id: string
+}) {
+  const [editor] = useLexicalComposerContext()
+  return (
+    <button
+      type="button"
+      className="po-btn"
+      title={title}
+      aria-label={title}
+      aria-pressed={pressed}
+      data-testid={`onpage-rt-${id}`}
+      onMouseDown={(e) => e.preventDefault() /* keep the editor's selection */}
+      onClick={() => {
+        syncSelection(editor)
+        onAction()
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+function Toolbar({ onDone, t }: { onDone: () => void; t: Translate }) {
   const [editor] = useLexicalComposerContext()
   const [state, setState] = useState<ToolbarState>({
     bold: false,
@@ -212,61 +259,84 @@ function Toolbar({ onDone }: { onDone: () => void }) {
         undefined,
       )
   }
-  const btn = (
-    label: React.ReactNode,
-    title: string,
-    pressed: boolean,
-    onClick: () => void,
-    id: string,
-  ) => (
-    <button
-      type="button"
-      className="po-btn"
-      title={title}
-      aria-label={title}
-      aria-pressed={pressed}
-      data-testid={`onpage-rt-${id}`}
-      onMouseDown={(e) => e.preventDefault() /* keep the editor's selection */}
-      onClick={() => {
-        syncSelection(editor)
-        onClick()
-      }}
-    >
-      {label}
-    </button>
-  )
   return (
-    <div className="po-rt-toolbar" role="toolbar" aria-label="Text formatting">
-      {btn(
-        <b>B</b>,
-        'Bold',
-        state.bold,
-        () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'),
-        'bold',
-      )}
-      {btn(
-        <i>I</i>,
-        'Italic',
-        state.italic,
-        () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic'),
-        'italic',
-      )}
-      {btn(
-        <u>U</u>,
-        'Underline',
-        state.underline,
-        () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline'),
-        'underline',
-      )}
-      {btn('🔗', 'Link', state.link, openLink, 'link')}
-      {btn('H2', 'Heading 2', state.block === 'h2', () => setBlock('h2'), 'h2')}
-      {btn('H3', 'Heading 3', state.block === 'h3', () => setBlock('h3'), 'h3')}
-      {btn('•', 'Bulleted list', state.block === 'list-bullet', () => list('bullet'), 'ul')}
-      {btn('1.', 'Numbered list', state.block === 'list-number', () => list('number'), 'ol')}
-      {btn('❝', 'Quote', state.block === 'quote', () => setBlock('quote'), 'quote')}
-      {btn('↶', 'Undo', false, () => editor.dispatchCommand(UNDO_COMMAND, undefined), 'undo')}
-      {btn('↷', 'Redo', false, () => editor.dispatchCommand(REDO_COMMAND, undefined), 'redo')}
-      {btn('Done', 'Done', false, onDone, 'done')}
+    <div className="po-rt-toolbar" role="toolbar" aria-label={t('rt.toolbar')}>
+      <ToolButton
+        label={<b>B</b>}
+        title={t('rt.bold')}
+        pressed={state.bold}
+        onAction={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold')}
+        id="bold"
+      />
+      <ToolButton
+        label={<i>I</i>}
+        title={t('rt.italic')}
+        pressed={state.italic}
+        onAction={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic')}
+        id="italic"
+      />
+      <ToolButton
+        label={<u>U</u>}
+        title={t('rt.underline')}
+        pressed={state.underline}
+        onAction={() => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline')}
+        id="underline"
+      />
+      <ToolButton
+        label="🔗"
+        title={t('rt.link')}
+        pressed={state.link}
+        onAction={openLink}
+        id="link"
+      />
+      <ToolButton
+        label="H2"
+        title={t('rt.h2')}
+        pressed={state.block === 'h2'}
+        onAction={() => setBlock('h2')}
+        id="h2"
+      />
+      <ToolButton
+        label="H3"
+        title={t('rt.h3')}
+        pressed={state.block === 'h3'}
+        onAction={() => setBlock('h3')}
+        id="h3"
+      />
+      <ToolButton
+        label="•"
+        title={t('rt.ul')}
+        pressed={state.block === 'list-bullet'}
+        onAction={() => list('bullet')}
+        id="ul"
+      />
+      <ToolButton
+        label="1."
+        title={t('rt.ol')}
+        pressed={state.block === 'list-number'}
+        onAction={() => list('number')}
+        id="ol"
+      />
+      <ToolButton
+        label="❝"
+        title={t('rt.quote')}
+        pressed={state.block === 'quote'}
+        onAction={() => setBlock('quote')}
+        id="quote"
+      />
+      <ToolButton
+        label="↶"
+        title={t('dock.undo')}
+        onAction={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
+        id="undo"
+      />
+      <ToolButton
+        label="↷"
+        title={t('dock.redo')}
+        onAction={() => editor.dispatchCommand(REDO_COMMAND, undefined)}
+        id="redo"
+      />
+      <ToolButton label={t('rt.done')} title={t('rt.done')} onAction={onDone} id="done" />
       {linkDraft !== null && (
         <span style={{ display: 'inline-flex', gap: 4, marginLeft: 6 }}>
           <input
@@ -274,9 +344,9 @@ function Toolbar({ onDone }: { onDone: () => void }) {
             style={{ width: 260, height: 28 }}
             value={linkDraft}
             aria-invalid={linkError || undefined}
-            title={linkError ? 'Use an https://, mailto:, tel: or relative link' : undefined}
-            autoFocus
-            placeholder="https://… or /page (empty removes the link)"
+            title={linkError ? t('rt.linkInvalid') : undefined}
+            ref={(el) => el?.focus()}
+            placeholder={t('rt.linkPlaceholder')}
             onChange={(e) => setLinkDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
@@ -311,18 +381,15 @@ function Toolbar({ onDone }: { onDone: () => void }) {
  * Lexical's model at the end of the text, so keys and toolbar act there).
  */
 function Bridge({
-  editorRef,
+  onReady,
   point,
-  baseline,
 }: {
-  editorRef: React.MutableRefObject<LexicalEditor | null>
+  onReady: (editor: LexicalEditor) => void
   point?: { x: number; y: number }
-  baseline: React.MutableRefObject<string | null>
 }) {
   const [editor] = useLexicalComposerContext()
   useEffect(() => {
-    editorRef.current = editor
-    baseline.current = JSON.stringify(editor.getEditorState().toJSON())
+    onReady(editor)
     const root = editor.getRootElement()
     if (!root) return
     // Wait two frames so the surface sits exactly over the original text.
@@ -339,7 +406,7 @@ function Bridge({
         })),
     )
     return () => cancelAnimationFrame(raf)
-  }, [editor, editorRef, point, baseline])
+  }, [editor, onReady, point])
   return null
 }
 
@@ -352,18 +419,26 @@ export function InlineRichText({
   ghost,
   live,
   point,
+  t,
 }: FieldEditorProps) {
   const box = useRef<HTMLDivElement>(null)
   const editorRef = useRef<LexicalEditor | null>(null)
   const baseline = useRef<string | null>(null)
   const done = useRef(false)
-  const [className, setClassName] = useState('')
+  // The surface takes the element's classes, so the site's prose styles apply.
+  const [className] = useState(() => {
+    const cls = element()?.className
+    return typeof cls === 'string' ? cls : ''
+  })
+  const onReady = useCallback((editor: LexicalEditor) => {
+    editorRef.current = editor
+    baseline.current = JSON.stringify(editor.getEditorState().toJSON())
+  }, [])
   const initialState = useMemo(() => JSON.stringify(toEditorState(value)), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
     const el = element()
     if (el) {
-      setClassName(typeof el.className === 'string' ? el.className : '')
       // Position before first paint, so the caret hit-test finds the surface.
       if (box.current) placeOver(box.current, el)
       el.setAttribute(HIDDEN, 'true')
@@ -373,9 +448,8 @@ export function InlineRichText({
   }, [])
 
   // Follow the original element's box as the page scrolls and reflows.
-  useEachFrame(() => {
-    const el = element()
-    if (!el || !box.current) return
+  useTrackElement(element, (el) => {
+    if (!box.current) return
     if (!el.hasAttribute(HIDDEN)) el.setAttribute(HIDDEN, 'true')
     placeOver(box.current, el)
   })
@@ -397,25 +471,34 @@ export function InlineRichText({
   }
 
   // Commit when the user clicks anywhere outside the editor.
-  useEffect(() => {
-    const onDown = (e: PointerEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) finish(true)
-    }
-    document.addEventListener('pointerdown', onDown, true)
-    return () => document.removeEventListener('pointerdown', onDown, true)
+  // Escape (inside the editor) cancels.
+  const onOutside = useEffectEvent((e: PointerEvent) => {
+    if (box.current && !box.current.contains(e.target as Node)) finish(true)
   })
+  const onEscape = useEffectEvent((e: KeyboardEvent) => {
+    if (e.key === 'Escape' && box.current?.contains(document.activeElement)) {
+      e.preventDefault()
+      finish(false)
+    }
+  })
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => onOutside(e)
+    const onKey = (e: KeyboardEvent) => onEscape(e)
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [])
 
   return (
     <div
       ref={box}
       className="po-rt"
+      role="group"
+      aria-label={t('inline.label', { field: field.label })}
       data-testid="onpage-inline-richtext"
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.preventDefault()
-          finish(false)
-        }
-      }}
     >
       <LexicalComposer
         initialConfig={{
@@ -426,32 +509,36 @@ export function InlineRichText({
           theme: { text: { bold: 'po-b', italic: 'po-i', underline: 'po-u' } },
         }}
       >
-        <Toolbar onDone={() => finish(true)} />
+        <Toolbar onDone={() => finish(true)} t={t} />
         <RichTextPlugin
           contentEditable={
             <ContentEditable
               className={`${className} po-rt-surface`}
-              aria-label={`Edit ${field.label}`}
+              aria-label={t('inline.label', { field: field.label })}
             />
           }
           ErrorBoundary={LexicalErrorBoundary}
         />
         <HistoryPlugin />
         <ListPlugin />
-        <Bridge editorRef={editorRef} point={point} baseline={baseline} />
+        <Bridge onReady={onReady} point={point} />
       </LexicalComposer>
     </div>
   )
 }
 
+/** Does the value hold nodes the editor shows as placeholders (uploads, blocks…)? Then it isn't empty. */
 function hasOpaque(state: RichTextState): boolean {
   let found = false
-  const walk = (n: any) => {
-    if (!n || found) return
-    if (n.type !== 'root' && n.type !== 'paragraph' && n.type !== 'text' && !n.children)
-      found = n.type !== 'linebreak'
-    ;(n.children ?? []).forEach(walk)
-  }
-  walk(state.root)
+  eachLexicalNode(state, (n) => {
+    if (
+      n.type !== 'root' &&
+      n.type !== 'paragraph' &&
+      n.type !== 'text' &&
+      n.type !== 'linebreak' &&
+      !n.children
+    )
+      found = true
+  })
   return found
 }

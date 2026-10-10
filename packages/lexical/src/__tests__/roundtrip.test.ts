@@ -6,9 +6,15 @@
  * visible effect.
  */
 import { describe, expect, it } from 'vitest'
-import { $getRoot, $isElementNode, createEditor } from 'lexical'
+import { $getRoot, $isElementNode, createEditor, type ElementNode } from 'lexical'
 import { RICH_TEXT_NODES } from '../nodeList.ts'
-import { fromEditorState, plainText, toEditorState, EMPTY_STATE } from '../convert.ts'
+import {
+  fromEditorState,
+  plainText,
+  toEditorState,
+  EMPTY_STATE,
+  type RichTextState,
+} from '../convert.ts'
 import { $createPayloadLinkNode, $isPayloadLinkNode } from '../nodes.tsx'
 import { normalizeRichText } from '@payload-onpage/core'
 import fixtures from './fixtures.json'
@@ -21,13 +27,16 @@ const roundTrip = (state: unknown) => {
     },
   })
   editor.setEditorState(editor.parseEditorState(JSON.stringify(toEditorState(state))))
-  return { editor, out: fromEditorState(editor.getEditorState().toJSON() as any) }
+  return {
+    editor,
+    out: fromEditorState(editor.getEditorState().toJSON() as unknown as RichTextState),
+  }
 }
 
 const withoutTextFormat = (node: any): any => {
   if (Array.isArray(node)) return node.map(withoutTextFormat)
   if (!node || typeof node !== 'object') return node
-  const { textFormat, ...rest } = node
+  const { textFormat: _textFormat, ...rest } = node
   const isText = node.type === 'text'
   const out: any = isText ? { ...node } : rest
   for (const k of Object.keys(out)) out[k] = withoutTextFormat(out[k])
@@ -77,7 +86,7 @@ describe('rich text round trip', () => {
       },
       { discrete: true },
     )
-    const json = fromEditorState(editor.getEditorState().toJSON() as any)
+    const json = fromEditorState(editor.getEditorState().toJSON() as unknown as RichTextState)
     const link = collect(json.root, 'link')[0]
     expect(link).toMatchObject({
       type: 'link',
@@ -87,7 +96,9 @@ describe('rich text round trip', () => {
     editor
       .getEditorState()
       .read(() =>
-        expect($isPayloadLinkNode(($getRoot().getFirstChild() as any).getFirstChild())).toBe(true),
+        expect($isPayloadLinkNode($getRoot().getFirstChild<ElementNode>()?.getFirstChild())).toBe(
+          true,
+        ),
       )
   })
 

@@ -9,7 +9,7 @@
  */
 import {
   parseRefKey,
-  refKey,
+  targetKey,
   stegaDecode,
   type DocRef,
   type Locator,
@@ -17,6 +17,7 @@ import {
   type TargetKind,
 } from '@payload-onpage/core'
 import { ATTR } from './annotations.ts'
+import { UI } from './dom.ts'
 
 export function annotations(): Locator {
   return {
@@ -81,19 +82,19 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
       const add = (el: Element, ref: DocRef, path: string, kind: TargetKind) => {
         let id = ids.get(el)
         if (id === undefined) ids.set(el, (id = nextId++))
-        const k = `${id}|${refKey(ref)}|${path}|${kind}`
+        const k = `${id}|${targetKey(ref, path)}|${kind}`
         if (seen.has(k)) return // several text nodes of one field in one element
         seen.add(k)
         fields.push({ el, ref, path, kind, source: 'stega' })
       }
 
       const doc = (root as Node).ownerDocument ?? (root as Document)
-      const walker = doc.createTreeWalker(root as Node, 4 /* NodeFilter.SHOW_TEXT */)
+      const walker = doc.createTreeWalker(root, 4 /* NodeFilter.SHOW_TEXT */)
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         const text = n.nodeValue
         if (!text || !text.includes('\u2063\u2062')) continue
         const parent = n.parentElement
-        if (!parent || SKIP_TAGS.has(parent.tagName) || parent.closest('[data-onpage-ui]')) continue
+        if (!parent || SKIP_TAGS.has(parent.tagName) || parent.closest(`[${UI}]`)) continue
         for (const m of stegaDecode(text)) {
           const ref = parseRefKey(m.ref)
           if (!ref) continue
@@ -116,7 +117,7 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
           out.push(t)
           continue
         }
-        const k = `${refKey(t.ref)}|${t.path}`
+        const k = targetKey(t.ref, t.path)
         rich.set(k, [...(rich.get(k) ?? []), t])
       }
       for (const group of rich.values()) {
@@ -128,24 +129,31 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
 
       // Rows: for each row path, the common ancestor of its fields — accepted
       // only if it doesn't also contain a sibling row's fields.
-      const byRow = new Map<string, { ref: DocRef; els: Element[] }>()
+      // Precompute, for every ancestor of a field, the field keys under it (one pass).
+      const under = new Map<Element, string[]>()
+      for (const t of out) {
+        const key = targetKey(t.ref, t.path)
+        for (let el: Element | null = t.el; el && el !== root; el = el.parentElement) {
+          const list = under.get(el)
+          if (list) list.push(key)
+          else under.set(el, [key])
+        }
+      }
+      const byRow = new Map<string, { ref: DocRef; path: string; els: Element[] }>()
       for (const t of out) {
         for (const row of rowPrefixes(t.path)) {
-          const k = `${refKey(t.ref)}|${row}`
-          const entry = byRow.get(k) ?? { ref: t.ref, els: [] }
+          const k = targetKey(t.ref, row)
+          const entry = byRow.get(k) ?? { ref: t.ref, path: row, els: [] }
           entry.els.push(t.el)
           byRow.set(k, entry)
         }
       }
       const rows: Target[] = []
-      for (const [k, { ref, els }] of byRow) {
-        const path = k.slice(k.indexOf('|') + 1)
-        const list = path.slice(0, path.lastIndexOf('.'))
+      for (const [rowKey, { ref, path, els }] of byRow) {
         let anc = commonAncestor(els)
         if (!anc || anc === root) continue
-        const inRow = (t: Target) =>
-          refKey(t.ref) === refKey(ref) && (t.path === path || t.path.startsWith(`${path}.`))
-        const foreignInside = (el: Element) => out.some((t) => !inRow(t) && el.contains(t.el))
+        const foreignInside = (el: Element) =>
+          (under.get(el) ?? []).some((k) => k !== rowKey && !k.startsWith(`${rowKey}.`))
         if (foreignInside(anc)) continue // two rows share one element: can't tell them apart
         // Grow to the row's wrapper: the largest ancestor holding only this row's fields.
         while (anc.parentElement && anc.parentElement !== root && !foreignInside(anc.parentElement))
@@ -153,24 +161,17 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
         rows.push({ el: anc, ref, path, kind: 'item', source: 'stega' })
       }
       // Lists: the common ancestor of a list's rows.
-      const byList = new Map<string, { ref: DocRef; els: Element[] }>()
-      for (const r of rows) {
+      const byList = new Map<string, { ref: DocRef; path: string; els: Element[] }>()
+      for (const r of [...rows]) {
         const list = r.path.slice(0, r.path.lastIndexOf('.'))
-        const k = `${refKey(r.ref)}|${list}`
-        const entry = byList.get(k) ?? { ref: r.ref, els: [] }
+        const k = targetKey(r.ref, list)
+        const entry = byList.get(k) ?? { ref: r.ref, path: list, els: [] }
         entry.els.push(r.el)
         byList.set(k, entry)
       }
-      for (const [k, { ref, els }] of byList) {
+      for (const { ref, path, els } of byList.values()) {
         const anc = els.length > 1 ? commonAncestor(els) : els[0].parentElement
-        if (anc && anc !== root)
-          rows.push({
-            el: anc,
-            ref,
-            path: k.slice(k.indexOf('|') + 1),
-            kind: 'list',
-            source: 'stega',
-          })
+        if (anc && anc !== root) rows.push({ el: anc, ref, path, kind: 'list', source: 'stega' })
       }
       return [...out, ...rows]
     },
@@ -194,7 +195,7 @@ export function composite(...locators: Locator[]): Locator {
       }
       for (const loc of locators) {
         for (const t of loc.scan(root)) {
-          const pathKey = `${refKey(t.ref)}|${t.path}|${t.kind}`
+          const pathKey = `${targetKey(t.ref, t.path)}|${t.kind}`
           if ((t.kind === 'item' || t.kind === 'list') && byPath.has(pathKey)) continue
           const k = `${id(t.el)}|${pathKey}`
           if (byElPath.has(k)) continue

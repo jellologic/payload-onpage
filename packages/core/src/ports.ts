@@ -11,6 +11,7 @@
  * Field editors are registered in @payload-onpage/react.
  */
 import type { DocRef } from './docref.ts'
+import type { MarkerKind } from './stega.ts'
 import type { DocumentSchema } from './schema.ts'
 
 export type Doc = Record<string, unknown>
@@ -80,9 +81,12 @@ export interface MediaLibrary {
   upload?(file: File, opts: { relationTo: string; alt?: string }): Promise<MediaItem>
 }
 
-/** Field-level editing kinds a target can declare. */
-export type TargetKind =
-  'text' | 'textarea' | 'richtext' | 'media' | 'field' | 'block' | 'item' | 'list'
+/**
+ * What a page element shows: a field (`text`/`textarea`/`richtext`/`media` are
+ * the kinds auto-mapping markers carry; `field` = resolve from the schema), a
+ * row of an array/blocks field (`item`), or the element holding a list (`list`).
+ */
+export type TargetKind = MarkerKind | 'field' | 'item' | 'list'
 
 export interface Target {
   el: Element

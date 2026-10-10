@@ -35,12 +35,17 @@ const qs = (params: Record<string, string | number | boolean | undefined>) => {
 }
 
 /** The best human-readable message from a Payload error response. */
+interface PayloadErrorBody {
+  error?: string
+  errors?: Array<{ message?: string; data?: { errors?: Array<{ message?: string }> } }>
+}
+
 export async function errorMessage(res: Response): Promise<string> {
   try {
-    const body = await res.json()
-    const first = body?.errors?.[0]
+    const body = (await res.json()) as PayloadErrorBody
+    const first = body.errors?.[0]
     const detail = first?.data?.errors?.[0]?.message
-    return [first?.message ?? body?.error ?? res.statusText, detail].filter(Boolean).join(': ')
+    return [first?.message ?? body.error ?? res.statusText, detail].filter(Boolean).join(': ')
   } catch {
     return res.statusText || `HTTP ${res.status}`
   }
@@ -85,9 +90,9 @@ export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
       }),
     )
     if (!res.ok) return { ok: false, status: res.status, message: await errorMessage(res) }
-    const json = await res.json().catch(() => ({}))
-    const doc = json?.doc ?? json?.result ?? json
-    return { ok: true, updatedAt: typeof doc?.updatedAt === 'string' ? doc.updatedAt : undefined }
+    const json = (await res.json().catch(() => ({}))) as { doc?: Doc; result?: Doc } & Doc
+    const doc: Doc = json.doc ?? json.result ?? json
+    return { ok: true, updatedAt: typeof doc.updatedAt === 'string' ? doc.updatedAt : undefined }
   }
 
   return {
@@ -97,7 +102,7 @@ export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
         init(),
       )
       if (!res.ok) throw new Error(`Schema for ${ref.slug}: ${await errorMessage(res)}`)
-      return res.json()
+      return (await res.json()) as DocumentSchema
     },
     async loadDocument(ref, o) {
       const res = await f(
@@ -105,7 +110,7 @@ export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
         init(),
       )
       if (!res.ok) throw new Error(await errorMessage(res))
-      return res.json()
+      return (await res.json()) as Doc
     },
     saveDraft: (ref, data, o) => write(ref, data, o, false),
     publish: (ref, data, o) => write(ref, data, o, true),
@@ -190,7 +195,7 @@ export function payloadUploads(opts: PayloadUploadsOptions = {}): MediaLibrary {
       }
       const res = await f(`${api}/${relationTo}?${p}`, { credentials: 'include' })
       if (!res.ok) throw new Error(await errorMessage(res))
-      const body = await res.json()
+      const body = (await res.json()) as { docs?: Doc[]; hasNextPage?: boolean }
       return { items: (body.docs ?? []).map(toItem), hasMore: Boolean(body.hasNextPage) }
     },
     async upload(file, { relationTo, alt }) {
@@ -207,7 +212,7 @@ export function payloadUploads(opts: PayloadUploadsOptions = {}): MediaLibrary {
         body: form,
       })
       if (!res.ok) throw new Error(await errorMessage(res))
-      return toItem((await res.json()).doc)
+      return toItem(((await res.json()) as { doc: Doc }).doc)
     },
   }
 }

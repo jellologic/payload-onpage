@@ -1,19 +1,20 @@
 /**
  * @payload-onpage/react — the on-page editor UI.
  *
- *   <OnPageEditor dataSource={payloadRest()} links={{ exit: '/api/onpage/exit' }} />
+ *   <OnPageEditor dataSource={payloadRest()} media={payloadUploads()} links={{ exit: '/api/onpage/exit' }} />
  *
- * Framework adapters (e.g. @payload-onpage/next) mount this for you.
+ * Framework adapters (e.g. @payload-onpage/next) mount it for you. Building a
+ * field editor? See `@payload-onpage/react/editor-kit`.
  */
-export { OnPageEditor, type OnPageEditorProps } from './OnPageEditor.tsx'
+export { OnPageEditor, type OnPageEditorProps } from './editor/OnPageEditor.tsx'
 export { OnPageClient, type OnPageClientProps } from './OnPageClient.tsx'
 export {
   PreviewToolbar,
   inPreviewFrame,
   FRAME_PARAM,
   type PreviewToolbarProps,
-} from './PreviewToolbar.tsx'
-export { useOnPage, useOnPageOptional, OnPageContext } from './context.tsx'
+} from './ui/PreviewToolbar.tsx'
+export { useOnPage, useOnPageOptional } from './context.tsx'
 export type {
   EditorRegistry,
   FieldEditorDef,
@@ -21,21 +22,16 @@ export type {
   Links,
   OnPageContextValue,
   TargetIndex,
-  Panel,
-  EditingState,
-  Selection,
-  Ghost,
-} from './context.tsx'
+} from './types.ts'
 export {
   defaultEditors,
-  Popover,
-  InlineText,
-  SelectEditor,
   CheckboxEditor,
-  NumberEditor,
-  DateEditor,
   ColorEditor,
+  DateEditor,
+  InlineText,
+  NumberEditor,
   RelationshipEditor,
+  SelectEditor,
   UploadEditor,
 } from './editors/index.ts'
 export { resolveEditor, mergeEditors } from './registry.ts'
@@ -50,15 +46,10 @@ export {
   type FieldKind,
 } from './annotations.ts'
 export { clientState, fullReload } from './renderers.ts'
-export { buildIndex } from './targets.ts'
 export {
-  HIDDEN,
-  UI,
-  copyTypography,
-  placeOver,
-  placeCaret,
-  caretAt,
-  useEachFrame,
-  useFrame,
-} from './dom.ts'
-export { injectStyles, PO_CSS, PO_Z } from './styles.ts'
+  defaultMessages,
+  createTranslate,
+  type Messages,
+  type MessageKey,
+  type Translate,
+} from './messages.ts'

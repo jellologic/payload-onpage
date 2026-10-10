@@ -1,9 +1,11 @@
 /**
  * Debounced, single-flight autosave. Patches scheduled while a save is in
  * flight are merged and sent once it settles, so the server always ends with
- * the latest value of every field. A conflict (409) freezes the queue; other
- * failures retry with backoff.
+ * the latest value of every field. A conflict (409) freezes the queue until
+ * `reset()`. Transient failures (network, 429, 5xx) retry with backoff; other
+ * failures (validation, permissions) stop immediately with the server's message.
  */
+import type { SaveResult } from './ports.ts'
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'conflict'
 
@@ -11,17 +13,12 @@ export interface SaveState {
   status: SaveStatus
   lastSavedAt?: number
   message?: string
-}
-
-/** `status`/`message` describe a failure (the repo builds without strictNullChecks, so no discriminated union). */
-export interface SendResult {
-  ok: boolean
-  status?: number
-  message?: string
+  /** Increments with every successful save. */
+  seq: number
 }
 
 export interface AutosaveOptions {
-  send: (patch: Record<string, unknown>) => Promise<SendResult>
+  send: (patch: Record<string, unknown>) => Promise<SaveResult>
   delay?: number
   retries?: number
   onState?: (state: SaveState) => void
@@ -30,12 +27,14 @@ export interface AutosaveOptions {
   clearTimer?: (handle: unknown) => void
 }
 
+const isTransient = (status: number | undefined) => !status || status === 429 || status >= 500
+
 export class AutosaveQueue {
   private pending: Record<string, unknown> | null = null
   private timer: unknown = null
   private inFlight: Promise<void> | null = null
   private attempt = 0
-  private state: SaveState = { status: 'idle' }
+  private state: SaveState = { status: 'idle', seq: 0 }
   private readonly delay: number
   private readonly retries: number
   private readonly setTimer: (fn: () => void, ms: number) => unknown
@@ -56,16 +55,16 @@ export class AutosaveQueue {
     return this.pending !== null || this.inFlight !== null
   }
 
-  private setState(next: SaveState) {
-    this.state = next
-    this.opts.onState?.(next)
+  private setState(next: Partial<SaveState>) {
+    this.state = { ...this.state, ...next }
+    this.opts.onState?.(this.state)
   }
 
   /** Queue fields to save; later values for the same key replace earlier ones. */
   schedule(patch: Record<string, unknown>) {
     if (this.state.status === 'conflict') return
     this.pending = { ...(this.pending ?? {}), ...patch }
-    this.setState({ ...this.state, status: this.inFlight ? 'saving' : 'pending' })
+    this.setState({ status: this.inFlight ? 'saving' : 'pending' })
     this.arm(this.delay)
   }
 
@@ -77,7 +76,7 @@ export class AutosaveQueue {
     }, ms)
   }
 
-  /** Send now (also used by ⌘S and before publishing). Resolves when idle. */
+  /** Send now (also used before publishing). Resolves when idle. */
   async flush(): Promise<void> {
     if (this.timer) {
       this.clearTimer(this.timer)
@@ -91,9 +90,9 @@ export class AutosaveQueue {
     if (!this.pending || this.state.status === 'conflict') return
     const patch = this.pending
     this.pending = null
-    this.setState({ ...this.state, status: 'saving' })
+    this.setState({ status: 'saving' })
     this.inFlight = (async () => {
-      let result: SendResult
+      let result: SaveResult
       try {
         result = await this.opts.send(patch)
       } catch (err) {
@@ -102,25 +101,29 @@ export class AutosaveQueue {
       this.inFlight = null
       if (result.ok) {
         this.attempt = 0
-        this.setState({ status: this.pending ? 'pending' : 'saved', lastSavedAt: Date.now() })
+        this.setState({
+          status: this.pending ? 'pending' : 'saved',
+          lastSavedAt: Date.now(),
+          message: undefined,
+          seq: this.state.seq + 1,
+        })
         if (this.pending) this.arm(0)
         return
       }
       if (result.status === 409) {
         this.pending = null
-        this.setState({ ...this.state, status: 'conflict', message: result.message })
+        this.setState({ status: 'conflict', message: result.message })
         return
       }
-      // Put the failed patch back underneath anything newer, then retry.
+      // Put the failed patch back underneath anything newer.
       this.pending = { ...patch, ...(this.pending ?? {}) }
-      if (this.attempt < this.retries) {
+      if (isTransient(result.status) && this.attempt < this.retries) {
         this.attempt += 1
-        this.setState({ ...this.state, status: 'pending', message: result.message })
+        this.setState({ status: 'pending', message: result.message })
         this.arm(1000 * 2 ** (this.attempt - 1))
       } else {
         this.attempt = 0
         this.setState({
-          ...this.state,
           status: 'error',
           message: result.message ?? `Save failed (${result.status})`,
         })
@@ -129,10 +132,25 @@ export class AutosaveQueue {
     await this.inFlight
   }
 
-  /** Clear a conflict or error (after the caller reloaded the document). */
+  /** Clear a conflict or error (after the caller reloaded the document). Drops unsent changes. */
   reset() {
+    if (this.timer) this.clearTimer(this.timer)
+    this.timer = null
     this.pending = null
     this.attempt = 0
-    this.setState({ status: 'idle' })
+    this.setState({ status: 'idle', message: undefined })
+  }
+
+  /** Retry after an error, keeping the unsent changes. */
+  retry() {
+    if (this.state.status !== 'error') return
+    this.attempt = 0
+    this.arm(0)
+  }
+
+  /** Stop timers (unmount). Unsent changes are dropped; call flush() first to keep them. */
+  dispose() {
+    if (this.timer) this.clearTimer(this.timer)
+    this.timer = null
   }
 }

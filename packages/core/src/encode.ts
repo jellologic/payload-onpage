@@ -11,9 +11,40 @@
  */
 import { stegaEncode, type Marker } from './stega.ts'
 import type { SchemaField } from './schema.ts'
+import { blockFor } from './fields.ts'
+import { mapLexical } from './lexical.ts'
 
-export const MACHINE_FIELD_NAME =
-  /(url|href|link|path|email|phone|slug|key|token|anchor|^id$|class|style|icon|colou?r|hex)/i
+/** Name segments that mark a field as holding a machine value (never marked). */
+const MACHINE_WORDS = new Set([
+  'url',
+  'href',
+  'link',
+  'path',
+  'email',
+  'phone',
+  'slug',
+  'key',
+  'token',
+  'anchor',
+  'id',
+  'class',
+  'classname',
+  'style',
+  'icon',
+  'color',
+  'colour',
+  'hex',
+])
+
+/**
+ * Does this field name suggest a machine value? Matches whole camelCase/snake
+ * segments: "ctaUrl", "brand_color", "slug" yes; "lifestyleTitle", "keynote" no.
+ */
+export function isMachineFieldName(name: string): boolean {
+  return name
+    .split(/(?<=[a-z0-9])(?=[A-Z])|[_\-\s]+/)
+    .some((w) => MACHINE_WORDS.has(w.toLowerCase()))
+}
 
 /** Field editors that edit text: a field using any other editor (color, …) holds a machine value and is never marked. */
 const TEXT_EDITORS = new Set(['text', 'textarea', 'email', 'richText'])
@@ -26,23 +57,19 @@ interface Ctx {
 }
 
 const allowed = (field: SchemaField, path: string, ctx: Ctx) =>
-  !MACHINE_FIELD_NAME.test(field.name) &&
+  !isMachineFieldName(field.name) &&
   (!field.editor || TEXT_EDITORS.has(field.editor)) &&
   (ctx.filter ? ctx.filter({ field, path, ref: ctx.ref }) : true)
 
 const mark = (value: string, ctx: Ctx, path: string, kind: Marker['kind']) =>
   stegaEncode(value, { ref: ctx.ref, path, kind })
 
-function encodeRichText(value: any, ctx: Ctx, path: string): any {
-  const walk = (node: any): any => {
-    if (!node || typeof node !== 'object') return node
-    let out = node
-    if (node.type === 'text' && typeof node.text === 'string' && node.text)
-      out = { ...node, text: mark(node.text, ctx, path, 'richtext') }
-    if (Array.isArray(node.children)) out = { ...out, children: node.children.map(walk) }
-    return out
-  }
-  return value?.root ? { ...value, root: walk(value.root) } : value
+function encodeRichText(value: unknown, ctx: Ctx, path: string): unknown {
+  return mapLexical(value, (node) =>
+    node.type === 'text' && typeof node.text === 'string' && node.text
+      ? { ...node, text: mark(node.text, ctx, path, 'richtext') }
+      : node,
+  )
 }
 
 function encodeValue(value: unknown, field: SchemaField, path: string, ctx: Ctx): unknown {
@@ -65,17 +92,17 @@ function encodeValue(value: unknown, field: SchemaField, path: string, ctx: Ctx)
       }
       return value
     case 'group':
-      return encodeFields(value as Record<string, unknown>, field.fields ?? [], path, ctx)
+      return encodeFields(value, field.fields ?? [], path, ctx)
     case 'array':
       return Array.isArray(value)
-        ? value.map((row, i) => encodeFields(row, field.fields ?? [], `${path}.${i}`, ctx))
+        ? (value as unknown[]).map((row: unknown, i: number) =>
+            encodeFields(row, field.fields ?? [], `${path}.${i}`, ctx),
+          )
         : value
     case 'blocks':
       return Array.isArray(value)
-        ? value.map((row, i) => {
-            const block = field.blocks?.find(
-              (b) => b.slug === (row as { blockType?: string })?.blockType,
-            )
+        ? (value as unknown[]).map((row: unknown, i: number) => {
+            const block = blockFor(field, row)
             return block ? encodeFields(row, block.fields, `${path}.${i}`, ctx) : row
           })
         : value

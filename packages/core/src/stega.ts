@@ -39,10 +39,11 @@ const CODE_KIND: Record<string, MarkerKind> = {
   m: 'media',
 }
 
-/** Every character the codec uses. */
-const CODEC_CHARS = new Set<string>([...DIGITS, '\u2062', '\u2063', '\u2064'])
 const DIGIT_VALUE = new Map<string, number>(DIGITS.map((c, i) => [c, i]))
+// The codec's characters are single invisible code points (not combining sequences).
+// eslint-disable-next-line no-misleading-character-class
 const MARKER_RE = /\u2063\u2062([\u200b\u200c\u200d\u2060]*)\u2064/g
+// eslint-disable-next-line no-misleading-character-class
 const ANY_CODEC_RE = /[\u200b\u200c\u200d\u2060\u2062\u2063\u2064]/g
 
 const encoder = new TextEncoder()
@@ -101,23 +102,14 @@ export function stegaClean(value: string): string {
   return value ? value.replace(ANY_CODEC_RE, '') : value
 }
 
-export function hasMarker(value: unknown): value is string {
-  return typeof value === 'string' && value.includes(START)
-}
-
-/** Quick check for any codec character (marker or fragment). */
-export function hasCodecChars(value: string): boolean {
-  for (const ch of value) if (CODEC_CHARS.has(ch)) return true
-  return false
-}
-
 /**
  * Remove markers from every string in a value, deeply. Used before writes, so
  * a marker can never be persisted even if marked data is sent back.
  */
 export function stegaCleanDeep<T>(value: T): T {
   if (typeof value === 'string') return stegaClean(value) as unknown as T
-  if (Array.isArray(value)) return value.map((v) => stegaCleanDeep(v)) as unknown as T
+  if (Array.isArray(value))
+    return (value as unknown[]).map((v) => stegaCleanDeep(v)) as unknown as T
   if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
     const out: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(value as Record<string, unknown>))

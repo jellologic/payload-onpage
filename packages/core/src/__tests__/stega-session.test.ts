@@ -1,13 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  encodeMarker,
-  hasCodecChars,
-  hasMarker,
-  stegaClean,
-  stegaCleanDeep,
-  stegaDecode,
-  stegaEncode,
-} from '../stega.ts'
+import { encodeMarker, stegaClean, stegaCleanDeep, stegaDecode, stegaEncode } from '../stega.ts'
 import { parseRefKey, refKey } from '../docref.ts'
 import { EditorSession } from '../session.ts'
 import type { DataSource, Doc, SaveResult } from '../ports.ts'
@@ -40,7 +32,7 @@ describe('stega', () => {
     expect(stegaDecode(s)).toEqual([marker])
     expect(stegaClean(s)).toBe('Trade pricing')
     expect(s.trim()).toBe(s) // codec chars are not whitespace
-    expect(hasMarker(s)).toBe(true)
+    expect(stegaClean(s)).not.toBe(s)
   })
 
   it('handles unicode values and paths', () => {
@@ -64,7 +56,7 @@ describe('stega', () => {
     const truncated = s.slice(0, s.length - 9)
     expect(stegaDecode(truncated)).toEqual([])
     expect(stegaClean(truncated)).toBe('Hello')
-    expect(hasCodecChars(truncated)).toBe(true)
+    expect(truncated).not.toBe('Hello') // fragments are present until cleaned
     const enc = encodeMarker(marker)
     expect(stegaDecode(enc.slice(0, 5) + enc.slice(6))).toEqual([]) // body length broken
   })
@@ -255,5 +247,93 @@ describe('EditorSession', () => {
     await s.open({ kind: 'collection', slug: 'pages', id: 7 }, { id: 7, title: 'Client' })
     expect(loads).toBe(0)
     expect(s.get('c:pages:7')!.doc!.title).toBe('Client')
+  })
+
+  it('a page-provided value wins over a server load still in flight', async () => {
+    const { ds } = fakeSource(base())
+    let release!: () => void
+    const slow: DataSource = {
+      ...ds,
+      loadDocument: (...a) => new Promise((r) => (release = () => r(ds.loadDocument(...a)))),
+    }
+    const s = new EditorSession({ dataSource: slow })
+    const loading = s.open({ kind: 'collection', slug: 'pages', id: 1 })
+    await settle()
+    const fromPage = s.open(
+      { kind: 'collection', slug: 'pages', id: 1 },
+      { id: 1, title: 'From page', updatedAt: 'v0' },
+    )
+    release()
+    await Promise.all([loading, fromPage])
+    expect(s.get('c:pages:1')!.doc!.title).toBe('From page')
+  })
+
+  it('keeps edits typed while a publish is running', async () => {
+    const { ds } = fakeSource(base())
+    let finish!: () => void
+    const gated: DataSource = {
+      ...ds,
+      publish: (...a) => new Promise((r) => (finish = () => r(ds.publish(...a)))),
+    }
+    const s = new EditorSession({ dataSource: gated, autosaveDelay: 0 })
+    await s.open({ kind: 'collection', slug: 'pages', id: 1 })
+    s.setValue('c:pages:1', 'title', 'First')
+    const publishing = s.publish()
+    await settle()
+    await settle()
+    expect(s.getSnapshot().busy).toBe(true)
+    s.setValue('c:pages:1', 'title', 'Typed meanwhile')
+    finish()
+    await publishing
+    expect(s.get('c:pages:1')!.doc!.title).toBe('Typed meanwhile')
+    expect(s.getSnapshot().busy).toBe(false)
+  })
+
+  it('refuses to publish a document with a failed save, and runs operations one at a time', async () => {
+    const { ds } = fakeSource(base())
+    const failing: DataSource = {
+      ...ds,
+      saveDraft: async () => ({ ok: false, status: 422, message: 'Invalid' }),
+    }
+    const s = new EditorSession({ dataSource: failing, autosaveDelay: 0 })
+    await s.open({ kind: 'collection', slug: 'pages', id: 1 })
+    s.setValue('c:pages:1', 'title', '')
+    const [a, b] = await Promise.all([s.publish(), s.publish()])
+    expect(a.ok).toBe(false)
+    expect(a.message).toMatch(/Invalid/)
+    expect(b.ok).toBe(false)
+  })
+
+  it('discard clears a conflict and resets to the published values', async () => {
+    const { ds, saves } = fakeSource(base(), { conflictOn: 'c:pages:1' })
+    const s = new EditorSession({ dataSource: ds, autosaveDelay: 0 })
+    await s.open({ kind: 'collection', slug: 'pages', id: 1 })
+    s.setValue('c:pages:1', 'title', 'Mine')
+    await s.flush()
+    expect(s.get('c:pages:1')!.save.status).toBe('conflict')
+    await s.discard()
+    expect(s.get('c:pages:1')!.doc!.title).toBe('Home (live)')
+    expect(saves.length).toBeGreaterThan(1) // the reset was sent, not swallowed by the frozen queue
+  })
+
+  it('retries a failed load, and stops notifying after dispose', async () => {
+    const { ds } = fakeSource(base())
+    let fail = true
+    const flaky: DataSource = {
+      ...ds,
+      loadSchema: async (...a) =>
+        fail ? Promise.reject(new Error('offline')) : ds.loadSchema(...a),
+    }
+    const s = new EditorSession({ dataSource: flaky })
+    await s.open({ kind: 'collection', slug: 'pages', id: 1 })
+    expect(s.get('c:pages:1')).toMatchObject({ status: 'error', error: 'offline' })
+    fail = false
+    await s.retry('c:pages:1')
+    expect(s.get('c:pages:1')!.status).toBe('ready')
+    let calls = 0
+    s.subscribe(() => calls++)
+    s.dispose()
+    s.setValue('c:pages:1', 'title', 'x')
+    expect(calls).toBe(0)
   })
 })

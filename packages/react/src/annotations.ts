@@ -12,9 +12,10 @@
  * Auto-mapping (stega) already maps most text without any of this; annotate
  * images that have no alt, layout rows you want exact, and lists ("+ Add").
  */
-import { refKey, type DocRef } from '@payload-onpage/core'
+import { refKey, type DocRef, type TargetKind } from '@payload-onpage/core'
 
-export type FieldKind = 'text' | 'textarea' | 'richtext' | 'media' | 'field'
+/** What an annotated element shows (`field` = resolve from the schema). */
+export type FieldKind = Exclude<TargetKind, 'item' | 'list'>
 
 export const ATTR = {
   ref: 'data-onpage-ref',

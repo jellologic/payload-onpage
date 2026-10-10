@@ -7,3 +7,4 @@ examples/basic/src/payload-types.ts
 examples/basic/src/migrations
 bun.lock
 TRIAGE_PLAN.md
+examples/basic/next-env.d.ts

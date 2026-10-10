@@ -13,15 +13,13 @@ export function parsePath(path: string | PathSegment[]): PathSegment[] {
     .map((s) => (/^\d+$/.test(s) ? Number(s) : s))
 }
 
-export function joinPath(...parts: Array<string | number | undefined | null>): string {
-  return parts.filter((p) => p !== undefined && p !== null && p !== '').join('.')
-}
+type Container = Record<string | number, unknown>
 
 export function getAt<T = unknown>(obj: unknown, path: string | PathSegment[]): T | undefined {
-  let cur: any = obj
+  let cur: unknown = obj
   for (const seg of parsePath(path)) {
-    if (cur == null) return undefined
-    cur = cur[seg as any]
+    if (cur == null || typeof cur !== 'object') return undefined
+    cur = (cur as Container)[seg]
   }
   return cur as T | undefined
 }
@@ -30,10 +28,10 @@ export function getAt<T = unknown>(obj: unknown, path: string | PathSegment[]): 
 export function setAt<T>(obj: T, path: string | PathSegment[], value: unknown): T {
   const segs = parsePath(path)
   if (!segs.length) return value as T
-  const [head, ...rest] = segs
-  const base: any = obj ?? (typeof head === 'number' ? [] : {})
-  const copy: any = Array.isArray(base) ? base.slice() : { ...base }
-  copy[head as any] = rest.length ? setAt(base[head as any], rest, value) : value
+  const [head, ...rest] = segs as [PathSegment, ...PathSegment[]]
+  const base = (obj ?? (typeof head === 'number' ? [] : {})) as Container
+  const copy = (Array.isArray(base) ? base.slice() : { ...base }) as Container
+  copy[head] = rest.length ? setAt(base[head], rest, value) : value
   return copy as T
 }
 

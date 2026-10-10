@@ -21,6 +21,8 @@ export interface SchemaField {
   options?: SchemaOption[]
   relationTo?: string | string[]
   minRows?: number
+  /** array: what one row and many rows are called (\"Feature\" / \"Features\"). */
+  labels?: { singular: string; plural: string }
   maxRows?: number
   /** group / array / named tab */
   fields?: SchemaField[]

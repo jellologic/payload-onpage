@@ -81,11 +81,34 @@ export const PO_CSS = `
 .po-opaque{display:inline-flex;align-items:center;gap:6px;margin:6px 0;padding:6px 10px;border:1px dashed #94a3b8;border-radius:8px;background:#f8fafc;color:#475569;font:12px system-ui,sans-serif;user-select:none}
 html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 [data-onpage-hidden="true"]{visibility:hidden!important}
-.po-device{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:4px;padding:4px;background:#0f172a;border-radius:10px;pointer-events:auto}
 .po-preview{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;background:#0f172a;color:#fff;border-radius:12px;box-shadow:0 12px 40px #0f172a55;pointer-events:auto;max-width:calc(100vw - 24px);flex-wrap:wrap}
 .po-preview .po-status{padding:0 8px;font-size:12px;opacity:.85}
 .po-rel-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;background:#f1f5f9;font-size:12px;margin:0 0 4px}
 .po-rel-item button{all:unset;cursor:pointer;margin-left:auto;padding:0 4px;color:#64748b}
+
+.po-dialog-head{display:flex;align-items:center;gap:8px;margin:0 0 10px}
+.po-modal .po-dialog-head{margin:0;padding:14px 16px;border-bottom:1px solid #e2e8f0}
+.po-dialog-head .po-h3{flex:1;margin:0;font:700 14px/1.2 system-ui,sans-serif}
+.po-close{color:#0f172a;min-width:24px;height:24px}
+.po-close:hover{background:#f1f5f9}
+.po-bar-label{cursor:default;opacity:.8}
+.po-muted{color:#64748b;margin:6px 0}
+.po-error{color:#b91c1c;margin:6px 0}
+.po-center{text-align:center;margin-top:12px}
+.po-actions{display:flex;gap:6px}
+.po-inline-row{flex-direction:row;align-items:center}
+.po-search{width:240px}
+.po-picker{cursor:pointer;display:flex;align-items:center}
+.po-group{border:0;margin:0;padding:0}
+.po-primary,.po-pop .po-primary,.po-panel .po-primary{background:#4f7cff;color:#fff}
+.po-primary:hover{background:#3b63e0}
+.po-pop .po-btn,.po-panel .po-btn{color:#0f172a}
+.po-pop .po-btn.po-primary,.po-panel .po-btn.po-primary{color:#fff}
+.po-frame-close{all:unset;position:absolute;inset:0;cursor:pointer}
+.po-frame-bg iframe{position:relative}
+.po-input[aria-invalid="true"]{border-color:#dc2626}
+html[data-onpage-editing] [data-onpage-focusable]:focus-visible{outline:2px solid #4f7cff;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.po-outline{transition:none}}
 `
 
 let injected = false

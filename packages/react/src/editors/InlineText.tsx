@@ -10,13 +10,17 @@
  * until the server render arrives. Blur/Enter commits (one undo step), Escape
  * cancels.
  */
-import React, { useLayoutEffect, useRef } from 'react'
-import type { FieldEditorProps } from '../context.tsx'
-import { copyTypography, HIDDEN, placeCaret, placeOver, useEachFrame } from '../dom.ts'
+import { useLayoutEffect, useRef } from 'react'
+import { toText } from '@payload-onpage/core'
+import { copyTypography, HIDDEN, placeCaret, placeOver, typographyOf } from '../dom.ts'
+import { useTrackElement } from '../layout.ts'
+import type { FieldEditorProps } from '../types.ts'
+
+export const escapeHtml = (s: string): string =>
+  s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 export function InlineText({
   field,
-  path,
   value,
   element,
   commit,
@@ -25,10 +29,11 @@ export function InlineText({
   ghost,
   live,
   point,
+  t,
 }: FieldEditorProps) {
   const multiline = field.type === 'textarea'
   const ref = useRef<HTMLDivElement>(null)
-  const initial = useRef(value == null ? '' : String(value))
+  const initial = useRef(toText(value))
   const done = useRef(false)
 
   useLayoutEffect(() => {
@@ -44,16 +49,15 @@ export function InlineText({
     twin.focus({ preventScroll: true })
     placeCaret(twin, point)
     return () => element()?.removeAttribute(HIDDEN)
+    // Runs once: the twin takes over the element for its lifetime.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Follow the element as the page reflows (client mode re-renders it live).
-  useEachFrame(() => {
-    const el = element()
-    const twin = ref.current
-    if (!el || !twin) return
+  useTrackElement(element, (el) => {
+    if (!ref.current) return
     if (!el.hasAttribute(HIDDEN)) el.setAttribute(HIDDEN, 'true')
-    placeOver(twin, el, { minWidth: 40, minHeight: true })
+    placeOver(ref.current, el, { minWidth: 40, minHeight: true })
   })
 
   const read = () => {
@@ -69,7 +73,7 @@ export function InlineText({
     const text = read()
     if (save && text !== initial.current) {
       commit(text === '' && !field.required ? null : text)
-      if (!live && ref.current) ghost({ html: escapeHtml(text), style: twinStyle(ref.current) })
+      if (!live && ref.current) ghost({ html: escapeHtml(text), style: typographyOf(ref.current) })
     }
     close()
   }
@@ -81,8 +85,9 @@ export function InlineText({
       contentEditable="plaintext-only"
       suppressContentEditableWarning
       role="textbox"
+      tabIndex={0}
       aria-multiline={multiline}
-      aria-label={`Edit ${field.label}`}
+      aria-label={t('inline.label', { field: field.label })}
       data-testid="onpage-inline-text"
       spellCheck
       onInput={() => live && preview(read())}
@@ -98,31 +103,4 @@ export function InlineText({
       }}
     />
   )
-}
-
-export const escapeHtml = (s: string) =>
-  s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
-
-function twinStyle(el: HTMLElement): Partial<CSSStyleDeclaration> {
-  const out: Record<string, string> = {}
-  for (const k of [
-    'fontFamily',
-    'fontSize',
-    'fontWeight',
-    'fontStyle',
-    'lineHeight',
-    'letterSpacing',
-    'wordSpacing',
-    'textTransform',
-    'textAlign',
-    'textIndent',
-    'color',
-    'paddingTop',
-    'paddingRight',
-    'paddingBottom',
-    'paddingLeft',
-  ]) {
-    out[k] = (el.style as unknown as Record<string, string>)[k]
-  }
-  return out as Partial<CSSStyleDeclaration>
 }

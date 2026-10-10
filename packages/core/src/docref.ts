@@ -27,14 +27,6 @@ export function parseRefKey(key: string): DocRef | null {
   return null
 }
 
-export const sameRef = (a: DocRef, b: DocRef) => refKey(a) === refKey(b)
-
-/** A ref for a loaded collection document, or null when it has no id yet. */
-export function collectionRef(
-  slug: string,
-  doc: { id?: string | number } | null | undefined,
-): DocRef | null {
-  return doc?.id === undefined || doc?.id === null ? null : { kind: 'collection', slug, id: doc.id }
-}
-
-export const globalRef = (slug: string): DocRef => ({ kind: 'global', slug })
+/** Key for one field (or row/list) of one document: "<refKey>|<path>". */
+export const targetKey = (ref: DocRef | string, path: string): string =>
+  `${typeof ref === 'string' ? ref : refKey(ref)}|${path}`

@@ -17,6 +17,7 @@ export default defineConfig({
         replacement: src('react', 'annotations.ts'),
       },
       { find: /^@payload-onpage\/react\/client$/, replacement: src('react', 'OnPageClient.tsx') },
+      { find: /^@payload-onpage\/react\/editor-kit$/, replacement: src('react', 'editor-kit.ts') },
       { find: /^@payload-onpage\/lexical$/, replacement: src('lexical') },
       { find: /^@payload-onpage\/next$/, replacement: src('next', 'index.tsx') },
       { find: /^@payload-onpage\/next\/client$/, replacement: src('next', 'client.tsx') },

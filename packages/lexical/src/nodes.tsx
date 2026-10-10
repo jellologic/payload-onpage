@@ -119,28 +119,41 @@ export const OPAQUE_TYPE = 'onpage-opaque'
 const INLINE_TYPES = new Set(['inlineBlock', 'autolink'])
 
 export type SerializedOpaqueNode = Spread<
-  { type: typeof OPAQUE_TYPE; version: 1; data: Record<string, any> },
+  { type: typeof OPAQUE_TYPE; version: 1; data: OpaqueData },
   SerializedLexicalNode
 >
 
-export function describeNode(data: Record<string, any>): string {
-  switch (data?.type) {
+/** The Payload node an OpaqueNode carries, untouched. */
+export interface OpaqueData {
+  type?: string
+  value?: { filename?: unknown } | string | number
+  fields?: { blockType?: unknown }
+  [key: string]: unknown
+}
+
+export function describeNode(data: OpaqueData): string {
+  const filename =
+    typeof data.value === 'object' && typeof data.value?.filename === 'string'
+      ? data.value.filename
+      : ''
+  const blockType = typeof data.fields?.blockType === 'string' ? data.fields.blockType : 'Block'
+  switch (data.type) {
     case 'upload':
-      return `Image${data.value?.filename ? ` · ${data.value.filename}` : ''} — edit in admin`
+      return `Image${filename ? ` · ${filename}` : ''} — edit in admin`
     case 'horizontalrule':
       return 'Divider'
     case 'block':
     case 'inlineBlock':
-      return `${data.fields?.blockType ?? 'Block'} — edit in admin`
+      return `${blockType} — edit in admin`
     case 'relationship':
       return 'Linked document — edit in admin'
     default:
-      return `${data?.type ?? 'Content'} — edit in admin`
+      return `${data.type ?? 'Content'} — edit in admin`
   }
 }
 
 export class OpaqueNode extends DecoratorNode<React.ReactNode> {
-  __data: Record<string, any>
+  __data: OpaqueData
 
   static override getType(): string {
     return OPAQUE_TYPE
@@ -150,7 +163,7 @@ export class OpaqueNode extends DecoratorNode<React.ReactNode> {
     return new OpaqueNode(node.__data, node.__key)
   }
 
-  constructor(data: Record<string, any>, key?: NodeKey) {
+  constructor(data: OpaqueData, key?: NodeKey) {
     super(key)
     this.__data = data
   }
@@ -164,7 +177,7 @@ export class OpaqueNode extends DecoratorNode<React.ReactNode> {
   }
 
   override isInline(): boolean {
-    return INLINE_TYPES.has(this.__data?.type)
+    return INLINE_TYPES.has(this.__data.type ?? '')
   }
 
   static override importJSON(json: SerializedOpaqueNode): OpaqueNode {

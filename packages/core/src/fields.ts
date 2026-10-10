@@ -4,7 +4,8 @@
  * for saving (populated relations back to ids).
  */
 import { getAt, newRowId, parsePath, type PathSegment } from './path.ts'
-import type { SchemaBlock, SchemaField } from './schema.ts'
+import { mapLexical } from './lexical.ts'
+import type { DocumentSchema, SchemaBlock, SchemaField } from './schema.ts'
 
 export interface FieldAtPath {
   field: SchemaField
@@ -12,6 +13,56 @@ export interface FieldAtPath {
   block?: SchemaBlock
   /** Path of the nearest blocks row ("sections.3"), when inside one. */
   blockPath?: string
+}
+
+/** The block a blocks-field row uses (by its `blockType`). */
+export const blockFor = (field: SchemaField, row: unknown): SchemaBlock | undefined =>
+  field.blocks?.find((b) => b.slug === (row as { blockType?: unknown } | null)?.blockType)
+
+/** May the editor change this path? (Its top-level field must be editable.) */
+export const isEditablePath = (schema: DocumentSchema, path: string): boolean =>
+  schema.editable.includes(path.split('.')[0] ?? '')
+
+export interface RowInfo {
+  /** "layout.2" */
+  path: string
+  /** "layout" */
+  listPath: string
+  index: number
+  length: number
+  listField: SchemaField
+  /** Fields of this row: the block's fields, or the array's. */
+  rowFields: SchemaField[]
+  /** Singular label of one row ("Hero", "Feature"). */
+  label: string
+  isBlock: boolean
+}
+
+/** Everything the editor needs about one row of an array or blocks field, or null if `path` isn't an editable row. */
+export function resolveRow(schema: DocumentSchema, doc: unknown, path: string): RowInfo | null {
+  const segs = path.split('.')
+  const last = segs[segs.length - 1]
+  if (!last || !/^\d+$/.test(last) || !isEditablePath(schema, path)) return null
+  const listPath = segs.slice(0, -1).join('.')
+  const index = Number(last)
+  const listField = fieldAtPath(schema.fields, doc, listPath)?.field
+  if (!listField || (listField.type !== 'array' && listField.type !== 'blocks')) return null
+  const rows = getAt<unknown[]>(doc, listPath) ?? []
+  if (index >= rows.length) return null
+  const isBlock = listField.type === 'blocks'
+  const block = isBlock ? blockFor(listField, rows[index]) : undefined
+  return {
+    path,
+    listPath,
+    index,
+    length: rows.length,
+    listField,
+    rowFields: isBlock ? (block?.fields ?? []) : (listField.fields ?? []),
+    label: isBlock
+      ? (block?.labels.singular ?? 'Section')
+      : (listField.labels?.singular ?? listField.label),
+    isBlock,
+  }
 }
 
 /**
@@ -35,8 +86,7 @@ export function fieldAtPath(
       if (!current) return null
       if (current.type === 'blocks') {
         const rowPath = segs.slice(0, i + 1)
-        const blockType = getAt<string>(doc, [...rowPath, 'blockType'])
-        block = current.blocks?.find((b) => b.slug === blockType)
+        block = blockFor(current, getAt(doc, rowPath))
         if (!block) return null
         blockPath = rowPath.join('.')
         level = block.fields
@@ -101,29 +151,45 @@ function cloneValue(value: unknown, field: SchemaField): unknown {
     return out
   }
   if (field.type === 'array' && Array.isArray(value))
-    return value.map((r) => cloneRow(r, field.fields ?? []))
+    return (value as unknown[]).map((r: unknown) => cloneRow(r, field.fields ?? []))
   if (field.type === 'blocks' && Array.isArray(value)) {
-    return value.map((r) => {
-      const block = field.blocks?.find((b) => b.slug === (r as { blockType?: string })?.blockType)
+    return (value as unknown[]).map((r: unknown) => {
+      const block = blockFor(field, r)
       return block ? cloneRow(r, block.fields) : structuredClone(r)
     })
   }
   return typeof value === 'object' ? structuredClone(value) : value
 }
 
-const idOf = (v: unknown): unknown =>
-  v && typeof v === 'object' && 'id' in (v as object) ? (v as { id: unknown }).id : v
+/** The id of a relationship value: a populated doc, `{ relationTo, value }`, or an id. */
+export function relationId(v: unknown): string | number | undefined {
+  if (v == null) return undefined
+  if (typeof v === 'string' || typeof v === 'number') return v
+  if (typeof v !== 'object') return undefined
+  const o = v as Record<string, unknown>
+  if ('relationTo' in o) return relationId(o.value)
+  return o.id as string | number | undefined
+}
+
+/** A display title for a relationship value (`titleField` when known, else common title fields, else the id). */
+export function relationTitle(v: unknown, titleField?: string): string {
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    if ('relationTo' in o) return relationTitle(o.value, titleField)
+    for (const k of [titleField, 'title', 'name', 'label', 'alt', 'filename', 'slug']) {
+      if (k && typeof o[k] === 'string' && o[k]) return o[k]
+    }
+  }
+  return String(relationId(v) ?? '')
+}
+
+const idOf = (v: unknown): unknown => (v && typeof v === 'object' && 'id' in v ? relationId(v) : v)
 
 function normalizeRelation(value: unknown, field: SchemaField): unknown {
   if (value == null) return value
   const one = (v: unknown) => {
     // Polymorphic: { relationTo, value }
-    if (
-      Array.isArray(field.relationTo) &&
-      v &&
-      typeof v === 'object' &&
-      'relationTo' in (v as object)
-    ) {
+    if (Array.isArray(field.relationTo) && v && typeof v === 'object' && 'relationTo' in v) {
       const p = v as { relationTo: string; value: unknown }
       return { relationTo: p.relationTo, value: idOf(p.value) }
     }
@@ -152,14 +218,12 @@ export function normalizeValue(value: unknown, field: SchemaField): unknown {
     }
     case 'array':
       return Array.isArray(value)
-        ? value.map((row) => normalizeRow(row, field.fields ?? []))
+        ? (value as unknown[]).map((row: unknown) => normalizeRow(row, field.fields ?? []))
         : value
     case 'blocks':
       return Array.isArray(value)
-        ? value.map((row) => {
-            const block = field.blocks?.find(
-              (b) => b.slug === (row as { blockType?: string })?.blockType,
-            )
+        ? (value as unknown[]).map((row: unknown) => {
+            const block = blockFor(field, row)
             return block ? normalizeRow(row, block.fields) : row
           })
         : value
@@ -174,32 +238,25 @@ export function normalizeValue(value: unknown, field: SchemaField): unknown {
  * those go back to ids; nothing else in the tree changes.
  */
 export function normalizeRichText(value: unknown): unknown {
-  const walk = (node: any): any => {
-    if (!node || typeof node !== 'object') return node
+  return mapLexical(value, (node) => {
     let out = node
-    if (
-      (node.type === 'upload' || node.type === 'relationship') &&
-      node.value &&
-      typeof node.value === 'object' &&
-      'id' in node.value
-    ) {
+    if ((node.type === 'upload' || node.type === 'relationship') && isPopulated(node.value)) {
       out = { ...out, value: node.value.id }
     }
-    const doc = node.fields?.doc
+    const fields = node.fields as { doc?: { value?: unknown } } | undefined
     if (
       (node.type === 'link' || node.type === 'autolink') &&
-      doc?.value &&
-      typeof doc.value === 'object' &&
-      'id' in doc.value
+      fields?.doc &&
+      isPopulated(fields.doc.value)
     ) {
-      out = { ...out, fields: { ...node.fields, doc: { ...doc, value: doc.value.id } } }
+      out = { ...out, fields: { ...fields, doc: { ...fields.doc, value: fields.doc.value.id } } }
     }
-    if (Array.isArray(node.children)) out = { ...out, children: node.children.map(walk) }
     return out
-  }
-  const root = (value as { root?: unknown })?.root
-  return root ? { ...(value as object), root: walk(root) } : value
+  })
 }
+
+const isPopulated = (v: unknown): v is { id: string | number } =>
+  !!v && typeof v === 'object' && 'id' in v
 
 function normalizeRow(row: unknown, rowFields: SchemaField[]): unknown {
   if (!row || typeof row !== 'object') return row
@@ -231,4 +288,13 @@ export function changedKeys(
   return keys.filter(
     (k) => prev[k] !== next[k] && JSON.stringify(prev[k]) !== JSON.stringify(next[k]),
   )
+}
+
+/** A scalar value as editable text: strings and numbers as-is; null, undefined and objects as ''. */
+export function toText(value: unknown): string {
+  return typeof value === 'string'
+    ? value
+    : typeof value === 'number' || typeof value === 'boolean'
+      ? String(value)
+      : ''
 }

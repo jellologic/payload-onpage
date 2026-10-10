@@ -46,7 +46,7 @@ export function onpage(options: OnPageOptions): Plugin {
           filter: options.encode,
         }),
       ]
-      return { ...cfg, hooks } as T
+      return { ...cfg, hooks }
     }
 
     const control = (kind: Entry['kind'], slug: string) => ({
