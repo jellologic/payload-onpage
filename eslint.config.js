@@ -30,6 +30,7 @@ export default tseslint.config(
       'coverage/**',
       '*.config.*',
       'vitest.setup.ts',
+      '.size-limit.cjs',
     ],
   },
   js.configs.recommended,
