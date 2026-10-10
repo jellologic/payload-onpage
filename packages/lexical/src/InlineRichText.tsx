@@ -7,15 +7,7 @@
  * Only a real change is written: the value is compared with what the same
  * editor produced for the untouched content.
  */
-import React, {
-  useCallback,
-  useEffect,
-  useEffectEvent,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { LexicalComposer } from '@lexical/react/LexicalComposer'
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
@@ -57,6 +49,7 @@ import {
   HIDDEN,
   caretAt,
   placeOver,
+  useEvent,
   useTrackElement,
   type FieldEditorProps,
   type Translate,
@@ -472,10 +465,10 @@ export function InlineRichText({
 
   // Commit when the user clicks anywhere outside the editor.
   // Escape (inside the editor) cancels.
-  const onOutside = useEffectEvent((e: PointerEvent) => {
+  const onOutside = useEvent((e: PointerEvent) => {
     if (box.current && !box.current.contains(e.target as Node)) finish(true)
   })
-  const onEscape = useEffectEvent((e: KeyboardEvent) => {
+  const onEscape = useEvent((e: KeyboardEvent) => {
     if (e.key === 'Escape' && box.current?.contains(document.activeElement)) {
       e.preventDefault()
       finish(false)
@@ -490,7 +483,7 @@ export function InlineRichText({
       document.removeEventListener('pointerdown', onDown, true)
       document.removeEventListener('keydown', onKey)
     }
-  }, [])
+  }, [onEscape, onOutside])
 
   return (
     <div

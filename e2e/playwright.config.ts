@@ -15,6 +15,8 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
+    // The dock's Share copies the link to the clipboard.
+    permissions: ['clipboard-read', 'clipboard-write'],
     ...devices['Desktop Chrome'],
     // Locally use the installed Chrome; CI installs Playwright's Chromium.
     ...(process.env.CI ? {} : { channel: 'chrome' }),

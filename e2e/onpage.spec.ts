@@ -116,9 +116,17 @@ test('keyboard: Enter edits, ⌥↓ moves a row, ⌘Z undoes', async ({ context 
 test('client mode updates live while typing', async ({ context }) => {
   const page = await editPage(context, '/admin/collections/pages/2')
   const h1 = page.locator('h1').first()
-  const box = (await h1.boundingBox())!
-  await page.mouse.click(box.x + box.width - 2, box.y + box.height / 2)
-  await page.keyboard.press('End')
+  await h1.click()
+  const inline = page.getByTestId('onpage-inline-text')
+  await expect(inline).toBeFocused()
+  // Put the caret at the very end, whatever the platform's End key does.
+  await inline.evaluate((el) => {
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    range.collapse(false)
+    getSelection()?.removeAllRanges()
+    getSelection()?.addRange(range)
+  })
   await page.keyboard.type('!')
   await expect(h1).toContainText('!') // rendered from editor state before any save
   await page.keyboard.press('Enter')

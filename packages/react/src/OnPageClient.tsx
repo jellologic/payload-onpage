@@ -11,8 +11,9 @@
  * Text is auto-mapped as in refresh mode: the rendered state carries the same
  * invisible markers (turn off with `autoMap={false}`).
  */
+import { useEvent } from './useEvent.ts'
 import { encodeDocument, refKey, type DocRef } from '@payload-onpage/core'
-import { useEffect, useEffectEvent, useMemo, type ReactNode } from 'react'
+import { useEffect, useMemo, type ReactNode } from 'react'
 import { editable, editableOff, type Editable } from './annotations.ts'
 import { useOnPageOptional } from './context.tsx'
 
@@ -42,13 +43,13 @@ export function OnPageClient<T extends { id?: string | number } | null | undefin
   const enabled = !!ctx && !!ref
 
   // Join the editor once it's there: render from its state (it adopts this page's value).
-  const join = useEffectEvent((r: DocRef) => {
+  const join = useEvent((r: DocRef) => {
     if (!ctx) return undefined
     const off = ctx.registerClientDoc(refKey(r))
     void ctx.session.open(r, doc ?? undefined)
     return off
   })
-  useEffect(() => (enabled && ref ? join(ref) : undefined), [enabled, ref])
+  useEffect(() => (enabled && ref ? join(ref) : undefined), [enabled, ref, join])
 
   const state = key ? ctx?.snap.docs[key] : undefined
   const stateDoc = state?.doc

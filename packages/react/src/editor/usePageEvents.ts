@@ -7,8 +7,9 @@
  *    ⌥↑/⌥↓ move the selected row, ⌥⌫ deletes it, Escape clears; ⌘Z/⇧⌘Z undo/redo
  *  - a warning before leaving with unsaved changes
  */
+import { useEvent } from '../useEvent.ts'
 import { moveItem, refKey, removeItem, resolveRow, updateArray } from '@payload-onpage/core'
-import { useEffect, useEffectEvent } from 'react'
+import { useEffect } from 'react'
 import { isOurs, isTyping } from '../dom.ts'
 import { isFieldTarget, isRowTarget, targetsAt } from '../targets.ts'
 import type { OnPageContextValue } from '../types.ts'
@@ -16,7 +17,7 @@ import type { OnPageContextValue } from '../types.ts'
 const FOCUSABLE_FLAG = 'data-onpage-focusable'
 
 export function usePageEvents(ctx: OnPageContextValue | null, root: () => ParentNode | null): void {
-  const onClick = useEffectEvent((e: MouseEvent) => {
+  const onClick = useEvent((e: MouseEvent) => {
     if (!ctx || e.altKey || e.button !== 0) return
     const t = e.target
     if (!(t instanceof Element) || isOurs(t)) return
@@ -61,7 +62,7 @@ export function usePageEvents(ctx: OnPageContextValue | null, root: () => Parent
     return true
   }
 
-  const onKey = useEffectEvent((e: KeyboardEvent) => {
+  const onKey = useEvent((e: KeyboardEvent) => {
     if (!ctx) return
     const mod = e.metaKey || e.ctrlKey
     if (e.key === 'Escape') {
@@ -106,13 +107,13 @@ export function usePageEvents(ctx: OnPageContextValue | null, root: () => Parent
     }
   })
 
-  const onFocus = useEffectEvent((e: FocusEvent) => {
+  const onFocus = useEvent((e: FocusEvent) => {
     if (!ctx || !(e.target instanceof Element) || !e.target.hasAttribute(FOCUSABLE_FLAG)) return
     const row = ctx.targets.at(e.target).find(isRowTarget)
     if (row) ctx.setSelected({ key: refKey(row.ref), path: row.path })
   })
 
-  const onUnload = useEffectEvent((e: BeforeUnloadEvent) => {
+  const onUnload = useEvent((e: BeforeUnloadEvent) => {
     if (!ctx?.session.hasPendingSaves) return
     void ctx.session.flush()
     e.preventDefault()
@@ -135,7 +136,7 @@ export function usePageEvents(ctx: OnPageContextValue | null, root: () => Parent
       document.removeEventListener('focusin', focus)
       window.removeEventListener('beforeunload', unload)
     }
-  }, [])
+  }, [onClick, onFocus, onKey, onUnload])
 
   // Make every target reachable by keyboard (restored when the editor goes away).
   const targets = ctx?.targets

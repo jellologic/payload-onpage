@@ -7,6 +7,7 @@
  * through the DataSource; the Renderer shows them (server refresh by default,
  * instant for documents rendered with <OnPageClient>).
  */
+import { useEvent } from '../useEvent.ts'
 import {
   EditorSession,
   fieldAtPath,
@@ -19,14 +20,7 @@ import {
   type Renderer,
   type SessionSnapshot,
 } from '@payload-onpage/core'
-import {
-  useCallback,
-  useEffect,
-  useEffectEvent,
-  useMemo,
-  useState,
-  useSyncExternalStore,
-} from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { OnPageContext } from '../context.tsx'
 import { UI } from '../dom.ts'
@@ -137,7 +131,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
     [isLive, renderer, ghostsRendered],
   )
 
-  const handleSaved = useEffectEvent((ref: DocRef, seq: number) => void rerender([ref], seq))
+  const handleSaved = useEvent((ref: DocRef, seq: number) => void rerender([ref], seq))
 
   // One session per data source and locale; disposed (after flushing) when they change or on unmount.
   useEffect(() => {
@@ -156,7 +150,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
     return () => {
       void s.flush().finally(() => s.dispose())
     }
-  }, [dataSource, locale, autosaveDelay, renderer.live])
+  }, [dataSource, locale, autosaveDelay, renderer.live, handleSaved])
 
   useEffect(() => {
     if (!flash) return

@@ -21,6 +21,7 @@ export {
   popoverPosition,
 } from './dom.ts'
 export { useTrackElement, useLayoutTick, notifyLayout } from './layout.ts'
+export { useEvent } from './useEvent.ts'
 export { sanitizeHtml } from './sanitize.ts'
 export type { EditorRegistry, FieldEditorDef, FieldEditorProps } from './types.ts'
 export type { Translate } from './messages.ts'
