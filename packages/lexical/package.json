@@ -57,12 +57,12 @@
     "@payload-onpage/react": "workspace:*"
   },
   "peerDependencies": {
-    "@lexical/list": "~0.41.0",
-    "@lexical/react": "~0.41.0",
-    "@lexical/rich-text": "~0.41.0",
-    "@lexical/selection": "~0.41.0",
-    "@lexical/utils": "~0.41.0",
-    "lexical": "~0.41.0",
+    "@lexical/list": "~0.50.0",
+    "@lexical/react": "~0.50.0",
+    "@lexical/rich-text": "~0.50.0",
+    "@lexical/selection": "~0.50.0",
+    "@lexical/utils": "~0.50.0",
+    "lexical": "~0.50.0",
     "react": "^19.0.0"
   },
   "engines": {
