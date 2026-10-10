@@ -1,4 +1,4 @@
-'use client';
+'use client'
 
 /**
  * In-place rich-text editing with Lexical. The editable surface is laid over
@@ -7,18 +7,28 @@
  * Only a real change is written: the value is compared with what the same
  * editor produced for the untouched content.
  */
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { LexicalComposer } from '@lexical/react/LexicalComposer';
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
-import { ContentEditable } from '@lexical/react/LexicalContentEditable';
-import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
-import { ListPlugin } from '@lexical/react/LexicalListPlugin';
-import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
-import { $createHeadingNode, $createQuoteNode, $isHeadingNode, $isQuoteNode } from '@lexical/rich-text';
-import { $isListNode, INSERT_ORDERED_LIST_COMMAND, INSERT_UNORDERED_LIST_COMMAND, REMOVE_LIST_COMMAND } from '@lexical/list';
-import { $setBlocksType } from '@lexical/selection';
-import { $findMatchingParent } from '@lexical/utils';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { LexicalComposer } from '@lexical/react/LexicalComposer'
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext'
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin'
+import { ContentEditable } from '@lexical/react/LexicalContentEditable'
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin'
+import { ListPlugin } from '@lexical/react/LexicalListPlugin'
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary'
+import {
+  $createHeadingNode,
+  $createQuoteNode,
+  $isHeadingNode,
+  $isQuoteNode,
+} from '@lexical/rich-text'
+import {
+  $isListNode,
+  INSERT_ORDERED_LIST_COMMAND,
+  INSERT_UNORDERED_LIST_COMMAND,
+  REMOVE_LIST_COMMAND,
+} from '@lexical/list'
+import { $setBlocksType } from '@lexical/selection'
+import { $findMatchingParent } from '@lexical/utils'
 import {
   $createParagraphNode,
   $createRangeSelectionFromDom,
@@ -33,36 +43,49 @@ import {
   REDO_COMMAND,
   UNDO_COMMAND,
   type LexicalEditor,
-} from 'lexical';
-import { HIDDEN, caretAt, placeOver, useEachFrame, type FieldEditorProps } from '@payload-onpage/react';
-import { $createPayloadLinkNode, $isPayloadLinkNode, type PayloadLinkNode } from './nodes.tsx';
-import { RICH_TEXT_NODES } from './nodeList.ts';
-import { fromEditorState, plainText, toEditorState, type RichTextState } from './convert.ts';
+} from 'lexical'
+import {
+  HIDDEN,
+  caretAt,
+  placeOver,
+  useEachFrame,
+  type FieldEditorProps,
+} from '@payload-onpage/react'
+import { $createPayloadLinkNode, $isPayloadLinkNode, type PayloadLinkNode } from './nodes.tsx'
+import { RICH_TEXT_NODES } from './nodeList.ts'
+import { fromEditorState, plainText, toEditorState, type RichTextState } from './convert.ts'
 
-export { RICH_TEXT_NODES };
+export { RICH_TEXT_NODES }
 
 interface ToolbarState {
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-  block: string;
-  link: boolean;
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  block: string
+  link: boolean
 }
 
 function readToolbarState(): ToolbarState {
-  const sel = $getSelection();
-  if (!$isRangeSelection(sel)) return { bold: false, italic: false, underline: false, block: 'paragraph', link: false };
-  const anchor = sel.anchor.getNode();
-  const top = anchor.getKey() === 'root' ? anchor : anchor.getTopLevelElementOrThrow();
-  const list = $findMatchingParent(anchor, $isListNode);
-  const block = list ? `list-${list.getListType()}` : $isHeadingNode(top) ? top.getTag() : $isQuoteNode(top) ? 'quote' : 'paragraph';
+  const sel = $getSelection()
+  if (!$isRangeSelection(sel))
+    return { bold: false, italic: false, underline: false, block: 'paragraph', link: false }
+  const anchor = sel.anchor.getNode()
+  const top = anchor.getKey() === 'root' ? anchor : anchor.getTopLevelElementOrThrow()
+  const list = $findMatchingParent(anchor, $isListNode)
+  const block = list
+    ? `list-${list.getListType()}`
+    : $isHeadingNode(top)
+      ? top.getTag()
+      : $isQuoteNode(top)
+        ? 'quote'
+        : 'paragraph'
   return {
     bold: sel.hasFormat('bold'),
     italic: sel.hasFormat('italic'),
     underline: sel.hasFormat('underline'),
     block,
     link: !!$findMatchingParent(anchor, $isPayloadLinkNode),
-  };
+  }
 }
 
 /**
@@ -72,91 +95,121 @@ function readToolbarState(): ToolbarState {
  * actually sees selected.
  */
 function syncSelection(editor: LexicalEditor) {
-  const dom = window.getSelection();
-  const root = editor.getRootElement();
-  if (!dom || !root || !dom.anchorNode || !root.contains(dom.anchorNode)) return;
+  const dom = window.getSelection()
+  const root = editor.getRootElement()
+  if (!dom || !root || !dom.anchorNode || !root.contains(dom.anchorNode)) return
   editor.update(
     () => {
-      const sel = $createRangeSelectionFromDom(dom, editor);
-      if (sel) $setSelection(sel);
+      const sel = $createRangeSelectionFromDom(dom, editor)
+      if (sel) $setSelection(sel)
     },
     { discrete: true },
-  );
+  )
 }
 
 /** The URL of the link around the selection, if any. */
 function currentLinkUrl(editor: LexicalEditor): string | undefined {
-  let url: string | undefined;
+  let url: string | undefined
   editor.getEditorState().read(() => {
-    const sel = $getSelection();
-    if ($isRangeSelection(sel)) url = $findMatchingParent(sel.anchor.getNode(), $isPayloadLinkNode)?.getFields().url;
-  });
-  return url;
+    const sel = $getSelection()
+    if ($isRangeSelection(sel))
+      url = $findMatchingParent(sel.anchor.getNode(), $isPayloadLinkNode)?.getFields().url
+  })
+  return url
 }
 
 /** Link the selection to `url`; an empty url removes the link around it. */
 function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection | null) {
-  const url = rawUrl.trim();
+  const url = rawUrl.trim()
   editor.update(() => {
     // Focus moved to the URL field; put back the selection it was opened for.
-    if (saved) $setSelection(saved.clone());
-    const sel = $getSelection();
-    if (!$isRangeSelection(sel)) return;
-    const nodes = sel.extract();
-    const existing = nodes.map((n) => $findMatchingParent(n, $isPayloadLinkNode)).find(Boolean) as PayloadLinkNode | undefined;
+    if (saved) $setSelection(saved.clone())
+    const sel = $getSelection()
+    if (!$isRangeSelection(sel)) return
+    const nodes = sel.extract()
+    const existing = nodes.map((n) => $findMatchingParent(n, $isPayloadLinkNode)).find(Boolean) as
+      PayloadLinkNode | undefined
     if (existing) {
       if (!url) {
-        for (const child of existing.getChildren()) existing.insertBefore(child);
-        existing.remove();
+        for (const child of existing.getChildren()) existing.insertBefore(child)
+        existing.remove()
       } else {
-        existing.setFields({ ...existing.getFields(), url });
+        existing.setFields({ ...existing.getFields(), url })
       }
-      return;
+      return
     }
-    if (!url) return;
-    let link: PayloadLinkNode | null = null;
+    if (!url) return
+    let link: PayloadLinkNode | null = null
     for (const node of nodes) {
-      if (!$isTextNode(node) || $findMatchingParent(node, $isPayloadLinkNode)) continue;
+      if (!$isTextNode(node) || $findMatchingParent(node, $isPayloadLinkNode)) continue
       if (!link || node.getPreviousSibling() !== link) {
-        link = $createPayloadLinkNode({ url, newTab: /^https?:/.test(url), linkType: 'custom' });
-        node.insertBefore(link);
+        link = $createPayloadLinkNode({ url, newTab: /^https?:/.test(url), linkType: 'custom' })
+        node.insertBefore(link)
       }
-      link.append(node);
+      link.append(node)
     }
-  });
+  })
 }
 
 function Toolbar({ onDone }: { onDone: () => void }) {
-  const [editor] = useLexicalComposerContext();
-  const [state, setState] = useState<ToolbarState>({ bold: false, italic: false, underline: false, block: 'paragraph', link: false });
-  const [linkDraft, setLinkDraft] = useState<string | null>(null);
-  const savedSelection = useRef<BaseSelection | null>(null);
+  const [editor] = useLexicalComposerContext()
+  const [state, setState] = useState<ToolbarState>({
+    bold: false,
+    italic: false,
+    underline: false,
+    block: 'paragraph',
+    link: false,
+  })
+  const [linkDraft, setLinkDraft] = useState<string | null>(null)
+  const savedSelection = useRef<BaseSelection | null>(null)
   const openLink = () => {
     editor.getEditorState().read(() => {
-      savedSelection.current = $getSelection()?.clone() ?? null;
-    });
-    setLinkDraft(currentLinkUrl(editor) ?? 'https://');
-  };
+      savedSelection.current = $getSelection()?.clone() ?? null
+    })
+    setLinkDraft(currentLinkUrl(editor) ?? 'https://')
+  }
   const saveLink = () => {
-    if (linkDraft === null) return;
-    applyLink(editor, linkDraft === 'https://' ? '' : linkDraft, savedSelection.current);
-    setLinkDraft(null);
-    editor.focus();
-  };
-  useEffect(() => editor.registerUpdateListener(({ editorState }) => editorState.read(() => setState(readToolbarState()))), [editor]);
+    if (linkDraft === null) return
+    applyLink(editor, linkDraft === 'https://' ? '' : linkDraft, savedSelection.current)
+    setLinkDraft(null)
+    editor.focus()
+  }
+  useEffect(
+    () =>
+      editor.registerUpdateListener(({ editorState }) =>
+        editorState.read(() => setState(readToolbarState())),
+      ),
+    [editor],
+  )
 
   const setBlock = (kind: 'paragraph' | 'h2' | 'h3' | 'quote') =>
     editor.update(() => {
-      const sel = $getSelection();
-      if (!$isRangeSelection(sel)) return;
-      const target = state.block === kind ? 'paragraph' : kind;
-      $setBlocksType(sel, () => (target === 'paragraph' ? $createParagraphNode() : target === 'quote' ? $createQuoteNode() : $createHeadingNode(target)));
-    });
+      const sel = $getSelection()
+      if (!$isRangeSelection(sel)) return
+      const target = state.block === kind ? 'paragraph' : kind
+      $setBlocksType(sel, () =>
+        target === 'paragraph'
+          ? $createParagraphNode()
+          : target === 'quote'
+            ? $createQuoteNode()
+            : $createHeadingNode(target),
+      )
+    })
   const list = (type: 'bullet' | 'number') => {
-    if (state.block === `list-${type}`) editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined);
-    else editor.dispatchCommand(type === 'bullet' ? INSERT_UNORDERED_LIST_COMMAND : INSERT_ORDERED_LIST_COMMAND, undefined);
-  };
-  const btn = (label: React.ReactNode, title: string, pressed: boolean, onClick: () => void, id: string) => (
+    if (state.block === `list-${type}`) editor.dispatchCommand(REMOVE_LIST_COMMAND, undefined)
+    else
+      editor.dispatchCommand(
+        type === 'bullet' ? INSERT_UNORDERED_LIST_COMMAND : INSERT_ORDERED_LIST_COMMAND,
+        undefined,
+      )
+  }
+  const btn = (
+    label: React.ReactNode,
+    title: string,
+    pressed: boolean,
+    onClick: () => void,
+    id: string,
+  ) => (
     <button
       type="button"
       className="po-btn"
@@ -166,18 +219,36 @@ function Toolbar({ onDone }: { onDone: () => void }) {
       data-testid={`onpage-rt-${id}`}
       onMouseDown={(e) => e.preventDefault() /* keep the editor's selection */}
       onClick={() => {
-        syncSelection(editor);
-        onClick();
+        syncSelection(editor)
+        onClick()
       }}
     >
       {label}
     </button>
-  );
+  )
   return (
     <div className="po-rt-toolbar" role="toolbar" aria-label="Text formatting">
-      {btn(<b>B</b>, 'Bold', state.bold, () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'), 'bold')}
-      {btn(<i>I</i>, 'Italic', state.italic, () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic'), 'italic')}
-      {btn(<u>U</u>, 'Underline', state.underline, () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline'), 'underline')}
+      {btn(
+        <b>B</b>,
+        'Bold',
+        state.bold,
+        () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'bold'),
+        'bold',
+      )}
+      {btn(
+        <i>I</i>,
+        'Italic',
+        state.italic,
+        () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'italic'),
+        'italic',
+      )}
+      {btn(
+        <u>U</u>,
+        'Underline',
+        state.underline,
+        () => editor.dispatchCommand(FORMAT_TEXT_COMMAND, 'underline'),
+        'underline',
+      )}
       {btn('🔗', 'Link', state.link, openLink, 'link')}
       {btn('H2', 'Heading 2', state.block === 'h2', () => setBlock('h2'), 'h2')}
       {btn('H3', 'Heading 3', state.block === 'h3', () => setBlock('h3'), 'h3')}
@@ -198,23 +269,29 @@ function Toolbar({ onDone }: { onDone: () => void }) {
             onChange={(e) => setLinkDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                e.preventDefault();
-                saveLink();
+                e.preventDefault()
+                saveLink()
               } else if (e.key === 'Escape') {
-                e.preventDefault();
-                e.stopPropagation();
-                setLinkDraft(null);
+                e.preventDefault()
+                e.stopPropagation()
+                setLinkDraft(null)
               }
             }}
             data-testid="onpage-rt-link-input"
           />
-          <button type="button" className="po-btn" onMouseDown={(e) => e.preventDefault()} onClick={saveLink} data-testid="onpage-rt-link-apply">
+          <button
+            type="button"
+            className="po-btn"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={saveLink}
+            data-testid="onpage-rt-link-apply"
+          >
             Apply
           </button>
         </span>
       )}
     </div>
-  );
+  )
 }
 
 /**
@@ -222,80 +299,100 @@ function Toolbar({ onDone }: { onDone: () => void }) {
  * through Lexical's own selection (setting only the DOM selection leaves
  * Lexical's model at the end of the text, so keys and toolbar act there).
  */
-function Bridge({ editorRef, point, baseline }: { editorRef: React.MutableRefObject<LexicalEditor | null>; point?: { x: number; y: number }; baseline: React.MutableRefObject<string | null> }) {
-  const [editor] = useLexicalComposerContext();
+function Bridge({
+  editorRef,
+  point,
+  baseline,
+}: {
+  editorRef: React.MutableRefObject<LexicalEditor | null>
+  point?: { x: number; y: number }
+  baseline: React.MutableRefObject<string | null>
+}) {
+  const [editor] = useLexicalComposerContext()
   useEffect(() => {
-    editorRef.current = editor;
-    baseline.current = JSON.stringify(editor.getEditorState().toJSON());
-    const root = editor.getRootElement();
-    if (!root) return;
+    editorRef.current = editor
+    baseline.current = JSON.stringify(editor.getEditorState().toJSON())
+    const root = editor.getRootElement()
+    if (!root) return
     // Wait two frames so the surface sits exactly over the original text.
-    let raf = requestAnimationFrame(() => (raf = requestAnimationFrame(() => {
-      const hit = point ? caretAt(point, root) : null;
-      editor.update(() => {
-        const node = hit ? $getNearestNodeFromDOMNode(hit.node) : null;
-        if (node && $isTextNode(node)) node.select(hit!.offset, hit!.offset);
-        else $getRoot().selectEnd();
-      });
-      root.focus({ preventScroll: true });
-    })));
-    return () => cancelAnimationFrame(raf);
-  }, [editor, editorRef, point, baseline]);
-  return null;
+    let raf = requestAnimationFrame(
+      () =>
+        (raf = requestAnimationFrame(() => {
+          const hit = point ? caretAt(point, root) : null
+          editor.update(() => {
+            const node = hit ? $getNearestNodeFromDOMNode(hit.node) : null
+            if (node && $isTextNode(node)) node.select(hit!.offset, hit!.offset)
+            else $getRoot().selectEnd()
+          })
+          root.focus({ preventScroll: true })
+        })),
+    )
+    return () => cancelAnimationFrame(raf)
+  }, [editor, editorRef, point, baseline])
+  return null
 }
 
-export function InlineRichText({ field, value, element, commit, close, ghost, live, point }: FieldEditorProps) {
-  const box = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<LexicalEditor | null>(null);
-  const baseline = useRef<string | null>(null);
-  const done = useRef(false);
-  const [className, setClassName] = useState('');
-  const initialState = useMemo(() => JSON.stringify(toEditorState(value)), []); // eslint-disable-line react-hooks/exhaustive-deps
+export function InlineRichText({
+  field,
+  value,
+  element,
+  commit,
+  close,
+  ghost,
+  live,
+  point,
+}: FieldEditorProps) {
+  const box = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<LexicalEditor | null>(null)
+  const baseline = useRef<string | null>(null)
+  const done = useRef(false)
+  const [className, setClassName] = useState('')
+  const initialState = useMemo(() => JSON.stringify(toEditorState(value)), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   useLayoutEffect(() => {
-    const el = element();
+    const el = element()
     if (el) {
-      setClassName(typeof el.className === 'string' ? el.className : '');
+      setClassName(typeof el.className === 'string' ? el.className : '')
       // Position before first paint, so the caret hit-test finds the surface.
-      if (box.current) placeOver(box.current, el);
-      el.setAttribute(HIDDEN, 'true');
+      if (box.current) placeOver(box.current, el)
+      el.setAttribute(HIDDEN, 'true')
     }
-    return () => element()?.removeAttribute(HIDDEN);
+    return () => element()?.removeAttribute(HIDDEN)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [])
 
   // Follow the original element's box as the page scrolls and reflows.
   useEachFrame(() => {
-    const el = element();
-    if (!el || !box.current) return;
-    if (!el.hasAttribute(HIDDEN)) el.setAttribute(HIDDEN, 'true');
-    placeOver(box.current, el);
-  });
+    const el = element()
+    if (!el || !box.current) return
+    if (!el.hasAttribute(HIDDEN)) el.setAttribute(HIDDEN, 'true')
+    placeOver(box.current, el)
+  })
 
   const finish = (save: boolean) => {
-    if (done.current) return;
-    done.current = true;
-    const editor = editorRef.current;
+    if (done.current) return
+    done.current = true
+    const editor = editorRef.current
     if (save && editor) {
-      const json = editor.getEditorState().toJSON() as unknown as RichTextState;
+      const json = editor.getEditorState().toJSON() as unknown as RichTextState
       if (JSON.stringify(json) !== baseline.current) {
-        const next = fromEditorState(json);
-        commit(plainText(next) || hasOpaque(next) ? next : null);
-        const surface = editor.getRootElement();
-        if (!live && surface) ghost({ html: surface.innerHTML, className });
+        const next = fromEditorState(json)
+        commit(plainText(next) || hasOpaque(next) ? next : null)
+        const surface = editor.getRootElement()
+        if (!live && surface) ghost({ html: surface.innerHTML, className })
       }
     }
-    close();
-  };
+    close()
+  }
 
   // Commit when the user clicks anywhere outside the editor.
   useEffect(() => {
     const onDown = (e: PointerEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) finish(true);
-    };
-    document.addEventListener('pointerdown', onDown, true);
-    return () => document.removeEventListener('pointerdown', onDown, true);
-  });
+      if (box.current && !box.current.contains(e.target as Node)) finish(true)
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    return () => document.removeEventListener('pointerdown', onDown, true)
+  })
 
   return (
     <div
@@ -304,8 +401,8 @@ export function InlineRichText({ field, value, element, commit, close, ghost, li
       data-testid="onpage-inline-richtext"
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
-          e.preventDefault();
-          finish(false);
+          e.preventDefault()
+          finish(false)
         }
       }}
     >
@@ -320,7 +417,12 @@ export function InlineRichText({ field, value, element, commit, close, ghost, li
       >
         <Toolbar onDone={() => finish(true)} />
         <RichTextPlugin
-          contentEditable={<ContentEditable className={`${className} po-rt-surface`} aria-label={`Edit ${field.label}`} />}
+          contentEditable={
+            <ContentEditable
+              className={`${className} po-rt-surface`}
+              aria-label={`Edit ${field.label}`}
+            />
+          }
           ErrorBoundary={LexicalErrorBoundary}
         />
         <HistoryPlugin />
@@ -328,16 +430,17 @@ export function InlineRichText({ field, value, element, commit, close, ghost, li
         <Bridge editorRef={editorRef} point={point} baseline={baseline} />
       </LexicalComposer>
     </div>
-  );
+  )
 }
 
 function hasOpaque(state: RichTextState): boolean {
-  let found = false;
+  let found = false
   const walk = (n: any) => {
-    if (!n || found) return;
-    if (n.type !== 'root' && n.type !== 'paragraph' && n.type !== 'text' && !n.children) found = n.type !== 'linebreak';
-    (n.children ?? []).forEach(walk);
-  };
-  walk(state.root);
-  return found;
+    if (!n || found) return
+    if (n.type !== 'root' && n.type !== 'paragraph' && n.type !== 'text' && !n.children)
+      found = n.type !== 'linebreak'
+    ;(n.children ?? []).forEach(walk)
+  }
+  walk(state.root)
+  return found
 }

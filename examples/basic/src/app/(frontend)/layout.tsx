@@ -12,7 +12,8 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
         <SiteHeader />
         {children}
         <footer className="site-footer">
-          Signed in? Open a page in the <a href="/admin/collections/pages">admin</a> and press <b>Edit on page</b>.
+          Signed in? Open a page in the <a href="/admin/collections/pages">admin</a> and press{' '}
+          <b>Edit on page</b>.
         </footer>
         {/* Renders nothing unless an editor turned on edit or preview mode. */}
         <Suspense fallback={null}>

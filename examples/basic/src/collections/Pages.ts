@@ -84,7 +84,12 @@ export const Pages: CollectionConfig = {
     { name: 'publishedAt', type: 'date' },
     { name: 'author', type: 'relationship', relationTo: 'users' },
     // A custom field editor, picked per field:
-    { name: 'accent', type: 'text', defaultValue: '#4f46e5', admin: { custom: { onpage: { editor: 'color' } } } },
+    {
+      name: 'accent',
+      type: 'text',
+      defaultValue: '#4f46e5',
+      admin: { custom: { onpage: { editor: 'color' } } },
+    },
     // Render this page from editor state (instant edits) instead of refreshing from the server.
     { name: 'instant', type: 'checkbox', label: 'Client-mode demo' },
     { name: 'layout', type: 'blocks', blocks: [Hero, Content, Features] },

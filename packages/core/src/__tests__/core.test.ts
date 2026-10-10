@@ -1,209 +1,268 @@
-import { describe, expect, it } from "bun:test";
-import { getAt, insertItem, moveItem, parsePath, removeItem, setAt, splitItemPath, updateArray } from "../path.ts";
-import { serializeFields, humanize } from "../schema.ts";
-import { buildPatch, changedKeys, cloneRow, defaultsFor, fieldAtPath, newBlockRow, normalizeValue } from "../fields.ts";
-import { AutosaveQueue, type SaveState, type SendResult } from "../autosave.ts";
+import { describe, expect, it } from 'vitest'
+import {
+  getAt,
+  insertItem,
+  moveItem,
+  parsePath,
+  removeItem,
+  setAt,
+  splitItemPath,
+  updateArray,
+} from '../path.ts'
+import { serializeFields, humanize } from '../schema.ts'
+import {
+  buildPatch,
+  changedKeys,
+  cloneRow,
+  defaultsFor,
+  fieldAtPath,
+  newBlockRow,
+  normalizeValue,
+} from '../fields.ts'
+import { AutosaveQueue, type SaveState, type SendResult } from '../autosave.ts'
 
 // A Payload-shaped config: rows/tabs/collapsibles, a blocks field, uploads.
 const payloadFields: any[] = [
-  { name: "title", type: "text", localized: true, required: true },
-  { type: "ui", name: "button", admin: { components: { Field: "x" } } },
+  { name: 'title', type: 'text', localized: true, required: true },
+  { type: 'ui', name: 'button', admin: { components: { Field: 'x' } } },
   {
-    type: "tabs",
+    type: 'tabs',
     tabs: [
       {
-        label: "Content",
+        label: 'Content',
         fields: [
           {
-            name: "sections",
-            type: "blocks",
+            name: 'sections',
+            type: 'blocks',
             blocks: [
               {
-                slug: "hero",
-                labels: { singular: "Hero", plural: "Heroes" },
+                slug: 'hero',
+                labels: { singular: 'Hero', plural: 'Heroes' },
                 fields: [
-                  { type: "row", fields: [{ name: "heading", type: "text", required: true, localized: true }] },
-                  { name: "image", type: "upload", relationTo: "media" },
                   {
-                    name: "section",
-                    type: "group",
+                    type: 'row',
+                    fields: [{ name: 'heading', type: 'text', required: true, localized: true }],
+                  },
+                  { name: 'image', type: 'upload', relationTo: 'media' },
+                  {
+                    name: 'section',
+                    type: 'group',
                     fields: [
-                      { name: "background", type: "select", defaultValue: "white", options: [{ label: "White", value: "white" }, "light"] },
+                      {
+                        name: 'background',
+                        type: 'select',
+                        defaultValue: 'white',
+                        options: [{ label: 'White', value: 'white' }, 'light'],
+                      },
                     ],
                   },
-                  { name: "ctas", type: "array", maxRows: 2, fields: [{ name: "label", type: "text", required: true }] },
+                  {
+                    name: 'ctas',
+                    type: 'array',
+                    maxRows: 2,
+                    fields: [{ name: 'label', type: 'text', required: true }],
+                  },
                 ],
               },
               {
-                slug: "gallery",
-                fields: [{ name: "images", type: "array", minRows: 1, fields: [{ name: "image", type: "upload", relationTo: "media" }] }],
+                slug: 'gallery',
+                fields: [
+                  {
+                    name: 'images',
+                    type: 'array',
+                    minRows: 1,
+                    fields: [{ name: 'image', type: 'upload', relationTo: 'media' }],
+                  },
+                ],
               },
             ],
           },
         ],
       },
-      { name: "meta", label: "SEO", fields: [{ name: "description", type: "textarea", defaultValue: () => "nope" }] },
+      {
+        name: 'meta',
+        label: 'SEO',
+        fields: [{ name: 'description', type: 'textarea', defaultValue: () => 'nope' }],
+      },
     ],
   },
-];
-const schema = serializeFields(payloadFields);
+]
+const schema = serializeFields(payloadFields)
 
-describe("path", () => {
-  it("parses dotted paths with numeric indexes", () => {
-    expect(parsePath("sections.3.items.0.title")).toEqual(["sections", 3, "items", 0, "title"]);
-  });
-  it("gets and sets immutably, sharing untouched branches", () => {
-    const doc: any = { a: { b: [{ c: 1 }, { c: 2 }] }, z: { keep: true } };
-    const next = setAt(doc, "a.b.1.c", 9);
-    expect(getAt<number>(next, "a.b.1.c")).toBe(9);
-    expect(doc.a.b[1].c).toBe(2);
-    expect(next.z).toBe(doc.z);
-    expect(next.a.b[0]).toBe(doc.a.b[0]);
-  });
-  it("moves, inserts and removes items, clamping bounds", () => {
-    expect(moveItem([1, 2, 3], 0, 2)).toEqual([2, 3, 1]);
-    expect(moveItem([1, 2, 3], 2, 99)).toEqual([1, 2, 3]);
-    expect(insertItem([1, 3], 1, 2)).toEqual([1, 2, 3]);
-    expect(removeItem([1, 2, 3], 1)).toEqual([1, 3]);
-    expect(updateArray({}, "list", (a) => [...a, "x"])).toEqual({ list: ["x"] });
-    expect(splitItemPath("sections.3.items.1")).toEqual(["sections.3.items", 1]);
-    expect(splitItemPath("sections.3.heading")).toBeNull();
-  });
-});
+describe('path', () => {
+  it('parses dotted paths with numeric indexes', () => {
+    expect(parsePath('sections.3.items.0.title')).toEqual(['sections', 3, 'items', 0, 'title'])
+  })
+  it('gets and sets immutably, sharing untouched branches', () => {
+    const doc: any = { a: { b: [{ c: 1 }, { c: 2 }] }, z: { keep: true } }
+    const next = setAt(doc, 'a.b.1.c', 9)
+    expect(getAt<number>(next, 'a.b.1.c')).toBe(9)
+    expect(doc.a.b[1].c).toBe(2)
+    expect(next.z).toBe(doc.z)
+    expect(next.a.b[0]).toBe(doc.a.b[0])
+  })
+  it('moves, inserts and removes items, clamping bounds', () => {
+    expect(moveItem([1, 2, 3], 0, 2)).toEqual([2, 3, 1])
+    expect(moveItem([1, 2, 3], 2, 99)).toEqual([1, 2, 3])
+    expect(insertItem([1, 3], 1, 2)).toEqual([1, 2, 3])
+    expect(removeItem([1, 2, 3], 1)).toEqual([1, 3])
+    expect(updateArray({}, 'list', (a) => [...a, 'x'])).toEqual({ list: ['x'] })
+    expect(splitItemPath('sections.3.items.1')).toEqual(['sections.3.items', 1])
+    expect(splitItemPath('sections.3.heading')).toBeNull()
+  })
+})
 
-describe("serializeFields", () => {
-  it("flattens rows/unnamed tabs, drops ui fields, keeps named tabs as groups", () => {
-    expect(schema.map((f) => f.name)).toEqual(["title", "sections", "meta"]);
-    expect(schema[2]).toMatchObject({ type: "group", label: "SEO" });
-  });
-  it("keeps static defaults and drops function defaults", () => {
-    const hero = schema[1].blocks![0];
-    expect(hero.fields.find((f) => f.name === "section")!.fields![0].defaultValue).toBe("white");
-    expect(schema[2].fields![0].defaultValue).toBeUndefined();
-  });
-  it("normalizes options and labels", () => {
-    const bg = schema[1].blocks![0].fields.find((f) => f.name === "section")!.fields![0];
-    expect(bg.options).toEqual([{ label: "White", value: "white" }, { label: "Light", value: "light" }]);
-    expect(schema[1].blocks![1].labels.singular).toBe("Gallery");
-    expect(humanize("imagePosition")).toBe("Image position");
-  });
-});
+describe('serializeFields', () => {
+  it('flattens rows/unnamed tabs, drops ui fields, keeps named tabs as groups', () => {
+    expect(schema.map((f) => f.name)).toEqual(['title', 'sections', 'meta'])
+    expect(schema[2]).toMatchObject({ type: 'group', label: 'SEO' })
+  })
+  it('keeps static defaults and drops function defaults', () => {
+    const hero = schema[1].blocks![0]
+    expect(hero.fields.find((f) => f.name === 'section')!.fields![0].defaultValue).toBe('white')
+    expect(schema[2].fields![0].defaultValue).toBeUndefined()
+  })
+  it('normalizes options and labels', () => {
+    const bg = schema[1].blocks![0].fields.find((f) => f.name === 'section')!.fields![0]
+    expect(bg.options).toEqual([
+      { label: 'White', value: 'white' },
+      { label: 'Light', value: 'light' },
+    ])
+    expect(schema[1].blocks![1].labels.singular).toBe('Gallery')
+    expect(humanize('imagePosition')).toBe('Image position')
+  })
+})
 
-describe("schema-aware field ops", () => {
+describe('schema-aware field ops', () => {
   const doc = {
     sections: [
-      { id: "a1", blockType: "hero", heading: "Hi", image: { id: 7, url: "/x.jpg" }, ctas: [{ id: "c1", label: "Go" }], section: { background: "light" } },
-      { id: "a2", blockType: "gallery", images: [{ id: "g1", image: { id: 8 } }] },
+      {
+        id: 'a1',
+        blockType: 'hero',
+        heading: 'Hi',
+        image: { id: 7, url: '/x.jpg' },
+        ctas: [{ id: 'c1', label: 'Go' }],
+        section: { background: 'light' },
+      },
+      { id: 'a2', blockType: 'gallery', images: [{ id: 'g1', image: { id: 8 } }] },
     ],
-  };
-  it("finds fields through blocks, groups and arrays", () => {
-    expect(fieldAtPath(schema, doc, "sections.0.heading")?.field.type).toBe("text");
-    expect(fieldAtPath(schema, doc, "sections.0.section.background")?.field.type).toBe("select");
-    const cta = fieldAtPath(schema, doc, "sections.0.ctas.0.label");
-    expect(cta?.field.name).toBe("label");
-    expect(cta?.blockPath).toBe("sections.0");
-    expect(cta?.block?.slug).toBe("hero");
-    expect(fieldAtPath(schema, doc, "sections.1.images.0.image")?.field.type).toBe("upload");
-    expect(fieldAtPath(schema, doc, "sections.9.heading")).toBeNull();
-  });
-  it("builds new blocks from defaults and minRows", () => {
-    const hero = newBlockRow(schema[1].blocks![0]);
-    expect(hero).toMatchObject({ blockType: "hero", heading: "Heading", section: { background: "white" }, ctas: [] });
-    expect(typeof hero.id).toBe("string");
-    const gallery = newBlockRow(schema[1].blocks![1]) as { images: unknown[] };
-    expect(gallery.images).toHaveLength(1);
-    expect(defaultsFor([])).toEqual({});
-  });
-  it("clones rows with new row ids but keeps related-document ids", () => {
-    const heroFields = schema[1].blocks![0].fields;
-    const copy = cloneRow(doc.sections[0], heroFields) as any;
-    expect(copy.id).not.toBe("a1");
-    expect(copy.ctas[0].id).not.toBe("c1");
-    expect(copy.ctas[0].label).toBe("Go");
-    expect(copy.image.id).toBe(7);
-  });
-  it("normalizes populated uploads to ids for saving, keeping row ids", () => {
-    const out = normalizeValue(doc.sections, schema[1]) as any[];
-    expect(out[0].image).toBe(7);
-    expect(out[0].id).toBe("a1");
-    expect(out[1].images[0]).toEqual({ id: "g1", image: 8 });
-    expect(buildPatch(doc as any, ["sections"], schema).sections).toEqual(out);
-  });
-  it("reports changed top-level keys only", () => {
-    const next = setAt(doc, "sections.0.heading", "Hello");
-    expect(changedKeys(doc as any, next as any, ["title", "sections"])).toEqual(["sections"]);
-    expect(changedKeys(doc as any, { ...doc } as any, ["sections"])).toEqual([]);
-  });
-});
+  }
+  it('finds fields through blocks, groups and arrays', () => {
+    expect(fieldAtPath(schema, doc, 'sections.0.heading')?.field.type).toBe('text')
+    expect(fieldAtPath(schema, doc, 'sections.0.section.background')?.field.type).toBe('select')
+    const cta = fieldAtPath(schema, doc, 'sections.0.ctas.0.label')
+    expect(cta?.field.name).toBe('label')
+    expect(cta?.blockPath).toBe('sections.0')
+    expect(cta?.block?.slug).toBe('hero')
+    expect(fieldAtPath(schema, doc, 'sections.1.images.0.image')?.field.type).toBe('upload')
+    expect(fieldAtPath(schema, doc, 'sections.9.heading')).toBeNull()
+  })
+  it('builds new blocks from defaults and minRows', () => {
+    const hero = newBlockRow(schema[1].blocks![0])
+    expect(hero).toMatchObject({
+      blockType: 'hero',
+      heading: 'Heading',
+      section: { background: 'white' },
+      ctas: [],
+    })
+    expect(typeof hero.id).toBe('string')
+    const gallery = newBlockRow(schema[1].blocks![1]) as { images: unknown[] }
+    expect(gallery.images).toHaveLength(1)
+    expect(defaultsFor([])).toEqual({})
+  })
+  it('clones rows with new row ids but keeps related-document ids', () => {
+    const heroFields = schema[1].blocks![0].fields
+    const copy = cloneRow(doc.sections[0], heroFields) as any
+    expect(copy.id).not.toBe('a1')
+    expect(copy.ctas[0].id).not.toBe('c1')
+    expect(copy.ctas[0].label).toBe('Go')
+    expect(copy.image.id).toBe(7)
+  })
+  it('normalizes populated uploads to ids for saving, keeping row ids', () => {
+    const out = normalizeValue(doc.sections, schema[1]) as any[]
+    expect(out[0].image).toBe(7)
+    expect(out[0].id).toBe('a1')
+    expect(out[1].images[0]).toEqual({ id: 'g1', image: 8 })
+    expect(buildPatch(doc as any, ['sections'], schema).sections).toEqual(out)
+  })
+  it('reports changed top-level keys only', () => {
+    const next = setAt(doc, 'sections.0.heading', 'Hello')
+    expect(changedKeys(doc as any, next as any, ['title', 'sections'])).toEqual(['sections'])
+    expect(changedKeys(doc as any, { ...doc } as any, ['sections'])).toEqual([])
+  })
+})
 
-describe("AutosaveQueue", () => {
+describe('AutosaveQueue', () => {
   function harness(results: SendResult[]) {
-    const timers: Array<{ fn: () => void; ms: number }> = [];
-    const sent: Array<Record<string, unknown>> = [];
-    const states: SaveState[] = [];
+    const timers: Array<{ fn: () => void; ms: number }> = []
+    const sent: Array<Record<string, unknown>> = []
+    const states: SaveState[] = []
     const q = new AutosaveQueue({
       delay: 800,
       send: async (patch) => {
-        sent.push(patch);
-        return results.shift() ?? { ok: true };
+        sent.push(patch)
+        return results.shift() ?? { ok: true }
       },
       onState: (s) => states.push(s),
       setTimer: (fn, ms) => {
-        const t = { fn, ms };
-        timers.push(t);
-        return t;
+        const t = { fn, ms }
+        timers.push(t)
+        return t
       },
       clearTimer: (h) => {
-        const i = timers.indexOf(h as any);
-        if (i >= 0) timers.splice(i, 1);
+        const i = timers.indexOf(h as any)
+        if (i >= 0) timers.splice(i, 1)
       },
-    });
+    })
     const tick = async () => {
-      const t = timers.shift();
-      t?.fn();
-      await new Promise((r) => setTimeout(r, 0));
-      return t;
-    };
-    return { q, sent, states, timers, tick };
+      const t = timers.shift()
+      t?.fn()
+      await new Promise((r) => setTimeout(r, 0))
+      return t
+    }
+    return { q, sent, states, timers, tick }
   }
 
-  it("debounces and merges patches into one request", async () => {
-    const h = harness([]);
-    h.q.schedule({ title: "a" });
-    h.q.schedule({ title: "b", sections: [] });
-    expect(h.timers).toHaveLength(1);
-    await h.tick();
-    expect(h.sent).toEqual([{ title: "b", sections: [] }]);
-    expect(h.q.current.status).toBe("saved");
-  });
+  it('debounces and merges patches into one request', async () => {
+    const h = harness([])
+    h.q.schedule({ title: 'a' })
+    h.q.schedule({ title: 'b', sections: [] })
+    expect(h.timers).toHaveLength(1)
+    await h.tick()
+    expect(h.sent).toEqual([{ title: 'b', sections: [] }])
+    expect(h.q.current.status).toBe('saved')
+  })
 
-  it("freezes on a 409 conflict", async () => {
-    const h = harness([{ ok: false, status: 409, message: "stale" }]);
-    h.q.schedule({ title: "x" });
-    await h.tick();
-    expect(h.q.current.status).toBe("conflict");
-    h.q.schedule({ title: "y" });
-    expect(h.timers).toHaveLength(0);
-  });
+  it('freezes on a 409 conflict', async () => {
+    const h = harness([{ ok: false, status: 409, message: 'stale' }])
+    h.q.schedule({ title: 'x' })
+    await h.tick()
+    expect(h.q.current.status).toBe('conflict')
+    h.q.schedule({ title: 'y' })
+    expect(h.timers).toHaveLength(0)
+  })
 
-  it("retries other failures with backoff, then reports an error", async () => {
-    const h = harness([{ ok: false, status: 500 }, { ok: false, status: 500 }]);
-    const q2 = h.q;
-    q2.schedule({ title: "x" });
-    await h.tick();
-    expect(h.timers[0].ms).toBe(1000);
-    await h.tick();
-    expect(h.timers[0].ms).toBe(2000);
-    await h.tick();
-    expect(h.q.current.status).toBe("saved");
-    expect(h.sent).toHaveLength(3);
-  });
+  it('retries other failures with backoff, then reports an error', async () => {
+    const h = harness([
+      { ok: false, status: 500 },
+      { ok: false, status: 500 },
+    ])
+    const q2 = h.q
+    q2.schedule({ title: 'x' })
+    await h.tick()
+    expect(h.timers[0].ms).toBe(1000)
+    await h.tick()
+    expect(h.timers[0].ms).toBe(2000)
+    await h.tick()
+    expect(h.q.current.status).toBe('saved')
+    expect(h.sent).toHaveLength(3)
+  })
 
-  it("flush sends immediately and waits", async () => {
-    const h = harness([]);
-    h.q.schedule({ a: 1 });
-    await h.q.flush();
-    expect(h.sent).toEqual([{ a: 1 }]);
-    expect(h.timers).toHaveLength(0);
-  });
-});
+  it('flush sends immediately and waits', async () => {
+    const h = harness([])
+    h.q.schedule({ a: 1 })
+    await h.q.flush()
+    expect(h.sent).toEqual([{ a: 1 }])
+    expect(h.timers).toHaveLength(0)
+  })
+})

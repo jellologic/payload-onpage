@@ -9,7 +9,7 @@
  *    horizontalrule…) is carried through untouched and shown as a locked chip,
  *    so editing a paragraph never loses an image or embed.
  */
-import React from 'react';
+import React from 'react'
 import {
   DecoratorNode,
   ElementNode,
@@ -18,164 +18,168 @@ import {
   type SerializedElementNode,
   type SerializedLexicalNode,
   type Spread,
-} from 'lexical';
+} from 'lexical'
 
 export interface PayloadLinkFields {
-  url?: string;
-  newTab?: boolean;
-  linkType?: string;
-  [key: string]: unknown;
+  url?: string
+  newTab?: boolean
+  linkType?: string
+  [key: string]: unknown
 }
 
 export type SerializedPayloadLinkNode = Spread<
   { type: 'link'; version: number; fields: PayloadLinkFields; id?: string },
   SerializedElementNode
->;
+>
 
 export class PayloadLinkNode extends ElementNode {
-  __fields: PayloadLinkFields;
-  __linkId?: string;
+  __fields: PayloadLinkFields
+  __linkId?: string
 
-  static getType(): string {
-    return 'link';
+  static override getType(): string {
+    return 'link'
   }
 
-  static clone(node: PayloadLinkNode): PayloadLinkNode {
-    return new PayloadLinkNode({ ...node.__fields }, node.__linkId, node.__key);
+  static override clone(node: PayloadLinkNode): PayloadLinkNode {
+    return new PayloadLinkNode({ ...node.__fields }, node.__linkId, node.__key)
   }
 
   constructor(fields: PayloadLinkFields = {}, id?: string, key?: NodeKey) {
-    super(key);
-    this.__fields = fields;
-    this.__linkId = id;
+    super(key)
+    this.__fields = fields
+    this.__linkId = id
   }
 
-  createDOM(): HTMLElement {
-    const a = document.createElement('a');
-    a.href = this.__fields.url || '#';
-    if (this.__fields.newTab) a.target = '_blank';
-    a.addEventListener('click', (e) => e.preventDefault());
-    return a;
+  override createDOM(): HTMLElement {
+    const a = document.createElement('a')
+    a.href = this.__fields.url || '#'
+    if (this.__fields.newTab) a.target = '_blank'
+    a.addEventListener('click', (e) => e.preventDefault())
+    return a
   }
 
-  updateDOM(prev: PayloadLinkNode, dom: HTMLElement): boolean {
-    if (prev.__fields.url !== this.__fields.url) (dom as HTMLAnchorElement).href = this.__fields.url || '#';
-    return false;
+  override updateDOM(prev: PayloadLinkNode, dom: HTMLElement): boolean {
+    if (prev.__fields.url !== this.__fields.url)
+      (dom as HTMLAnchorElement).href = this.__fields.url || '#'
+    return false
   }
 
-  static importJSON(json: SerializedPayloadLinkNode): PayloadLinkNode {
-    return $createPayloadLinkNode(json.fields ?? {}, json.id).updateFromJSON(json);
+  static override importJSON(json: SerializedPayloadLinkNode): PayloadLinkNode {
+    return $createPayloadLinkNode(json.fields ?? {}, json.id).updateFromJSON(json)
   }
 
-  exportJSON(): SerializedPayloadLinkNode {
+  override exportJSON(): SerializedPayloadLinkNode {
     return {
       ...super.exportJSON(),
       type: 'link',
       version: 3,
       fields: { ...this.getLatest().__fields },
       ...(this.getLatest().__linkId ? { id: this.getLatest().__linkId } : {}),
-    };
+    }
   }
 
   getFields(): PayloadLinkFields {
-    return this.getLatest().__fields;
+    return this.getLatest().__fields
   }
 
   setFields(fields: PayloadLinkFields): this {
-    const writable = this.getWritable();
-    writable.__fields = fields;
-    return writable;
+    const writable = this.getWritable()
+    writable.__fields = fields
+    return writable
   }
 
-  isInline(): boolean {
-    return true;
+  override isInline(): boolean {
+    return true
   }
 
-  canBeEmpty(): boolean {
-    return false;
+  override canBeEmpty(): boolean {
+    return false
   }
 
-  canInsertTextBefore(): boolean {
-    return false;
+  override canInsertTextBefore(): boolean {
+    return false
   }
 
-  canInsertTextAfter(): boolean {
-    return false;
+  override canInsertTextAfter(): boolean {
+    return false
   }
 }
 
 export function $createPayloadLinkNode(fields: PayloadLinkFields, id?: string): PayloadLinkNode {
-  return new PayloadLinkNode(fields, id);
+  return new PayloadLinkNode(fields, id)
 }
 
 export function $isPayloadLinkNode(node: LexicalNode | null | undefined): node is PayloadLinkNode {
-  return node instanceof PayloadLinkNode;
+  return node instanceof PayloadLinkNode
 }
 
 // ── Opaque ───────────────────────────────────────────────────────────────
 
-export const OPAQUE_TYPE = 'onpage-opaque';
-const INLINE_TYPES = new Set(['inlineBlock', 'autolink']);
+export const OPAQUE_TYPE = 'onpage-opaque'
+const INLINE_TYPES = new Set(['inlineBlock', 'autolink'])
 
-export type SerializedOpaqueNode = Spread<{ type: typeof OPAQUE_TYPE; version: 1; data: Record<string, any> }, SerializedLexicalNode>;
+export type SerializedOpaqueNode = Spread<
+  { type: typeof OPAQUE_TYPE; version: 1; data: Record<string, any> },
+  SerializedLexicalNode
+>
 
 export function describeNode(data: Record<string, any>): string {
   switch (data?.type) {
     case 'upload':
-      return `Image${data.value?.filename ? ` · ${data.value.filename}` : ''} — edit in admin`;
+      return `Image${data.value?.filename ? ` · ${data.value.filename}` : ''} — edit in admin`
     case 'horizontalrule':
-      return 'Divider';
+      return 'Divider'
     case 'block':
     case 'inlineBlock':
-      return `${data.fields?.blockType ?? 'Block'} — edit in admin`;
+      return `${data.fields?.blockType ?? 'Block'} — edit in admin`
     case 'relationship':
-      return 'Linked document — edit in admin';
+      return 'Linked document — edit in admin'
     default:
-      return `${data?.type ?? 'Content'} — edit in admin`;
+      return `${data?.type ?? 'Content'} — edit in admin`
   }
 }
 
 export class OpaqueNode extends DecoratorNode<React.ReactNode> {
-  __data: Record<string, any>;
+  __data: Record<string, any>
 
-  static getType(): string {
-    return OPAQUE_TYPE;
+  static override getType(): string {
+    return OPAQUE_TYPE
   }
 
-  static clone(node: OpaqueNode): OpaqueNode {
-    return new OpaqueNode(node.__data, node.__key);
+  static override clone(node: OpaqueNode): OpaqueNode {
+    return new OpaqueNode(node.__data, node.__key)
   }
 
   constructor(data: Record<string, any>, key?: NodeKey) {
-    super(key);
-    this.__data = data;
+    super(key)
+    this.__data = data
   }
 
-  createDOM(): HTMLElement {
-    return document.createElement(this.isInline() ? 'span' : 'div');
+  override createDOM(): HTMLElement {
+    return document.createElement(this.isInline() ? 'span' : 'div')
   }
 
-  updateDOM(): boolean {
-    return false;
+  override updateDOM(): boolean {
+    return false
   }
 
-  isInline(): boolean {
-    return INLINE_TYPES.has(this.__data?.type);
+  override isInline(): boolean {
+    return INLINE_TYPES.has(this.__data?.type)
   }
 
-  static importJSON(json: SerializedOpaqueNode): OpaqueNode {
-    return new OpaqueNode(json.data);
+  static override importJSON(json: SerializedOpaqueNode): OpaqueNode {
+    return new OpaqueNode(json.data)
   }
 
-  exportJSON(): SerializedOpaqueNode {
-    return { type: OPAQUE_TYPE, version: 1, data: this.getLatest().__data };
+  override exportJSON(): SerializedOpaqueNode {
+    return { type: OPAQUE_TYPE, version: 1, data: this.getLatest().__data }
   }
 
-  decorate(): React.ReactNode {
+  override decorate(): React.ReactNode {
     return (
       <span className="po-opaque" contentEditable={false} data-testid="onpage-opaque">
         ⧉ {describeNode(this.__data)}
       </span>
-    );
+    )
   }
 }

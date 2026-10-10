@@ -8,13 +8,18 @@
  * shape; nodes it doesn't edit (uploads, blocks, relationships…) are kept
  * as-is and shown as placeholders.
  */
-import type { EditorRegistry } from '@payload-onpage/react';
-import { InlineRichText } from './InlineRichText.tsx';
+import type { EditorRegistry } from '@payload-onpage/react'
+import { InlineRichText } from './InlineRichText.tsx'
 
 export const lexicalEditors: EditorRegistry = {
   richText: { mode: 'inline', component: InlineRichText },
-};
+}
 
-export { InlineRichText, RICH_TEXT_NODES } from './InlineRichText.tsx';
-export { toEditorState, fromEditorState, plainText, type RichTextState } from './convert.ts';
-export { PayloadLinkNode, OpaqueNode, $createPayloadLinkNode, $isPayloadLinkNode } from './nodes.tsx';
+export { InlineRichText, RICH_TEXT_NODES } from './InlineRichText.tsx'
+export { toEditorState, fromEditorState, plainText, type RichTextState } from './convert.ts'
+export {
+  PayloadLinkNode,
+  OpaqueNode,
+  $createPayloadLinkNode,
+  $isPayloadLinkNode,
+} from './nodes.tsx'

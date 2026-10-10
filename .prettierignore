@@ -1,0 +1,9 @@
+dist
+node_modules
+.next
+*.tsbuildinfo
+examples/basic/src/app/(payload)/admin/importMap.js
+examples/basic/src/payload-types.ts
+examples/basic/src/migrations
+bun.lock
+TRIAGE_PLAN.md

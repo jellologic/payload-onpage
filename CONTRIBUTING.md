@@ -14,14 +14,14 @@ bun run dev:example  # example site at http://localhost:3100 (SQLite, seeds itse
 
 ## Layout
 
-| Path | What |
-|---|---|
-| `packages/core` | Framework-free logic and the port interfaces. No React, no Payload runtime. |
-| `packages/plugin` | The Payload plugin (server). |
-| `packages/react` | Editor UI, field editors, locators, annotations. |
-| `packages/next` | Next.js adapter (session, `<OnPage />`, refresh renderer, proxy). |
-| `packages/lexical` | Rich-text field editor. |
-| `examples/basic` | Runnable example; also the manual end-to-end test bed. |
+| Path               | What                                                                        |
+| ------------------ | --------------------------------------------------------------------------- |
+| `packages/core`    | Framework-free logic and the port interfaces. No React, no Payload runtime. |
+| `packages/plugin`  | The Payload plugin (server).                                                |
+| `packages/react`   | Editor UI, field editors, locators, annotations.                            |
+| `packages/next`    | Next.js adapter (session, `<OnPage />`, refresh renderer, proxy).           |
+| `packages/lexical` | Rich-text field editor.                                                     |
+| `examples/basic`   | Runnable example; also the manual end-to-end test bed.                      |
 
 ## Conventions
 

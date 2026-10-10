@@ -1,0 +1,26 @@
+{
+  // Type-checks tests (and sources) without emitting. Package tsconfigs exclude __tests__.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "sourceMap": false,
+    "types": ["node"],
+    "paths": {
+      "@payload-onpage/core": ["./packages/core/src/index.ts"],
+      "@payload-onpage/plugin": ["./packages/plugin/src/index.ts"],
+      "@payload-onpage/plugin/admin": ["./packages/plugin/src/admin/index.ts"],
+      "@payload-onpage/react": ["./packages/react/src/index.ts"],
+      "@payload-onpage/react/annotations": ["./packages/react/src/annotations.ts"],
+      "@payload-onpage/react/client": ["./packages/react/src/OnPageClient.tsx"],
+      "@payload-onpage/lexical": ["./packages/lexical/src/index.ts"],
+      "@payload-onpage/next": ["./packages/next/src/index.tsx"],
+      "@payload-onpage/next/client": ["./packages/next/src/client.tsx"],
+      "@payload-onpage/next/session": ["./packages/next/src/session.ts"],
+      "@payload-onpage/next/proxy": ["./packages/next/src/proxy.ts"]
+    }
+  },
+  "include": ["packages/*/src", "vitest.config.ts", "vitest.setup.ts"]
+}

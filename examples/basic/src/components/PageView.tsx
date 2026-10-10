@@ -12,14 +12,21 @@ type Doc = Record<string, any>
 
 const ICONS: Record<string, string> = { star: '★', bolt: '⚡', heart: '♥' }
 const date = (iso?: string | null) =>
-  iso ? new Intl.DateTimeFormat('en-US', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(iso)) : 'No date'
+  iso
+    ? new Intl.DateTimeFormat('en-US', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(iso))
+    : 'No date'
 
 export function PageView({ page, e }: { page: Doc; e: Editable }) {
-  const author = page.author && typeof page.author === 'object' ? page.author.name || page.author.email : null
+  const author =
+    page.author && typeof page.author === 'object' ? page.author.name || page.author.email : null
   return (
     <main style={{ ['--accent' as string]: page.accent || '#4f46e5' }} data-testid="page">
       <div className="meta">
-        <span className="swatch" title="Accent color" {...e.field('accent', 'field', 'Accent color')} />
+        <span
+          className="swatch"
+          title="Accent color"
+          {...e.field('accent', 'field', 'Accent color')}
+        />
         <span {...e.field('publishedAt', 'field', 'Publish date')}>{date(page.publishedAt)}</span>
         <span>·</span>
         <span {...e.field('author', 'field', 'Author')}>{author ?? 'No author'}</span>
