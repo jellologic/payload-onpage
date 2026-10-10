@@ -5,12 +5,17 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
-/** Package boundaries: what each package must not import. */
-const boundary = (patterns) => ({
+/** Package boundaries: modules each package must not import (anchored, so "payload" ≠ "core/payload"). */
+const boundary = (names) => ({
   'no-restricted-imports': [
     'error',
     {
-      patterns: [{ group: patterns, message: 'Crosses a package boundary (see CONTRIBUTING.md).' }],
+      patterns: [
+        {
+          regex: `^(${names.map((n) => n.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&').replace('\\*', '.*')).join('|')})(/.*)?$`,
+          message: 'Crosses a package boundary (see CONTRIBUTING.md).',
+        },
+      ],
     },
   ],
 })
