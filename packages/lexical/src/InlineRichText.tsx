@@ -390,12 +390,17 @@ function Bridge({
       () =>
         (raf = requestAnimationFrame(() => {
           const hit = point ? caretAt(point, root) : null
-          editor.update(() => {
-            const node = hit ? $getNearestNodeFromDOMNode(hit.node) : null
-            if (node && $isTextNode(node)) node.select(hit!.offset, hit!.offset)
-            else $getRoot().selectEnd()
-          })
+          // Focus first: Lexical may restore its own selection on focus, which would
+          // undo the caret placement if it came before.
           root.focus({ preventScroll: true })
+          editor.update(
+            () => {
+              const node = hit ? $getNearestNodeFromDOMNode(hit.node) : null
+              if (node && $isTextNode(node)) node.select(hit!.offset, hit!.offset)
+              else $getRoot().selectEnd()
+            },
+            { discrete: true },
+          )
         })),
     )
     return () => cancelAnimationFrame(raf)

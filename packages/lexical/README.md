@@ -6,7 +6,7 @@ Inline rich-text editing for Payload's Lexical `richText` fields. Reads and writ
 import { lexicalEditors } from '@payload-onpage/lexical' // included by @payload-onpage/next by default
 ```
 
-Peers: `lexical` and `@lexical/*` `~0.41.0`, the versions Payload's `@payloadcms/richtext-lexical` uses. Entries: `.` (registry, converters), `./editor` (component and nodes).
+Peers: `lexical` and `@lexical/*` `~0.50.0`, the versions Payload 3.90's `@payloadcms/richtext-lexical` uses. Entries: `.` (registry, converters), `./editor` (component and nodes).
 
 Part of [**payload-onpage**](https://github.com/jellologic/payload-onpage): on-page editing and draft previews for Payload CMS + Next.js. Start with the [getting started guide](https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started.md).
 

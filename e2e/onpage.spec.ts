@@ -93,6 +93,8 @@ test('rich text', async ({ context }) => {
   const box = (await p.boundingBox())!
   await page.mouse.click(box.x + 1, box.y + box.height / 2)
   await expect(page.getByRole('toolbar', { name: 'Text formatting' })).toBeVisible()
+  // The editor places the caret at the click point once its surface is in place (then focuses it).
+  await expect(page.locator('.po-rt-surface')).toBeFocused()
   await page.keyboard.type('Rich ')
   await page.getByTestId('onpage-rt-done').click()
   await expect(p).toContainText('Rich ')
