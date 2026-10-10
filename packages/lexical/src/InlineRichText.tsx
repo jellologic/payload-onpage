@@ -44,6 +44,7 @@ import {
   UNDO_COMMAND,
   type LexicalEditor,
 } from 'lexical'
+import { safeLinkUrl } from '@payload-onpage/core'
 import {
   HIDDEN,
   caretAt,
@@ -119,8 +120,10 @@ function currentLinkUrl(editor: LexicalEditor): string | undefined {
 }
 
 /** Link the selection to `url`; an empty url removes the link around it. */
-function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection | null) {
+/** Link the selection; returns false (and changes nothing) for an unsafe URL such as `javascript:`. */
+function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection | null): boolean {
   const url = rawUrl.trim()
+  if (url && !safeLinkUrl(url)) return false
   editor.update(() => {
     // Focus moved to the URL field; put back the selection it was opened for.
     if (saved) $setSelection(saved.clone())
@@ -149,6 +152,7 @@ function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection |
       link.append(node)
     }
   })
+  return true
 }
 
 function Toolbar({ onDone }: { onDone: () => void }) {
@@ -162,6 +166,7 @@ function Toolbar({ onDone }: { onDone: () => void }) {
   })
   const [linkDraft, setLinkDraft] = useState<string | null>(null)
   const savedSelection = useRef<BaseSelection | null>(null)
+  const [linkError, setLinkError] = useState(false)
   const openLink = () => {
     editor.getEditorState().read(() => {
       savedSelection.current = $getSelection()?.clone() ?? null
@@ -170,7 +175,11 @@ function Toolbar({ onDone }: { onDone: () => void }) {
   }
   const saveLink = () => {
     if (linkDraft === null) return
-    applyLink(editor, linkDraft === 'https://' ? '' : linkDraft, savedSelection.current)
+    if (!applyLink(editor, linkDraft === 'https://' ? '' : linkDraft, savedSelection.current)) {
+      setLinkError(true)
+      return
+    }
+    setLinkError(false)
     setLinkDraft(null)
     editor.focus()
   }
@@ -264,6 +273,8 @@ function Toolbar({ onDone }: { onDone: () => void }) {
             className="po-input"
             style={{ width: 260, height: 28 }}
             value={linkDraft}
+            aria-invalid={linkError || undefined}
+            title={linkError ? 'Use an https://, mailto:, tel: or relative link' : undefined}
             autoFocus
             placeholder="https://… or /page (empty removes the link)"
             onChange={(e) => setLinkDraft(e.target.value)}

@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react'
 import type { DocumentState } from '@payload-onpage/core'
 import { useOnPage } from './context.tsx'
+import { PostButton } from './PostButton.tsx'
 
 function ago(ts?: number): string {
   if (!ts) return ''
@@ -83,10 +84,11 @@ export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null 
       !res.ok,
     )
   }
+  const createLink = session.dataSource.createPreviewLink?.bind(session.dataSource)
   const share = async () => {
-    if (!links.previewLink || !primary) return
+    if (!createLink || !primary) return
     try {
-      const { url, expiresAt } = await links.previewLink(primary.ref)
+      const { url, expiresAt } = await createLink(primary.ref, { locale: session.locale })
       await navigator.clipboard.writeText(url)
       notify(
         `Preview link copied${expiresAt ? ` — valid until ${new Date(expiresAt).toLocaleDateString()}` : ''}`,
@@ -158,16 +160,15 @@ export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null 
         </button>
         <span className="po-sep" />
         {links.mode && (
-          <a
-            className="po-btn"
-            href={links.mode('view')}
+          <PostButton
+            action={links.mode('view')}
             title="See the draft without editing tools"
-            data-testid="onpage-preview"
+            testId="onpage-preview"
           >
             Preview
-          </a>
+          </PostButton>
         )}
-        {links.previewLink && primary && (
+        {createLink && primary && (
           <button
             className="po-btn"
             onClick={share}
@@ -207,9 +208,9 @@ export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null 
             Admin
           </a>
         )}
-        <a className="po-btn" href={links.exit} data-testid="onpage-exit">
+        <PostButton action={links.exit} testId="onpage-exit">
           Exit
-        </a>
+        </PostButton>
         <button
           className="po-btn po-primary"
           disabled={!ready.length || publishing || !!conflict}

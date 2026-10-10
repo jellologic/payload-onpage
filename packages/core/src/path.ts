@@ -84,12 +84,47 @@ export function newRowId(): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-/** Only same-site, absolute paths: "/x", not "//evil.com", "https://…" or "/\\evil.com". */
-export function isSafePath(path: unknown): path is string {
-  return (
-    typeof path === 'string' &&
-    path.startsWith('/') &&
-    !path.startsWith('//') &&
-    !path.includes('\\')
-  )
+/**
+ * A same-origin site path ("/about?x=1#top"), or null. Rejects protocol-relative
+ * and absolute URLs, backslashes, control characters and their percent-encoded
+ * forms: anything a browser could resolve to another origin.
+ */
+export function safePath(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw.startsWith('/') || raw.length > 2048) return null
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f\\]/.test(raw) || /%(?:0[0-9a-f]|1[0-9a-f]|7f|5c)/i.test(raw))
+    return null
+  const origin = 'https://onpage.invalid'
+  let url: URL
+  try {
+    url = new URL(raw, origin)
+  } catch {
+    return null
+  }
+  if (url.origin !== origin || raw.startsWith('//')) return null
+  return `${url.pathname}${url.search}${url.hash}`
+}
+
+/** The path part only ("/about" for "/about?x#y"), for cookie scopes and comparisons. */
+export const pathnameOf = (path: string): string => path.split(/[?#]/)[0] || '/'
+
+/** Same page, ignoring a trailing slash. */
+export const samePath = (a: string, b: string): boolean => {
+  const trim = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : p)
+  return trim(pathnameOf(a)) === trim(pathnameOf(b))
+}
+
+/**
+ * A link target safe to store and render: http(s), mailto, tel, or a relative
+ * URL ("/x", "#id", "?q", "./x"). Rejects javascript:, data:, vbscript: and any
+ * other scheme, and control characters. Returns the trimmed URL or null.
+ */
+export function safeLinkUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const url = raw.trim()
+  // eslint-disable-next-line no-control-regex
+  if (!url || url.length > 2048 || /[\u0000-\u001f\u007f]/.test(url)) return null
+  if (/^(?:\/(?!\/)|#|\?|\.\.?\/)/.test(url)) return url
+  const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(url)?.[1]?.toLowerCase()
+  return scheme && ['http', 'https', 'mailto', 'tel'].includes(scheme) ? url : null
 }

@@ -3,7 +3,7 @@
 /** The lazily loaded part of the Next adapter: the editor and the preview toolbar, wired to Next and Payload. */
 import React, { useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation.js'
-import { payloadRest, payloadUploads, type DocRef } from '@payload-onpage/core'
+import { DEFAULTS, payloadRest, payloadUploads, type DocRef } from '@payload-onpage/core'
 import { OnPageEditor, PreviewToolbar, inPreviewFrame, type Links } from '@payload-onpage/react'
 import { lexicalEditors } from '@payload-onpage/lexical'
 import type { OnPageMountProps } from './client.tsx'
@@ -16,11 +16,11 @@ function useHere(): string {
   return `${pathname}${qs ? `?${qs}` : ''}`
 }
 
-function useLinks(props: OnPageMountProps, locale?: string): Links {
+function useLinks(props: OnPageMountProps): Links {
   const here = useHere()
-  const api = props.apiRoute ?? '/api'
-  const base = `${api}${props.prefix ?? '/onpage'}`
-  const admin = props.adminRoute ?? '/admin'
+  const api = props.apiRoute ?? DEFAULTS.apiRoute
+  const base = `${api}${props.prefix ?? DEFAULTS.routePrefix}`
+  const admin = props.adminRoute ?? DEFAULTS.adminRoute
   return useMemo<Links>(
     () => ({
       exit: `${base}/exit?path=${encodeURIComponent(here)}`,
@@ -29,25 +29,8 @@ function useLinks(props: OnPageMountProps, locale?: string): Links {
         ref.kind === 'global'
           ? `${admin}/globals/${ref.slug}`
           : `${admin}/collections/${ref.slug}/${ref.id}`,
-      previewLink: async (ref: DocRef) => {
-        const res = await fetch(`${base}/preview-link`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            kind: ref.kind,
-            slug: ref.slug,
-            id: ref.kind === 'collection' ? ref.id : undefined,
-            locale,
-            path: here.split('?')[0],
-          }),
-        })
-        const body = await res.json().catch(() => ({}))
-        if (!res.ok) throw new Error(body?.error ?? res.statusText)
-        return body
-      },
     }),
-    [base, admin, here, locale],
+    [base, admin, here],
   )
 }
 
@@ -56,9 +39,9 @@ const htmlLang = () =>
 
 export function NextEditor(props: OnPageMountProps) {
   const locale = props.locale ?? htmlLang()
-  const links = useLinks(props, locale)
+  const links = useLinks(props)
   const renderer = useNextRefresh()
-  const api = props.apiRoute ?? '/api'
+  const api = props.apiRoute ?? DEFAULTS.apiRoute
   const dataSource = useMemo(
     () => props.dataSource ?? payloadRest({ apiBase: api, prefix: props.prefix }),
     [props.dataSource, api, props.prefix],
@@ -80,7 +63,7 @@ export function NextEditor(props: OnPageMountProps) {
 }
 
 export function NextPreview(props: OnPageMountProps) {
-  const links = useLinks(props, props.locale ?? htmlLang())
+  const links = useLinks(props)
   return (
     <PreviewToolbar
       exitHref={links.exit}

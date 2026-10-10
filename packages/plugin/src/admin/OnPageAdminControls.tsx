@@ -1,47 +1,57 @@
 'use client'
 
 /**
- * Document controls added by payload-onpage: open this document on the site in
- * edit or preview mode, or copy a signed read-only preview link to share.
+ * Document controls added by payload-onpage: open this document's page in edit
+ * mode, or copy a sealed read-only preview link. Hidden for users who can't
+ * update the document.
  */
-import React, { useState } from 'react'
-import { Button, toast, useDocumentInfo, useLocale } from '@payloadcms/ui'
+import { payloadRest } from '@payload-onpage/core'
+import { Button, toast, useConfig, useDocumentInfo, useLocale } from '@payloadcms/ui'
+import { useMemo, useState } from 'react'
 
 export interface OnPageAdminControlsProps {
   kind: 'collection' | 'global'
   slug: string
-  apiRoute: string
+  /** Plugin endpoint prefix (`routePrefix`). */
   prefix: string
 }
 
-export function OnPageAdminControls({ kind, slug, apiRoute, prefix }: OnPageAdminControlsProps) {
-  const { id } = useDocumentInfo()
+/**
+ * Same-origin POST (the endpoint refuses cross-site requests) opened in a new tab.
+ * A detached form: these controls render inside the admin's document <form>, and forms can't nest.
+ */
+function postInNewTab(action: string) {
+  const form = document.createElement('form')
+  form.method = 'post'
+  form.action = action
+  form.target = '_blank'
+  document.body.appendChild(form)
+  form.submit()
+  form.remove()
+}
+
+export function OnPageAdminControls({ kind, slug, prefix }: OnPageAdminControlsProps) {
+  const { id, hasSavePermission } = useDocumentInfo()
+  const { config } = useConfig()
   const locale = useLocale()
   const [busy, setBusy] = useState(false)
-  if (kind === 'collection' && !id) return null // not saved yet
+  const apiBase = `${config.serverURL ?? ''}${config.routes.api}`
+  const dataSource = useMemo(() => payloadRest({ apiBase, prefix }), [apiBase, prefix])
 
-  const base = `${apiRoute}${prefix}`
-  const query = (mode: 'edit' | 'view') => {
-    const p = new URLSearchParams({ kind, slug, mode })
-    if (kind === 'collection') p.set('id', String(id))
-    if (locale?.code) p.set('locale', locale.code)
-    return p.toString()
-  }
+  if ((kind === 'collection' && !id) || hasSavePermission === false) return null
+
+  const ref = kind === 'global' ? ({ kind, slug } as const) : ({ kind, slug, id: id! } as const)
+  const params = new URLSearchParams({ kind, slug, mode: 'edit' })
+  if (kind === 'collection') params.set('id', String(id))
+  if (locale?.code) params.set('locale', locale.code)
 
   const copyLink = async () => {
     setBusy(true)
     try {
-      const res = await fetch(`${base}/preview-link`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, slug, id, locale: locale?.code }),
-      })
-      const body = await res.json()
-      if (!res.ok) throw new Error(body?.error ?? res.statusText)
-      await navigator.clipboard.writeText(body.url)
+      const link = await dataSource.createPreviewLink!(ref, { locale: locale?.code })
+      await navigator.clipboard.writeText(link.url)
       toast.success(
-        `Preview link copied — valid until ${new Date(body.expiresAt).toLocaleDateString()}`,
+        `Preview link copied — valid until ${new Date(link.expiresAt).toLocaleString()}`,
       )
     } catch (e) {
       toast.error(`Couldn't create a preview link: ${(e as Error).message}`)
@@ -56,9 +66,7 @@ export function OnPageAdminControls({ kind, slug, apiRoute, prefix }: OnPageAdmi
       <Button
         buttonStyle="secondary"
         size="medium"
-        el="anchor"
-        url={`${base}/enter?${query('edit')}`}
-        newTab
+        onClick={() => postInNewTab(`${apiBase}${prefix}/enter?${params}`)}
         extraButtonProps={{ style, 'data-testid': 'onpage-edit-on-page' }}
       >
         Edit on page
@@ -66,7 +74,7 @@ export function OnPageAdminControls({ kind, slug, apiRoute, prefix }: OnPageAdmi
       <Button
         buttonStyle="subtle"
         size="medium"
-        onClick={copyLink}
+        onClick={() => void copyLink()}
         disabled={busy}
         tooltip="Copy a read-only link to this draft"
         extraButtonProps={{ style, 'data-testid': 'onpage-copy-preview-link' }}

@@ -1,52 +1,46 @@
 /**
- * Signed, expiring preview tokens (HMAC-SHA256 over a JSON payload), so a
- * draft can be shared read-only with people who can't sign in.
+ * Preview-link tokens: sealed (AES-GCM) and expiring, bound to one document
+ * and path. Opaque to the holder, so the link reveals nothing about the draft.
  */
-import { createHmac, timingSafeEqual } from 'node:crypto'
+import { SEAL_PURPOSE, seal, unseal } from '@payload-onpage/core'
 
 export interface PreviewTokenPayload {
   /** refKey of the shared document */
   ref: string
-  /** site path the link opens */
+  /** Site path the link opens. */
   path: string
   locale?: string
-  /** expiry, seconds since epoch */
+  /** Issued at / expires at, seconds since epoch. */
+  iat: number
   exp: number
+  /** Unique id, for audit logs and revocation lists. */
+  jti: string
 }
 
-const b64url = (buf: Buffer | string) => Buffer.from(buf).toString('base64url')
-
-function sign(data: string, secret: string): string {
-  return createHmac('sha256', `payload-onpage:${secret}`).update(data).digest('base64url')
-}
-
-export function createPreviewToken(
-  payload: Omit<PreviewTokenPayload, 'exp'>,
+export async function createPreviewToken(
+  payload: Pick<PreviewTokenPayload, 'ref' | 'path' | 'locale'>,
   secret: string,
   ttlSeconds: number,
   now = Date.now(),
-): string {
-  const body = b64url(JSON.stringify({ ...payload, exp: Math.floor(now / 1000) + ttlSeconds }))
-  return `${body}.${sign(body, secret)}`
+): Promise<{ token: string; payload: PreviewTokenPayload }> {
+  const iat = Math.floor(now / 1000)
+  const full: PreviewTokenPayload = {
+    ...payload,
+    iat,
+    exp: iat + ttlSeconds,
+    jti: crypto.randomUUID(),
+  }
+  return { token: await seal(full, secret, SEAL_PURPOSE.previewLink), payload: full }
 }
 
-export function verifyPreviewToken(
+export async function verifyPreviewToken(
   token: string,
   secret: string,
   now = Date.now(),
-): PreviewTokenPayload | null {
-  const [body, mac, extra] = String(token ?? '').split('.')
-  if (!body || !mac || extra !== undefined) return null
-  const expected = Buffer.from(sign(body, secret))
-  const given = Buffer.from(mac)
-  if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null
-  let payload: PreviewTokenPayload
-  try {
-    payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
-  } catch {
+): Promise<PreviewTokenPayload | null> {
+  const p = await unseal<PreviewTokenPayload>(token, secret, SEAL_PURPOSE.previewLink)
+  if (!p || typeof p.exp !== 'number' || p.exp * 1000 <= now) return null
+  if (typeof p.path !== 'string' || typeof p.ref !== 'string' || typeof p.jti !== 'string')
     return null
-  }
-  if (typeof payload?.exp !== 'number' || payload.exp * 1000 < now) return null
-  if (typeof payload.path !== 'string' || typeof payload.ref !== 'string') return null
-  return payload
+  return p
 }

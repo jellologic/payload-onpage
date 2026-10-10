@@ -1,112 +1,121 @@
 /**
- * Next.js App Router session: edit/preview mode = Next draft mode + an
- * `onpage` cookie saying which mode.
+ * Next.js App Router session adapter and helpers.
  *
- * Preview links ("view" mode for people who can't sign in) are scoped to one
- * page: Next's draft-mode cookie and the mode cookie are both set with that
- * page's path, so other pages render published content even where the site
- * reads `draftMode()` directly. A site-wide `onpage_link` flag marks the
- * browser as a link viewer; `isDraftEnabled()` adds a second check on top.
+ * Editors: Next draft mode plus an `onpage` cookie saying which mode, bound to
+ * a hash of their auth cookie, so signing out (or in as someone else) ends it.
+ *
+ * Preview links: the browser gets only a sealed grant (`onpage_preview`). The
+ * proxy (./proxy) unseals it and injects draft mode into the request for the
+ * shared page only. The raw Next.js draft secret never reaches the browser.
+ *
+ * All helpers read `draftMode().isEnabled` first and touch cookies only when
+ * draft mode is on. Next exempts that read from prerender bailout, so pages
+ * stay static for visitors.
  */
+import { COOKIE, HEADER, sha256, type OnPageMode, type SessionAdapter } from '@payload-onpage/core'
 import { cookies, draftMode, headers } from 'next/headers.js'
-import type { OnPageMode, SessionAdapter } from '@payload-onpage/core'
-import {
-  BYPASS_COOKIE,
-  LINK_COOKIE,
-  MODE_COOKIE,
-  PATH_HEADER,
-  safeDecode,
-  samePath,
-} from './constants.ts'
-
-export { LINK_COOKIE, MODE_COOKIE, PATH_HEADER }
 
 export interface NextSessionOptions {
-  /** Max age of the edit/preview cookies in seconds. Default: browser session. */
+  /** How long an editor's edit/preview mode lasts, in seconds. Default 12 hours. */
   maxAge?: number
 }
 
+type Jar = Awaited<ReturnType<typeof cookies>>
+
+const HASH_LENGTH = 32
+const fingerprint = async (token: string) => (await sha256(token)).slice(0, HASH_LENGTH)
+
+/** `edit` | `view`, or `<mode>:<authCookie>:<hash>` when bound to a session. */
+async function modeValue(mode: OnPageMode, jar: Jar, bindTo?: string): Promise<string> {
+  const token = bindTo ? jar.get(bindTo)?.value : undefined
+  return token && bindTo ? `${mode}:${bindTo}:${await fingerprint(token)}` : mode
+}
+
+/** The mode a cookie value grants in this request, or null (unknown, or the bound session is gone). */
+async function readMode(raw: string | undefined, jar: Jar): Promise<OnPageMode | null> {
+  if (!raw) return null
+  const [mode, bound, hash] = raw.split(':')
+  if (mode !== 'edit' && mode !== 'view') return null
+  if (bound) {
+    const token = jar.get(bound)?.value
+    if (!token || (await fingerprint(token)) !== hash) return null
+  }
+  return mode
+}
+
 export function nextSession(opts: NextSessionOptions = {}): SessionAdapter {
+  const maxAge = opts.maxAge ?? 12 * 3600
   return {
-    async enable(mode, { secure, path }) {
+    async enable(mode, { secure, bindTo }) {
       ;(await draftMode()).enable()
       const jar = await cookies()
-      const base = {
+      jar.set(COOKIE.mode, await modeValue(mode, jar, bindTo), {
         httpOnly: true,
-        sameSite: 'lax' as const,
+        sameSite: 'lax',
         secure,
-        ...(opts.maxAge ? { maxAge: opts.maxAge } : {}),
-      }
-      if (mode === 'view' && path) {
-        const scope = path.split('?')[0] || '/'
-        // Re-issue Next's draft cookie for this page only.
-        const bypass = jar.get(BYPASS_COOKIE)?.value
-        if (bypass)
-          jar.set(BYPASS_COOKIE, bypass, {
-            httpOnly: true,
-            sameSite: secure ? 'none' : 'lax',
-            secure,
-            path: scope,
-          })
-        jar.set(MODE_COOKIE, 'view', { ...base, path: scope })
-        // The link cookie remembers which page was shared (checked against the request path when known).
-        jar.set(LINK_COOKIE, encodeURIComponent(scope), { ...base, path: '/' })
-      } else {
-        jar.set(MODE_COOKIE, mode, { ...base, path: '/' })
-        jar.delete(LINK_COOKIE)
-      }
+        path: '/',
+        maxAge,
+      })
+      jar.delete(COOKIE.preview)
     },
-    async disable({ path } = {}) {
+    async enableLink({ secure, path: _path, expiresAt, seal }) {
+      ;(await draftMode()).enable()
       const jar = await cookies()
-      if (jar.get(LINK_COOKIE) && path) {
-        // A link viewer's cookies live on the shared page's path; expire them there.
-        // (One Set-Cookie per name per response, so this replaces draftMode().disable().)
-        const scope = path.split('?')[0] || '/'
-        jar.set(BYPASS_COOKIE, '', { path: scope, maxAge: 0 })
-        jar.set(MODE_COOKIE, '', { path: scope, maxAge: 0 })
-      } else {
-        ;(await draftMode()).disable()
-        jar.delete(MODE_COOKIE)
-      }
-      jar.delete(LINK_COOKIE)
+      const draft = jar.get(COOKIE.nextDraft)?.value
+      if (!draft) throw new Error('payload-onpage: Next.js did not set its draft-mode cookie')
+      // Keep the draft secret server-side: the browser only gets the sealed grant.
+      jar.delete(COOKIE.nextDraft)
+      jar.delete(COOKIE.mode)
+      jar.set(COOKIE.preview, await seal(draft), {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure,
+        path: '/',
+        expires: expiresAt,
+      })
+    },
+    async disable() {
+      ;(await draftMode()).disable()
+      const jar = await cookies()
+      jar.delete(COOKIE.mode)
+      jar.delete(COOKIE.preview)
     },
     getMode: getOnPageMode,
   }
 }
 
-/*
- * Static-safe: both helpers read draftMode().isEnabled first and touch cookies()
- * only when draft mode is on. Next exempts the isEnabled read from prerender
- * bailout, so pages stay static for visitors; draft requests render dynamically anyway.
- */
-
-/** "edit", "view" or null for this request. Safe to call outside a request (returns null). */
+/** "edit", "view" or null for this request. Safe to call anywhere (returns null outside a request). */
 export async function getOnPageMode(): Promise<OnPageMode | null> {
   try {
     if (!(await draftMode()).isEnabled) return null
     const jar = await cookies()
-    const v = jar.get(MODE_COOKIE)?.value
-    return v === 'edit' || v === 'view' ? v : null
+    return await readMode(jar.get(COOKIE.mode)?.value, jar)
   } catch {
     return null
   }
 }
 
 /**
- * Should this request render drafts? Like `draftMode().isEnabled`, except a
- * preview-link viewer only sees drafts on the shared page.
+ * Should this request render drafts? `draftMode().isEnabled`, except that an
+ * editor whose session ended (signed out) no longer sees drafts. Draft mode
+ * turned on by something else (your own preview route) is respected.
  */
 export async function isDraftEnabled(): Promise<boolean> {
   try {
     if (!(await draftMode()).isEnabled) return false
     const jar = await cookies()
-    const link = jar.get(LINK_COOKIE)?.value
-    if (!link) return true
-    if (jar.get(MODE_COOKIE)?.value !== 'view') return false
-    // With onpageProxy() installed, the request path is known: only the shared page shows drafts.
-    // Without it, the cookies' path scope does the limiting (a link to "/" can't be narrowed that way).
-    const here = (await headers()).get(PATH_HEADER)
-    return here == null || samePath(here, safeDecode(link))
+    const raw = jar.get(COOKIE.mode)?.value
+    return raw === undefined || (await readMode(raw, jar)) !== null
+  } catch {
+    return false
+  }
+}
+
+/** Is this request a preview-link view (set by the proxy)? */
+export async function isSharedPreview(): Promise<boolean> {
+  try {
+    if (!(await draftMode()).isEnabled) return false
+    return (await headers()).get(HEADER.shared) === '1'
   } catch {
     return false
   }

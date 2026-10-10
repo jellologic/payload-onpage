@@ -69,14 +69,12 @@ export interface FieldEditorDef {
 export type EditorRegistry = Record<string, FieldEditorDef>
 
 export interface Links {
-  /** Leave edit/preview mode. */
+  /** Endpoint (POST) that leaves edit/preview mode. */
   exit: string
   /** Open a document in the admin. */
   admin?: (ref: DocRef) => string
-  /** Switch this page between editing and previewing (signed-in editors). */
+  /** Endpoint (POST) that switches this page between editing and previewing. */
   mode?: (mode: 'edit' | 'view') => string
-  /** Create a shareable read-only link for a document. */
-  previewLink?: (ref: DocRef) => Promise<{ url: string; expiresAt?: string }>
 }
 
 export interface TargetIndex {

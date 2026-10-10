@@ -9,7 +9,8 @@ import {
   splitItemPath,
   updateArray,
 } from '../path.ts'
-import { serializeFields, humanize } from '../schema.ts'
+import type { SchemaField } from '../schema.ts'
+import schemaFixture from './fixtures/schema.json'
 import {
   buildPatch,
   changedKeys,
@@ -21,73 +22,8 @@ import {
 } from '../fields.ts'
 import { AutosaveQueue, type SaveState, type SendResult } from '../autosave.ts'
 
-// A Payload-shaped config: rows/tabs/collapsibles, a blocks field, uploads.
-const payloadFields: any[] = [
-  { name: 'title', type: 'text', localized: true, required: true },
-  { type: 'ui', name: 'button', admin: { components: { Field: 'x' } } },
-  {
-    type: 'tabs',
-    tabs: [
-      {
-        label: 'Content',
-        fields: [
-          {
-            name: 'sections',
-            type: 'blocks',
-            blocks: [
-              {
-                slug: 'hero',
-                labels: { singular: 'Hero', plural: 'Heroes' },
-                fields: [
-                  {
-                    type: 'row',
-                    fields: [{ name: 'heading', type: 'text', required: true, localized: true }],
-                  },
-                  { name: 'image', type: 'upload', relationTo: 'media' },
-                  {
-                    name: 'section',
-                    type: 'group',
-                    fields: [
-                      {
-                        name: 'background',
-                        type: 'select',
-                        defaultValue: 'white',
-                        options: [{ label: 'White', value: 'white' }, 'light'],
-                      },
-                    ],
-                  },
-                  {
-                    name: 'ctas',
-                    type: 'array',
-                    maxRows: 2,
-                    fields: [{ name: 'label', type: 'text', required: true }],
-                  },
-                ],
-              },
-              {
-                slug: 'gallery',
-                fields: [
-                  {
-                    name: 'images',
-                    type: 'array',
-                    minRows: 1,
-                    fields: [{ name: 'image', type: 'upload', relationTo: 'media' }],
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-      {
-        name: 'meta',
-        label: 'SEO',
-        fields: [{ name: 'description', type: 'textarea', defaultValue: () => 'nope' }],
-      },
-    ],
-  },
-]
-const schema = serializeFields(payloadFields)
+// The editor schema the plugin produces for fixtures/payloadFields.ts (see plugin tests).
+const schema = schemaFixture as SchemaField[]
 
 describe('path', () => {
   it('parses dotted paths with numeric indexes', () => {
@@ -109,27 +45,6 @@ describe('path', () => {
     expect(updateArray({}, 'list', (a) => [...a, 'x'])).toEqual({ list: ['x'] })
     expect(splitItemPath('sections.3.items.1')).toEqual(['sections.3.items', 1])
     expect(splitItemPath('sections.3.heading')).toBeNull()
-  })
-})
-
-describe('serializeFields', () => {
-  it('flattens rows/unnamed tabs, drops ui fields, keeps named tabs as groups', () => {
-    expect(schema.map((f) => f.name)).toEqual(['title', 'sections', 'meta'])
-    expect(schema[2]).toMatchObject({ type: 'group', label: 'SEO' })
-  })
-  it('keeps static defaults and drops function defaults', () => {
-    const hero = schema[1].blocks![0]
-    expect(hero.fields.find((f) => f.name === 'section')!.fields![0].defaultValue).toBe('white')
-    expect(schema[2].fields![0].defaultValue).toBeUndefined()
-  })
-  it('normalizes options and labels', () => {
-    const bg = schema[1].blocks![0].fields.find((f) => f.name === 'section')!.fields![0]
-    expect(bg.options).toEqual([
-      { label: 'White', value: 'white' },
-      { label: 'Light', value: 'light' },
-    ])
-    expect(schema[1].blocks![1].labels.singular).toBe('Gallery')
-    expect(humanize('imagePosition')).toBe('Image position')
   })
 })
 

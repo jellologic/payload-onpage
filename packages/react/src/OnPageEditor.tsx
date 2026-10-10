@@ -53,6 +53,7 @@ import { clientState } from './renderers.ts'
 import { SettingsPanel } from './SettingsPanel.tsx'
 import { injectStyles } from './styles.ts'
 import { useTargets } from './targets.ts'
+import { sanitizeHtml } from './sanitize.ts'
 
 export interface OnPageEditorProps {
   dataSource: DataSource
@@ -451,7 +452,7 @@ function GhostView({ ghost }: { ghost: Ghost }) {
       ref={box}
       className={`po-ghost${ghost.className ? ` ${ghost.className}` : ''}`}
       style={ghost.style as React.CSSProperties}
-      dangerouslySetInnerHTML={{ __html: ghost.html }}
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(ghost.html) }}
       aria-hidden
       data-testid="onpage-ghost"
     />

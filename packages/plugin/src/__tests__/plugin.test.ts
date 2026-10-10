@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { serializeFields, stegaClean, stegaCleanDeep, stegaDecode } from '@payload-onpage/core'
+import { stegaClean, stegaCleanDeep, stegaDecode } from '@payload-onpage/core'
+import { serializeFields } from '../schema.ts'
+import { payloadFields } from '../../../core/src/__tests__/fixtures/payloadFields.ts'
 import { encodeDocument } from '@payload-onpage/core'
 import { createPreviewToken, verifyPreviewToken } from '../tokens.ts'
 import { onpage, wantsMarkers } from '../index.ts'
@@ -113,20 +115,90 @@ describe('encodeDocument (auto-mapping)', () => {
   })
 })
 
+describe('serializeFields', () => {
+  const schema = serializeFields(payloadFields as any)
+  it('flattens rows/unnamed tabs, drops ui fields, keeps named tabs as groups', () => {
+    expect(schema.map((f) => f.name)).toEqual(['title', 'sections', 'meta'])
+    expect(schema[2]).toMatchObject({ type: 'group', label: 'SEO' })
+  })
+  it('keeps static defaults; function defaults need a request', () => {
+    const hero = schema[1]!.blocks![0]!
+    expect(hero.fields.find((f) => f.name === 'section')!.fields![0]!.defaultValue).toBe('white')
+    expect(schema[2]!.fields![0]!.defaultValue).toBeUndefined()
+  })
+  it('labels like the admin does (toWords), and keeps string options as-is', () => {
+    const bg = schema[1]!.blocks![0]!.fields.find((f) => f.name === 'section')!.fields![0]!
+    expect(bg.options).toEqual([
+      { label: 'White', value: 'white' },
+      { label: 'light', value: 'light' },
+    ])
+    expect(schema[1]!.blocks![1]!.labels.singular).toBe('Gallery')
+  })
+  it('leaves out system, hidden, disabled, virtual and join fields', () => {
+    const out = serializeFields([
+      { name: 'title', type: 'text' },
+      { name: 'updatedAt', type: 'date' },
+      { name: '_status', type: 'select', options: ['draft'] },
+      { name: 'secret', type: 'text', admin: { hidden: true } },
+      { name: 'locked', type: 'text', admin: { disabled: true } },
+      { name: 'computed', type: 'text', virtual: true },
+      { name: 'related', type: 'join', collection: 'x', on: 'y' },
+    ] as any)
+    expect(out.map((f) => f.name)).toEqual(['title'])
+  })
+  it('resolves blockReferences from the global blocks', () => {
+    const out = serializeFields(
+      [{ name: 'layout', type: 'blocks', blocks: [], blockReferences: ['cta'] }] as any,
+      {
+        blocks: [{ slug: 'cta', fields: [{ name: 'label', type: 'text' }] }] as any,
+      },
+    )
+    expect(out[0]!.blocks!.map((b) => b.slug)).toEqual(['cta'])
+  })
+  it('drops fields the user may not update (field permissions)', () => {
+    const out = serializeFields(
+      [
+        { name: 'title', type: 'text' },
+        { name: 'price', type: 'number' },
+        {
+          name: 'seo',
+          type: 'group',
+          fields: [
+            { name: 'a', type: 'text' },
+            { name: 'b', type: 'text' },
+          ],
+        },
+      ] as any,
+      {
+        permissions: {
+          title: { create: true, read: true, update: true },
+          seo: { create: true, read: true, update: true, fields: { a: true } },
+        } as any,
+      },
+    )
+    expect(out.map((f) => f.name)).toEqual(['title', 'seo'])
+    expect(out[1]!.fields!.map((f) => f.name)).toEqual(['a'])
+  })
+})
+
 describe('preview tokens', () => {
   const secret = 's3cret'
-  it('verifies a fresh token and rejects expired or tampered ones', () => {
-    const t = createPreviewToken({ ref: 'c:pages:5', path: '/home' }, secret, 60)
-    expect(verifyPreviewToken(t, secret)).toMatchObject({ ref: 'c:pages:5', path: '/home' })
-    expect(verifyPreviewToken(t, 'other')).toBeNull()
-    expect(verifyPreviewToken(t, secret, Date.now() + 61_000)).toBeNull()
-    const [body, mac] = t.split('.')
-    const forged = Buffer.from(
-      JSON.stringify({ ref: 'c:pages:6', path: '/admin', exp: 9e9 }),
-    ).toString('base64url')
-    expect(verifyPreviewToken(`${forged}.${mac}`, secret)).toBeNull()
-    expect(verifyPreviewToken(`${body}.${mac}.x`, secret)).toBeNull()
-    expect(verifyPreviewToken('garbage', secret)).toBeNull()
+  it('verifies a fresh token and rejects expired, foreign or tampered ones', async () => {
+    const { token, payload } = await createPreviewToken(
+      { ref: 'c:pages:5', path: '/home' },
+      secret,
+      60,
+    )
+    expect(await verifyPreviewToken(token, secret)).toMatchObject({
+      ref: 'c:pages:5',
+      path: '/home',
+      jti: payload.jti,
+    })
+    expect(await verifyPreviewToken(token, 'other')).toBeNull()
+    expect(await verifyPreviewToken(token, secret, Date.now() + 61_000)).toBeNull()
+    const flipped = token.slice(0, -2) + (token.endsWith('A') ? 'B' : 'A') + token.slice(-1)
+    expect(await verifyPreviewToken(flipped, secret)).toBeNull()
+    expect(await verifyPreviewToken('garbage', secret)).toBeNull()
   })
 })
 
@@ -145,18 +217,17 @@ describe('onpage() plugin', () => {
   const out: any = onpage({ collections: ['pages'], globals: ['header'] })(config)
 
   it('adds endpoints, hooks and admin controls only to enabled documents', () => {
-    expect(out.endpoints.map((e: any) => e.path)).toEqual([
-      '/onpage/schema/:kind/:slug',
-      '/onpage/enter',
-      '/onpage/exit',
-      '/onpage/mode',
-      '/onpage/search/:slug',
-      '/onpage/preview-link',
-      '/onpage/preview',
+    expect(out.endpoints.map((e: any) => `${e.method} ${e.path}`)).toEqual([
+      'get /onpage/schema/:kind/:slug',
+      'post /onpage/enter',
+      'post /onpage/mode',
+      'post /onpage/exit',
+      'post /onpage/preview-link',
+      'get /onpage/preview',
     ])
     const pages = out.collections.find((c: any) => c.slug === 'pages')
     expect(pages.hooks.afterRead).toHaveLength(2)
-    expect(pages.hooks.beforeChange).toHaveLength(1)
+    expect(pages.hooks.beforeChange).toHaveLength(2)
     expect(pages.admin.components.edit.beforeDocumentControls[0].path).toBe(
       '@payload-onpage/plugin/admin#OnPageAdminControls',
     )
@@ -186,6 +257,8 @@ describe('onpage() plugin', () => {
       onpage({ collections: ['pages'] })({ ...config }) as any,
     )
     expect(twice.endpoints.filter((e: any) => e.path === '/onpage/enter')).toHaveLength(1)
+    expect(twice.collections[0].hooks.afterRead).toHaveLength(2)
+    expect(() => onpage({ collections: ['nope'] })(config)).toThrow(/unknown collection "nope"/)
     expect(onpage({ collections: ['pages'], enabled: false })(config)).toBe(config)
   })
 })
