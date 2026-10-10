@@ -1,0 +1,66 @@
+{
+  "name": "@payload-onpage/react",
+  "version": "0.1.0",
+  "description": "payload-onpage React editor: overlay, toolbars, field editors, annotations and client mode.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jellologic/payload-onpage.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://github.com/jellologic/payload-onpage#readme",
+  "bugs": "https://github.com/jellologic/payload-onpage/issues",
+  "keywords": [
+    "payload",
+    "payloadcms",
+    "payload-plugin",
+    "nextjs",
+    "visual-editing",
+    "live-preview",
+    "inline-editing",
+    "cms"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./annotations": {
+      "types": "./dist/annotations.d.ts",
+      "default": "./dist/annotations.js"
+    },
+    "./client": {
+      "types": "./dist/OnPageClient.d.ts",
+      "default": "./dist/OnPageClient.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo",
+    "src",
+    "!src/**/__tests__",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "bun test src",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@payload-onpage/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

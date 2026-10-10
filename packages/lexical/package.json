@@ -1,0 +1,64 @@
+{
+  "name": "@payload-onpage/lexical",
+  "version": "0.1.0",
+  "description": "payload-onpage rich-text field editor: inline Lexical editing compatible with Payload's Lexical JSON.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jellologic/payload-onpage.git",
+    "directory": "packages/lexical"
+  },
+  "homepage": "https://github.com/jellologic/payload-onpage#readme",
+  "bugs": "https://github.com/jellologic/payload-onpage/issues",
+  "keywords": [
+    "payload",
+    "payloadcms",
+    "payload-plugin",
+    "nextjs",
+    "visual-editing",
+    "live-preview",
+    "inline-editing",
+    "cms"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo",
+    "src",
+    "!src/**/__tests__",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "bun test src",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@payload-onpage/core": "workspace:*",
+    "@payload-onpage/react": "workspace:*"
+  },
+  "peerDependencies": {
+    "@lexical/list": ">=0.41.0",
+    "@lexical/react": ">=0.41.0",
+    "@lexical/rich-text": ">=0.41.0",
+    "@lexical/selection": ">=0.41.0",
+    "@lexical/utils": ">=0.41.0",
+    "lexical": ">=0.41.0",
+    "react": "^19.0.0"
+  }
+}

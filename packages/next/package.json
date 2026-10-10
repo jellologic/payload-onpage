@@ -1,0 +1,73 @@
+{
+  "name": "@payload-onpage/next",
+  "version": "0.1.0",
+  "description": "payload-onpage for Next.js App Router: draft-mode session adapter, <OnPage />, onpageContext() and refresh rendering.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jellologic/payload-onpage.git",
+    "directory": "packages/next"
+  },
+  "homepage": "https://github.com/jellologic/payload-onpage#readme",
+  "bugs": "https://github.com/jellologic/payload-onpage/issues",
+  "keywords": [
+    "payload",
+    "payloadcms",
+    "payload-plugin",
+    "nextjs",
+    "visual-editing",
+    "live-preview",
+    "inline-editing",
+    "cms"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "default": "./dist/session.js"
+    },
+    "./proxy": {
+      "types": "./dist/proxy.d.ts",
+      "default": "./dist/proxy.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo",
+    "src",
+    "!src/**/__tests__",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "bun test src",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@payload-onpage/core": "workspace:*",
+    "@payload-onpage/react": "workspace:*",
+    "@payload-onpage/lexical": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": ">=15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "name": "@payload-onpage/plugin",
+  "version": "0.1.0",
+  "description": "payload-onpage for Payload CMS: on-page editing endpoints, auto-mapping, preview links and admin controls.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jellologic/payload-onpage.git",
+    "directory": "packages/plugin"
+  },
+  "homepage": "https://github.com/jellologic/payload-onpage#readme",
+  "bugs": "https://github.com/jellologic/payload-onpage/issues",
+  "keywords": [
+    "payload",
+    "payloadcms",
+    "payload-plugin",
+    "nextjs",
+    "visual-editing",
+    "live-preview",
+    "inline-editing",
+    "cms"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./admin": {
+      "types": "./dist/admin/index.d.ts",
+      "default": "./dist/admin/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo",
+    "src",
+    "!src/**/__tests__",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "bun test src",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@payload-onpage/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "@payloadcms/ui": "^3.0.0",
+    "payload": "^3.0.0",
+    "react": "^19.0.0"
+  }
+}

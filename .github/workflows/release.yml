@@ -1,0 +1,36 @@
+name: Release
+# Publishes every package whose version isn't on npm yet. Bump versions (and CHANGELOG.md), merge, then run this.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write # npm provenance
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for pkg in core plugin react lexical next; do
+            cd packages/$pkg
+            name=$(node -p "require('./package.json').name")
+            version=$(node -p "require('./package.json').version")
+            if npm view "$name@$version" version >/dev/null 2>&1; then
+              echo "$name@$version already published"
+            else
+              # bun pack resolves workspace:* to real versions; npm publishes the tarball with provenance.
+              rm -rf /tmp/pack-$pkg && bun pm pack --destination /tmp/pack-$pkg
+              npm publish /tmp/pack-$pkg/*.tgz --access public --provenance
+            fi
+            cd ../..
+          done

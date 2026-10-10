@@ -1,0 +1,31 @@
+:root { --accent: #4f46e5; --ink: #0f172a; --muted: #475569; }
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--ink); background: #f8fafc; }
+a { color: var(--accent); }
+.site-header { display: flex; align-items: center; gap: 16px; padding: 16px 32px; background: #fff; border-bottom: 1px solid #e2e8f0; }
+.site-header .brand { font-weight: 800; font-size: 20px; color: var(--ink); text-decoration: none; }
+.site-header .tagline { color: var(--muted); font-size: 14px; }
+.site-header nav { margin-left: auto; display: flex; gap: 18px; }
+.site-header nav a { color: var(--ink); text-decoration: none; font-weight: 600; }
+main { max-width: 1080px; margin: 0 auto; padding: 24px 24px 64px; }
+.meta { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; margin-bottom: 16px; }
+.swatch { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); display: inline-block; }
+section { margin: 0 0 40px; }
+.hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 32px; align-items: center; padding: 40px; border-radius: 20px; background: #fff; }
+.hero.tone-dark { background: var(--ink); color: #fff; }
+.hero.tone-dark p { color: #cbd5e1; }
+.hero h1 { font-size: clamp(32px, 4vw, 48px); line-height: 1.1; margin: 0 0 12px; }
+.hero p { color: var(--muted); font-size: 18px; }
+.hero img { width: 100%; border-radius: 14px; display: block; }
+.button { display: inline-block; margin-top: 12px; padding: 10px 18px; border-radius: 10px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 700; }
+.features h2 { font-size: 28px; }
+.features ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+.features ul.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.features ul.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.features li { background: #fff; border-radius: 16px; padding: 20px; border: 1px solid #e2e8f0; }
+.features .icon { font-size: 24px; color: var(--accent); }
+.features h3 { margin: 8px 0 4px; }
+.features li p { margin: 0; color: var(--muted); }
+.content { background: #fff; border-radius: 16px; padding: 24px 32px; }
+.site-footer { text-align: center; color: var(--muted); font-size: 14px; padding: 32px; }
+@media (max-width: 760px) { .hero, .features ul.cols-3, .features ul.cols-2 { grid-template-columns: 1fr; } }
