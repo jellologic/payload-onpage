@@ -34,6 +34,11 @@ describe('safePath (open-redirect guard)', () => {
     expect(samePath('/a/', '/a?x=1')).toBe(true)
     expect(samePath('/', '/')).toBe(true)
     expect(samePath('/a', '/ab')).toBe(false)
+    expect(samePath('/a///', '/a')).toBe(true)
+    const hostile = `/${'/'.repeat(100_000)}x`
+    const t0 = performance.now()
+    samePath(hostile, '/x')
+    expect(performance.now() - t0).toBeLessThan(50)
   })
 })
 

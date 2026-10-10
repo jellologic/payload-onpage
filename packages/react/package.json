@@ -64,8 +64,8 @@
     "@payload-onpage/core": "workspace:*"
   },
   "peerDependencies": {
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
   },
   "engines": {
     "node": ">=20.9.0"

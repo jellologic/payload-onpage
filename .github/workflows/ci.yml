@@ -71,8 +71,10 @@ jobs:
         working-directory: examples/basic
         run: |
           bun add next@${{ matrix.next }}
-          # Next 15 reads middleware.ts (proxy.ts is the Next 16 name).
-          printf "export { proxy as middleware, config } from './proxy'\n" > src/middleware.ts
+          # Next 15 reads middleware.ts (proxy.ts is the Next 16 name; 16 refuses both).
+          if [ "${{ matrix.next }}" != "16" ]; then
+            printf "export { proxy as middleware, config } from './proxy'\n" > src/middleware.ts
+          fi
       - name: Build the example (fresh database, committed migrations)
         working-directory: examples/basic
         env:

@@ -107,9 +107,14 @@ export function safePath(raw: unknown): string | null {
 export const pathnameOf = (path: string): string => path.split(/[?#]/)[0] || '/'
 
 /** Same page, ignoring a trailing slash. */
-export const samePath = (a: string, b: string): boolean => {
-  const trim = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : p)
-  return trim(pathnameOf(a)) === trim(pathnameOf(b))
+export const samePath = (a: string, b: string): boolean =>
+  trimSlashes(pathnameOf(a)) === trimSlashes(pathnameOf(b))
+
+/** Drop trailing slashes (keeping "/"). A loop, not a regex: linear on hostile input. */
+function trimSlashes(p: string): string {
+  let end = p.length
+  while (end > 1 && p.charCodeAt(end - 1) === 47 /* '/' */) end--
+  return p.slice(0, end)
 }
 
 /**

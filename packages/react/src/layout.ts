@@ -5,7 +5,8 @@
  * driven (capture-phase scroll, resize, ResizeObserver on the document and on
  * tracked elements), batched to one callback per animation frame: no polling.
  */
-import { useEffect, useEffectEvent, useState } from 'react'
+import { useEvent } from './useEvent.ts'
+import { useEffect, useState } from 'react'
 
 const listeners = new Set<() => void>()
 let frame = 0
@@ -62,7 +63,7 @@ export function useLayoutTick(): number {
  * changes, or the element itself resizing, e.g. live re-render while typing).
  */
 export function useTrackElement(getElement: () => Element | null, fn: (el: Element) => void): void {
-  const run = useEffectEvent(() => {
+  const run = useEvent(() => {
     const el = getElement()
     if (el) fn(el)
   })
