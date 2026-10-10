@@ -1,0 +1,39 @@
+# payload-onpage
+
+> On-page editing and draft previews for Payload CMS 3 + Next.js (App Router). Editors click text, images and sections on the live page and edit them in place. Changes autosave as Payload drafts through Payload's REST API, so access control, hooks, validation, drafts and versions apply. Signed, expiring, page-scoped share links preview drafts for anyone. Visitors pay about 0.3 KB.
+
+Packages: `@payload-onpage/plugin` (Payload plugin), `@payload-onpage/next` (Next adapter: `<OnPage />`, `onpageContext()`, `isDraftEnabled()`, proxy), `@payload-onpage/react` (editor UI, annotations, client mode), `@payload-onpage/core` (framework-free ports and logic), `@payload-onpage/lexical` (rich text).
+
+Integration in four edits:
+1. `onpage({ collections, globals, session: nextSession() })` in payload.config.ts
+2. `<Suspense><OnPage /></Suspense>` in the frontend root layout
+3. `...(await onpageContext())` in draft reads that feed pages, plus `isDraftEnabled()` for draft checks
+4. `proxy.ts`: `export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })`
+
+## Docs
+
+- [Getting started](https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started.md): install and wire into an existing site, with checks and an agent prompt
+- [Architecture](https://github.com/jellologic/payload-onpage/blob/main/docs/concepts/architecture.md): packages, ports, request flow
+- [Auto-mapping](https://github.com/jellologic/payload-onpage/blob/main/docs/concepts/auto-mapping.md): invisible field markers and their caveats
+- [Modes](https://github.com/jellologic/payload-onpage/blob/main/docs/concepts/modes.md): edit, preview, share links; refresh vs client rendering
+- [Security](https://github.com/jellologic/payload-onpage/blob/main/docs/concepts/security.md): threat model, access, cookies, preview links
+- [Annotations](https://github.com/jellologic/payload-onpage/blob/main/docs/guides/annotations.md)
+- [Client mode](https://github.com/jellologic/payload-onpage/blob/main/docs/guides/client-mode.md)
+- [Custom field editor](https://github.com/jellologic/payload-onpage/blob/main/docs/guides/custom-field-editor.md)
+- [Custom data source](https://github.com/jellologic/payload-onpage/blob/main/docs/guides/custom-data-source.md)
+- [Custom media library](https://github.com/jellologic/payload-onpage/blob/main/docs/guides/custom-media-library.md)
+- [Globals and multiple documents](https://github.com/jellologic/payload-onpage/blob/main/docs/guides/globals-and-multiple-documents.md)
+- [Localization](https://github.com/jellologic/payload-onpage/blob/main/docs/guides/localization.md)
+- [Caching, static pages and PPR](https://github.com/jellologic/payload-onpage/blob/main/docs/guides/caching-and-ppr.md)
+- [Troubleshooting](https://github.com/jellologic/payload-onpage/blob/main/docs/troubleshooting.md)
+- [Compatibility](https://github.com/jellologic/payload-onpage/blob/main/docs/compatibility.md)
+- [Upgrading](https://github.com/jellologic/payload-onpage/blob/main/docs/upgrading.md)
+
+## Examples
+
+- [examples/basic](https://github.com/jellologic/payload-onpage/tree/main/examples/basic): the reference integration (SQLite, seeds itself)
+
+## Optional
+
+- [llms-full.txt](https://github.com/jellologic/payload-onpage/blob/main/llms-full.txt): all docs in one file
+- [AGENTS.md](https://github.com/jellologic/payload-onpage/blob/main/AGENTS.md): for agents changing this repository

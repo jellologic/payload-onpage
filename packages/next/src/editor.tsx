@@ -59,6 +59,7 @@ export function NextEditor(props: OnPageMountProps) {
       editors={editors}
       links={links}
       locale={locale}
+      messages={props.messages}
     />
   )
 }
@@ -70,6 +71,7 @@ export function NextPreview(props: OnPageMountProps) {
       exitHref={links.exit}
       editHref={props.shared ? undefined : links.mode?.('edit')}
       shared={props.shared}
+      messages={props.messages}
     />
   )
 }
