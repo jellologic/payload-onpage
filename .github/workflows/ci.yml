@@ -3,13 +3,91 @@ on:
   push:
     branches: [main]
   pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
+  quality:
+    name: Format, lint, types, tests (coverage), build, size, package checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ hashFiles('bun.lock') }}
+      - run: bun install --frozen-lockfile
+      - run: bun run format:check
+      - run: bun run lint
+      - run: bun run typecheck
+      - run: bun run coverage
+      - run: bun run build
+      - run: bun run size
+      - name: publint
+        run: for p in core plugin react lexical next; do (cd packages/$p && bunx publint --strict); done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage
+          path: coverage/lcov.info
+
+  node:
+    name: Node ${{ matrix.node }} import smoke test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: node scripts/smoke.mjs
+
+  compat:
+    name: Example builds on Next ${{ matrix.next }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        next: ['~15.4.11', '16']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Pin Next ${{ matrix.next }}
+        working-directory: examples/basic
+        run: |
+          bun add next@${{ matrix.next }}
+          # Next 15 reads middleware.ts (proxy.ts is the Next 16 name).
+          printf "export { proxy as middleware, config } from './proxy'\n" > src/middleware.ts
+      - name: Build the example (fresh database, committed migrations)
+        working-directory: examples/basic
+        env:
+          DATABASE_URL: file:/tmp/ci-${{ github.run_id }}.db
+        run: bun run build
+
+  e2e:
+    name: End-to-end (Playwright + axe)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: bun run test
-      - name: Build the example
-        run: cd examples/basic && bun run build
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run e2e
+        env:
+          CI: '1'
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/playwright-report

@@ -10,8 +10,8 @@ export const PO_CSS = `
 .po-outline{position:fixed;border:2px solid #4f7cff;border-radius:4px;pointer-events:none;transition:all .06s ease-out}
 .po-outline.is-block{border-style:dashed;border-color:#4f7cff99}
 .po-outline.is-item{border-color:#22a06b}
-.po-chip{position:fixed;transform:translateY(-100%);background:#4f7cff;color:#fff;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px 4px 0 0;white-space:nowrap;pointer-events:none}
-.po-chip.is-item{background:#22a06b}
+.po-chip{position:fixed;transform:translateY(-100%);background:#3b63e0;color:#fff;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px 4px 0 0;white-space:nowrap;pointer-events:none}
+.po-chip.is-item{background:#167a45}
 .po-bar{position:fixed;display:flex;gap:2px;padding:3px;background:#0f172a;border-radius:8px;box-shadow:0 6px 24px #0f172a40;pointer-events:auto}
 .po-bar.is-item{background:#14532d}
 .po-btn{all:unset;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:28px;height:28px;padding:0 8px;border-radius:6px;color:#fff;font:600 12px/1 system-ui,-apple-system,sans-serif;cursor:pointer;white-space:nowrap}
@@ -20,9 +20,9 @@ export const PO_CSS = `
 .po-btn[disabled]{opacity:.35;cursor:default;background:none}
 .po-btn.is-danger:hover{background:#ef444455}
 .po-add{position:fixed;transform:translate(-50%,-50%);pointer-events:auto}
-.po-add .po-btn{background:#4f7cff;box-shadow:0 2px 10px #4f7cff66;height:24px;font-size:11px}
-.po-add .po-btn:hover{background:#3b63e0}
-.po-add.is-item .po-btn{background:#22a06b;box-shadow:0 2px 10px #22a06b55}
+.po-add .po-btn{background:#3b63e0;box-shadow:0 2px 10px #4f7cff66;height:24px;font-size:11px}
+.po-add .po-btn:hover{background:#2f5bd9}
+.po-add.is-item .po-btn{background:#167a45;box-shadow:0 2px 10px #167a4555}
 .po-panel{position:fixed;width:320px;max-height:min(70vh,560px);overflow:auto;background:#fff;color:#0f172a;border-radius:12px;box-shadow:0 20px 60px #0f172a40,0 0 0 1px #0f172a14;pointer-events:auto;padding:14px}
 .po-panel .po-h3{margin:0 0 10px;font:700 13px/1.2 system-ui,sans-serif}
 .po-panel .po-h4{margin:14px 0 6px;font:600 11px/1.2 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#64748b}
@@ -55,8 +55,8 @@ export const PO_CSS = `
 .po-dock .po-status{padding:0 10px;font-size:12px;opacity:.85;white-space:nowrap}
 .po-dock .po-status.is-bad{color:#fca5a5;opacity:1}
 .po-dock .po-sep{width:1px;height:20px;background:#ffffff26;margin:0 4px}
-.po-dock .po-primary{background:#4f7cff}
-.po-dock .po-primary:hover{background:#3b63e0}
+.po-dock .po-primary{background:#3b63e0}
+.po-dock .po-primary:hover{background:#2f5bd9}
 .po-chip-locale{padding:2px 7px;border-radius:999px;background:#ffffff1f;font-size:11px;font-weight:700;text-transform:uppercase}
 .po-notice{position:fixed;left:50%;bottom:72px;transform:translateX(-50%);max-width:min(560px,calc(100vw - 24px));padding:8px 12px;border-radius:10px;background:#fffbeb;color:#78350f;border:1px solid #fcd34d;font-size:12px;pointer-events:auto}
 .po-doc-layer{position:absolute;top:0;left:0;width:0;height:0;overflow:visible;z-index:${PO_Z};pointer-events:none;font:13px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif}
@@ -100,8 +100,8 @@ html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 .po-search{width:240px}
 .po-picker{cursor:pointer;display:flex;align-items:center}
 .po-group{border:0;margin:0;padding:0}
-.po-primary,.po-pop .po-primary,.po-panel .po-primary{background:#4f7cff;color:#fff}
-.po-primary:hover{background:#3b63e0}
+.po-primary,.po-pop .po-primary,.po-panel .po-primary{background:#3b63e0;color:#fff}
+.po-primary:hover{background:#2f5bd9}
 .po-pop .po-btn,.po-panel .po-btn{color:#0f172a}
 .po-pop .po-btn.po-primary,.po-panel .po-btn.po-primary{color:#fff}
 .po-frame-close{all:unset;position:absolute;inset:0;cursor:pointer}

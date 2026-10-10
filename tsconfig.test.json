@@ -25,5 +25,5 @@
       "@payload-onpage/next/proxy": ["./packages/next/src/proxy.ts"]
     }
   },
-  "include": ["packages/*/src", "vitest.config.ts", "vitest.setup.ts"]
+  "include": ["packages/*/src", "e2e", "vitest.config.ts", "vitest.setup.ts"]
 }

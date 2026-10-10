@@ -31,6 +31,7 @@ export default tseslint.config(
       '*.config.*',
       'vitest.setup.ts',
       '.size-limit.cjs',
+      'scripts/**',
     ],
   },
   js.configs.recommended,
@@ -108,7 +109,7 @@ export default tseslint.config(
     rules: boundary(['payload', '@payloadcms/*', '@payload-onpage/plugin*']),
   },
   {
-    files: ['**/__tests__/**'],
+    files: ['**/__tests__/**', 'e2e/**'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',

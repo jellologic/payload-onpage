@@ -15,8 +15,27 @@ import { createEndpoints } from './endpoints.ts'
 import { encodeOnRead, guardStaleWrite, stripMarkers } from './hooks.ts'
 import { normalizeEntries, type Entry, type OnPageOptions } from './options.ts'
 import { serializeFields } from './schema.ts'
+import { translations } from './translations.ts'
 
 const APPLIED = 'payload-onpage'
+
+type Translations = Record<string, Record<string, unknown>>
+/** Ours first; the site's own translations (any language, any key) win. */
+function mergeTranslations(
+  ours: Translations,
+  theirs: unknown,
+): NonNullable<Config['i18n']>['translations'] {
+  const out: Translations = { ...ours }
+  for (const [lang, table] of Object.entries((theirs ?? {}) as Translations)) {
+    const mine = out[lang] ?? {}
+    out[lang] = {
+      ...mine,
+      ...table,
+      onpage: { ...(mine.onpage as object), ...(table.onpage ?? {}) },
+    }
+  }
+  return out
+}
 
 export function onpage(options: OnPageOptions): Plugin {
   return (incoming: Config): Config => {
@@ -107,6 +126,10 @@ export function onpage(options: OnPageOptions): Plugin {
     return {
       ...incoming,
       custom: { ...incoming.custom, [APPLIED]: true },
+      i18n: {
+        ...incoming.i18n,
+        translations: mergeTranslations(translations, incoming.i18n?.translations),
+      },
       collections: (incoming.collections ?? []).map((c) => {
         const entry = byKey.get(`collection:${c.slug}`)
         return entry ? withCollectionAdmin(withHooks(c, entry)) : c
@@ -141,3 +164,4 @@ export { canEditDocument, canUseOnPage } from './access.ts'
 export { createPreviewToken, verifyPreviewToken, type PreviewTokenPayload } from './tokens.ts'
 export { serializeFields, type SerializeContext } from './schema.ts'
 export { wantsMarkers } from './hooks.ts'
+export { translations } from './translations.ts'

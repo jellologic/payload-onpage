@@ -1,9 +1,12 @@
-node_modules
-dist
-*.tsbuildinfo
-.DS_Store
-.next
 *.db
 *.db-*
+*.tsbuildinfo
+.DS_Store
 .env
+.next
+coverage
+dist
 examples/*/media
+node_modules
+playwright-report
+test-results
