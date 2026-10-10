@@ -6,7 +6,7 @@
  */
 import dynamic from 'next/dynamic.js'
 import type { DataSource, Locator, MediaLibrary } from '@payload-onpage/core'
-import type { FieldEditorDef } from '@payload-onpage/react'
+import type { FieldEditorDef, Messages } from '@payload-onpage/react'
 
 export interface OnPageMountProps {
   mode: 'edit' | 'view'
@@ -25,6 +25,8 @@ export interface OnPageMountProps {
   locator?: Locator
   media?: MediaLibrary
   dataSource?: DataSource
+  /** Override editor UI strings (see `defaultMessages` in @payload-onpage/react). */
+  messages?: Messages
 }
 
 const Editor = dynamic(() => import('./editor.tsx').then((m) => m.NextEditor), { ssr: false })

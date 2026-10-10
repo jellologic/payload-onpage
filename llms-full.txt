@@ -1,0 +1,754 @@
+# payload-onpage — full documentation
+
+Generated from the repository docs by scripts/llms-full.mjs. Source: https://github.com/jellologic/payload-onpage
+
+
+<!-- README.md -->
+
+# payload-onpage
+
+[![CI](https://github.com/jellologic/payload-onpage/actions/workflows/ci.yml/badge.svg)](https://github.com/jellologic/payload-onpage/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**On-page editing and draft previews for Payload CMS 3 + Next.js (App Router).** Editors click the text, images and sections they see on the live page and change them in place. Edits autosave as Payload drafts through Payload's own REST API, so access control, hooks, validation, drafts and versions behave exactly as in the admin. Anyone can preview a draft from a signed, expiring link that opens one page only.
+
+- **Drop-in:** four edits to an existing site, and no component changes. Text maps to its fields automatically.
+- **Any collection or global**, and several documents on one page with one undo history.
+- **Built-in field editors:** text, rich text (Lexical), images, select, date, number, relationship, color. Replace any of them, or add your own.
+- **Ports and adapters:** data source, media library, locator, renderer, session and field editors are all swappable.
+- **Fast:** visitors load about 0.3 KB, and the editor (about 27 KB gz) loads only for editors.
+- **Accessible:** keyboard editing, managed focus and WCAG AA contrast, checked with axe in CI.
+- **Secure by design:** Payload's own access checks, CSRF-safe endpoints, a stale-write guard, and share links that never expose Next's draft secret.
+
+## Try it
+
+```bash
+git clone https://github.com/jellologic/payload-onpage && cd payload-onpage
+bun install && bun run dev:example     # http://localhost:3100 — SQLite, seeds itself, signs you in
+```
+
+Open http://localhost:3100/admin, open the Home page, and press **Edit on page**.
+
+## Add it to your site
+
+```bash
+npm i @payload-onpage/plugin @payload-onpage/next @payload-onpage/react @payload-onpage/core @payload-onpage/lexical
+```
+
+```ts
+// payload.config.ts
+import { onpage } from '@payload-onpage/plugin'
+import { nextSession } from '@payload-onpage/next/session'
+
+plugins: [onpage({ collections: ['pages'], globals: ['header'], session: nextSession() })]
+```
+
+```tsx
+// app/(frontend)/layout.tsx
+<Suspense fallback={null}>
+  <OnPage />
+</Suspense>
+```
+
+```ts
+// wherever pages read Payload
+const draft = await isDraftEnabled()
+const page = await payload.find({ collection: 'pages', where, draft, ...(await onpageContext()) })
+```
+
+```ts
+// proxy.ts (Next 16) / middleware.ts (Next 15): needed for share links
+export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })
+```
+
+The full walkthrough, with checks after every step and a prompt for coding agents, is in **[Getting started](docs/getting-started.md)**.
+
+## Documentation
+
+|                                            |                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Getting started](docs/getting-started.md) | Installation, step by step                                                                                                                                                                                                                                                                                  |
+| [Concepts](docs/README.md)                 | [Architecture](docs/concepts/architecture.md) · [Auto-mapping](docs/concepts/auto-mapping.md) · [Modes](docs/concepts/modes.md) · [Security](docs/concepts/security.md)                                                                                                                                     |
+| [Guides](docs/README.md)                   | [Annotations](docs/guides/annotations.md) · [Client mode](docs/guides/client-mode.md) · [Custom field editor](docs/guides/custom-field-editor.md) · [Custom data source](docs/guides/custom-data-source.md) · [Localization](docs/guides/localization.md) · [Caching & PPR](docs/guides/caching-and-ppr.md) |
+| Reference                                  | [Compatibility](docs/compatibility.md) · [Troubleshooting](docs/troubleshooting.md) · [Upgrading](docs/upgrading.md) · API reference: `bun run docs:api`                                                                                                                                                    |
+| For LLMs                                   | [llms.txt](llms.txt) · [llms-full.txt](llms-full.txt) · [AGENTS.md](AGENTS.md) (working on this repo)                                                                                                                                                                                                       |
+
+## Packages
+
+| Package                                       |                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------- |
+| [`@payload-onpage/plugin`](packages/plugin)   | Payload plugin: endpoints, access, schema, hooks, admin controls |
+| [`@payload-onpage/next`](packages/next)       | Next.js adapter: `<OnPage />`, session, refresh renderer, proxy  |
+| [`@payload-onpage/react`](packages/react)     | Editor UI, field editors, annotations, client mode               |
+| [`@payload-onpage/core`](packages/core)       | Framework-free logic and the port interfaces                     |
+| [`@payload-onpage/lexical`](packages/lexical) | Inline rich-text editing for Payload's Lexical JSON              |
+
+## Contributing
+
+`bun install && bun run check`. See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Report security issues privately ([SECURITY.md](SECURITY.md)).
+
+## License
+
+MIT
+
+
+<!-- docs/getting-started.md -->
+
+# Getting started
+
+Add on-page editing and shareable draft previews to an existing **Payload 3 + Next.js App Router** site. Nothing changes for visitors: no extra markup, about 0.3 KB of JavaScript.
+
+> **For coding agents:** follow these steps in order. Each names the file to edit and ends with a check. The canonical working setup is [`examples/basic`](../examples/basic); its file paths are cited below.
+
+## 1. Install
+
+```bash
+npm i @payload-onpage/plugin @payload-onpage/next @payload-onpage/react @payload-onpage/core @payload-onpage/lexical
+```
+
+Lexical is a peer dependency. Sites using `@payloadcms/richtext-lexical` already have it, at the same version.
+
+## 2. Register the plugin
+
+`payload.config.ts` ([example](../examples/basic/src/payload.config.ts)):
+
+```ts
+import { onpage } from '@payload-onpage/plugin'
+import { nextSession } from '@payload-onpage/next/session' // the /session entry has no client code
+
+export default buildConfig({
+  // …
+  serverURL: process.env.SERVER_URL, // required in production (redirects, preview links, Secure cookies)
+  plugins: [
+    onpage({
+      collections: ['pages'], // or { pages: { fields: ['title', 'layout'], url: ({ doc }) => `/${doc.slug}` } }
+      globals: ['header'],
+      session: nextSession(),
+    }),
+  ],
+})
+```
+
+Collections must have **drafts** enabled (`versions: { drafts: true }`), so edits save as drafts until published. The page URL comes from the `url` option, then the collection's `admin.preview`, then `/<slug>`.
+
+**Check:** open a document in the admin. **Edit on page** and **Copy preview link** appear beside the document controls.
+
+## 3. Mount the editor
+
+The frontend root layout ([example](<../examples/basic/src/app/(frontend)/layout.tsx>)):
+
+```tsx
+import { Suspense } from 'react'
+import { OnPage } from '@payload-onpage/next'
+
+export default function Layout({ children }) {
+  return (
+    <html lang="en">
+      <body>
+        {children}
+        <Suspense fallback={null}>
+          <OnPage />
+        </Suspense>
+      </body>
+    </html>
+  )
+}
+```
+
+`<OnPage />` renders nothing unless an editor turned on edit or preview mode. It reads cookies only in draft mode, so static pages stay static.
+
+## 4. Read drafts with markers
+
+Wherever the page reads Payload ([example](../examples/basic/src/lib/data.ts)):
+
+```ts
+import { isDraftEnabled, onpageContext } from '@payload-onpage/next'
+
+const draft = await isDraftEnabled()
+const { docs } = await payload.find({
+  collection: 'pages',
+  where: { slug: { equals: slug } },
+  draft,
+  ...(await onpageContext()), // in edit mode: invisible field markers (auto-mapping)
+})
+```
+
+Use `isDraftEnabled()` rather than `draftMode().isEnabled`: it also ends draft access for editors who signed out.
+
+**Check:** click **Edit on page**. The page opens with a dock at the bottom; click any heading or paragraph to edit it.
+
+## 5. Add the proxy (required for preview links)
+
+`proxy.ts` (Next 16) or `middleware.ts` (Next 15), next to `app/` ([example](../examples/basic/src/proxy.ts)):
+
+```ts
+import { createOnPageProxy } from '@payload-onpage/next/proxy'
+
+export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET }) // Next 15: export as `middleware`
+export const config = { matcher: ['/((?!api|_next|admin|.*\\..*).*)'] }
+```
+
+Already have one? Forward the headers it prepares:
+
+```ts
+import { withOnPage } from '@payload-onpage/next/proxy'
+return NextResponse.next({
+  request: { headers: await withOnPage(request, { secret: process.env.PAYLOAD_SECRET }) },
+})
+```
+
+**Check:** copy a preview link in the admin and open it in a private window. The draft shows with a "Shared preview" bar; other pages show published content.
+
+## 6. Verify nothing leaks to visitors
+
+```bash
+curl -s https://your-site.test/ | grep -c 'data-onpage'   # → 0
+```
+
+## Next
+
+- Make images, rows and non-text fields clickable: [annotations](guides/annotations.md).
+- Instant updates while typing: [client mode](guides/client-mode.md).
+- Production hardening: [security](concepts/security.md).
+
+## Prompt for your coding agent
+
+> Add payload-onpage to this Payload + Next.js site following https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started.md. Enable it for the collections that render pages (with drafts on) and for any globals shown on every page. Mount `<OnPage />` in the frontend root layout inside Suspense, spread `onpageContext()` into every draft read that feeds a page, switch draft checks to `isDraftEnabled()`, and add the proxy (merge into an existing middleware if there is one). Then verify: the admin shows "Edit on page"; clicking it lets you edit text; `curl` of a public page contains no `data-onpage`.
+
+
+<!-- docs/concepts/architecture.md -->
+
+# Architecture
+
+## Packages
+
+| Package                   | Runs on        | Depends on           | Responsibility                                                                                                                                           |
+| ------------------------- | -------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@payload-onpage/core`    | anywhere       | nothing              | Document refs, paths, field ops, the editor session, autosave, markers, sealing, **port interfaces**. `core/payload`: the default Payload REST adapters. |
+| `@payload-onpage/plugin`  | Payload server | core, payload        | Endpoints, access, schema, marker hooks, stale-write guard, admin controls.                                                                              |
+| `@payload-onpage/react`   | browser        | core, react          | Editor UI, field editors, locators, annotations, client mode. `react/editor-kit`: building blocks for custom editors.                                    |
+| `@payload-onpage/lexical` | browser        | core, react, lexical | Rich-text field editor (loaded lazily).                                                                                                                  |
+| `@payload-onpage/next`    | Next.js        | core, react, lexical | Session adapter, `<OnPage />`, `onpageContext()`, refresh renderer, proxy.                                                                               |
+
+Package boundaries are enforced by lint (`no-restricted-imports`): core imports no framework, react imports no Next or Payload, and so on.
+
+## Ports and adapters
+
+Each port is a TypeScript interface in `core/src/ports.ts`. The defaults ship, and you can replace any of them.
+
+| Port                                                                    | Default adapter                                                                                     | Swap it for                                          |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `DataSource`: schema, documents, drafts, publish, search, preview links | `payloadRest()` (`core/payload`)                                                                    | GraphQL, server actions, custom auth                 |
+| `MediaLibrary`: image search and upload                                 | `payloadUploads()`                                                                                  | A DAM (Cloudinary, Bynder…)                          |
+| `Locator`: page elements → fields                                       | `composite(annotations(), stega())`                                                                 | Your own markup conventions                          |
+| `Renderer`: show a saved change                                         | `useNextRefresh()`; `clientState()`; `fullReload()`                                                 | Another router                                       |
+| `SessionAdapter`: edit/preview access (server)                          | `nextSession()`                                                                                     | Another framework                                    |
+| Field editors: edit one field                                           | text, textarea, email, select, radio, checkbox, number, date, relationship, upload, color, richText | Anything ([guide](../guides/custom-field-editor.md)) |
+
+## From "Edit on page" to a saved change
+
+```
+admin "Edit on page"  ──POST /api/onpage/enter──▶  plugin: access check (Payload's docAccessOperation)
+                                                    session.enable('edit', bound to the auth cookie)
+                                                    303 → the document's page
+page render (draft)   ──onpageContext()──────────▶  plugin afterRead: strings get invisible markers
+<OnPage /> (client)   ──lazy──▶ editor: locator scans the DOM → targets → session.open(doc)
+click a heading       ──▶ field editor (registry) ──▶ session.setValue ──▶ autosave (debounced)
+                                                    PATCH /api/pages/:id?draft=true (Payload REST)
+                                                    plugin: strip markers, 409 if stale
+renderer.afterSave    ──router.refresh()──────────▶ new server render; the ghost is retired
+```
+
+**Client mode** skips the refresh: `<OnPageClient>` renders from session state, with markers re-applied to the state it renders.
+
+## State
+
+`EditorSession` (core) is framework-free and observable (`subscribe`/`getSnapshot`).
+
+- One state per document (schema, draft, save state); undo is session-wide.
+- Publish, discard and reload run one at a time and re-read state after every await.
+- Autosave is single-flight. It retries transient failures (network, 429, 5xx); a 409 freezes the queue until reload or discard.
+
+
+<!-- docs/concepts/auto-mapping.md -->
+
+# Auto-mapping
+
+In edit mode, every displayable string a page reads carries an **invisible marker**: zero-width characters encoding `{ document, field path, kind }`. The editor scans the rendered DOM for markers and knows, with no annotations, that this `<h2>` is `layout.2.heading` of page 12.
+
+## What gets marked
+
+- `text` and `textarea` values
+- rich-text text nodes (mapped to the rich-text field as a whole)
+- the `alt` of populated uploads, carrying the **upload field's** path, so `<img alt>` maps the image
+
+Never marked:
+
+- selects, numbers, dates, checkboxes, relationships, JSON, code
+- fields whose name has a machine-like segment: `url`, `href`, `link`, `path`, `email`, `phone`, `slug`, `key`, `token`, `anchor`, `id`, `class`, `style`, `icon`, `color`, `hex`. Matching is by camelCase or snake segment, so `ctaUrl` is skipped but `lifestyleTitle` isn't.
+- fields with a non-text editor (`admin.custom.onpage.editor: 'color'`)
+
+Narrow it further with the plugin's `encode` option:
+
+```ts
+onpage({ collections: ['pages'], encode: ({ field, path }) => !path.startsWith('seo.') })
+```
+
+## Lifecycle
+
+1. `onpageContext()` returns `{ context: { onpage: true } }` in edit mode only. Payload passes it to hooks.
+2. The plugin's `afterRead` hook marks strings only for reads with that context. REST, admin and GraphQL reads stay clean.
+3. `beforeValidate`/`beforeChange` hooks strip markers from **every** write, so markers can't be stored.
+4. In the browser, the `stega()` locator maps text nodes and `img[alt]`, and infers rows and lists from where their fields render.
+
+## Caveats
+
+- **Strings change in edit mode.** Comparing or slicing a marked string (`title === 'Home'`, `title.slice(0, 20)`) behaves differently. Use `stegaClean(value)` from `@payload-onpage/core`, or annotate that element instead.
+- **Strings used as identifiers** (CSS classes, keys, ids) should come from fields that aren't marked; see the list above.
+- **Rows** are inferred when their fields render inside a common wrapper. For exact rows, or rows without text, use [annotations](../guides/annotations.md).
+
+
+<!-- docs/concepts/modes.md -->
+
+# Modes
+
+| Mode           | Who                  | What they see                                            | Turned on by                                              |
+| -------------- | -------------------- | -------------------------------------------------------- | --------------------------------------------------------- |
+| **Edit**       | Signed-in editors    | Draft + editing tools                                    | Admin **Edit on page**, or the preview toolbar's **Edit** |
+| **Preview**    | Signed-in editors    | Draft without tools, plus device widths                  | The dock's **Preview**                                    |
+| **Share link** | Anyone with the link | Draft of **one page**, read-only, until the link expires | A preview link (`/api/onpage/preview?token=…`)            |
+
+- Edit and preview turn on Next draft mode site-wide for that editor. The mode cookie is bound to their auth cookie, so signing out or switching user ends it. It lasts 12 hours by default (`nextSession({ maxAge })`).
+- Share links never give the browser Next's draft secret. The proxy injects draft mode for the shared path only, until the sealed grant expires. See [security](security.md).
+- **Exit** clears everything (`POST /api/onpage/exit`).
+
+## Rendering
+
+|                   | Refresh mode (default)                                                                       | Client mode                                                               |
+| ----------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| How               | Save, then `router.refresh()`                                                                | The page renders from editor state                                        |
+| Setup             | Nothing                                                                                      | Wrap the document in `<OnPageClient>` ([guide](../guides/client-mode.md)) |
+| Feels             | Instant: the new text stays on screen as a "ghost" until the server render lands (about 1 s) | Instant, including layout changes                                         |
+| Server components | Yes                                                                                          | The rendered tree must be client-renderable                               |
+
+Both can be used on one page: client-mode documents skip the refresh.
+
+
+<!-- docs/concepts/security.md -->
+
+# Security
+
+## Threat model (summary)
+
+| Asset              | Threat                                       | Mitigation                                                                                                                                     |
+| ------------------ | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unpublished drafts | Anonymous or low-privilege users read drafts | Draft mode only via authenticated endpoints. Share links are sealed, path-bound and expiring, and the browser never holds Next's draft secret. |
+| Document integrity | Editing documents a user may not edit        | Every write is Payload REST (Payload enforces access). Entry points use Payload's `docAccessOperation`, including row-level `where` rules.     |
+| Editor sessions    | CSRF that switches modes or opens editing    | State-changing endpoints are same-origin `POST`s (Origin / `Sec-Fetch-Site`). Preview-link creation needs JSON.                                |
+| Visitors           | Open redirect via `?path=`                   | `safePath()` rejects anything that could resolve off-site, including control characters, backslashes and encoded forms.                        |
+| Stored content     | Marker or script injection                   | Markers are stripped on every write. Rich-text links reject `javascript:`/`data:`. Ghost HTML is sanitized.                                    |
+| Concurrent edits   | Silent overwrites                            | Stale-write guard: the editor sends `x-onpage-if-unmodified-since`, and the plugin answers 409 if the document changed.                        |
+
+## Who can edit
+
+Default: users of `config.admin.user`, with the document's own `update` access, evaluated by Payload. That includes access functions that return a query: "editors may update their own pages" works per document.
+
+Replace it entirely with the `access` option. `ref` is undefined for "may use on-page editing at all":
+
+```ts
+onpage({ access: ({ req, ref }) => req.user?.roles?.includes('editor') ?? false })
+```
+
+Fields the user can't update are left out of the editor schema (field-level access).
+
+## Preview links
+
+- **Token:** AES-256-GCM, sealed with a key derived (HKDF) from `PAYLOAD_SECRET` or the `secret` option, holding `{ ref, path, locale, iat, exp, jti }`. It's opaque to the holder. Default lifetime is 1 day (`previewLinkTTL`).
+- **Bound:** the path is computed on the server. On open, the link must still match the document's page (a moved or deleted document invalidates it).
+- **Revocation:** `validatePreviewLink({ req, ref, path, issuedAt, id })` lets you deny by `jti` or issue time. Rotating the secret revokes every link.
+- **Opening a link** stores only a sealed grant cookie. The proxy unseals it per request and injects Next's draft cookie into the forwarded request on the shared path only. Copying cookies to other paths, or forging Next's draft cookie, gets nothing.
+- **The proxy is required** for share links. Without it, links fail closed: viewers see published content.
+
+## Cookies
+
+| Cookie               | Holder                 | Flags                                                                                                   |
+| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------- |
+| `onpage`             | Editors                | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>` (bound to the session). |
+| `onpage_preview`     | Share-link viewers     | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                 |
+| `__prerender_bypass` | Editors only (Next.js) | Next's own. Never given to share-link viewers.                                                          |
+
+Set `serverURL` in production. It's used for redirects, link URLs and the Secure flag; the plugin warns at startup when it's missing.
+
+## Reporting
+
+See [SECURITY.md](../../SECURITY.md).
+
+
+<!-- docs/guides/annotations.md -->
+
+# Annotations
+
+Auto-mapping covers most text. Annotations add precision where markers can't reach:
+
+- rows and lists you want exact (and "+ Add" for empty lists)
+- images without alt text
+- non-text values (dates, selects, relationships, colors) shown on the page
+
+`editable()` is server-safe and pure. With `enabled: false` every helper returns `{}`, so public HTML carries nothing.
+
+```tsx
+import { editable } from '@payload-onpage/react/annotations'
+import { getOnPageMode } from '@payload-onpage/next'
+
+const e = editable({ collection: 'pages', doc: page }, { enabled: (await getOnPageMode()) === 'edit' })
+
+<section {...e.row('layout.2', 'Hero')}>
+  <img {...e.media('layout.2.image')} src={img.url} alt="" />
+  <time {...e.field('publishedAt', 'field', 'Publish date')}>{format(page.publishedAt)}</time>
+  <ul {...e.list('layout.2.items', 'Feature')}>
+    {items.map((it, j) => <li key={it.id} {...e.row(`layout.2.items.${j}`, 'Feature')}>…</li>)}
+  </ul>
+</section>
+```
+
+| Helper                         | Use for                                                                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `e.field(path, kind?, label?)` | An element showing one field. `kind` defaults to `field` (resolved from the schema); `text`/`textarea`/`richtext`/`media` force one. |
+| `e.media(path, label?)`        | An element showing an upload field                                                                                                   |
+| `e.row(path, label?)`          | A row of an array or blocks field (toolbar: move, duplicate, settings, delete)                                                       |
+| `e.list(path, itemLabel?)`     | The element holding an array's rows ("+ Add")                                                                                        |
+
+Globals: `editable({ global: 'header' }, …)`. Paths are dotted with numeric indexes (`p('layout', i, 'heading')` builds them).
+
+When both apply, annotations win over inferred targets. Example: [`examples/basic/src/components/PageView.tsx`](../../examples/basic/src/components/PageView.tsx).
+
+
+<!-- docs/guides/client-mode.md -->
+
+# Client mode
+
+In client mode the page renders a document from the editor's state, so every change shows immediately: typing, adding rows, picking images. There's no server round trip.
+
+```tsx
+'use client' // the render prop is a function, so this must be a client component
+import { OnPageClient } from '@payload-onpage/react/client'
+import { PageView } from './PageView'
+
+export function LivePage({ page }) {
+  return (
+    <OnPageClient
+      collection="pages"
+      doc={page}
+      render={(doc, e) => <PageView page={doc} e={e} />}
+    />
+  )
+}
+```
+
+- Outside the editor it renders `doc` as given, with inert annotations. It costs about 1.7 KB.
+- Inside the editor it adopts the page's value, then renders editor state. Text is auto-mapped (markers re-applied); `autoMap={false}` turns that off.
+- `e` is the document's annotation helper (see [annotations](annotations.md)).
+- The rendered tree must be client-renderable. Async server components can't be inside `render`.
+- Saves use the collection's autosave interval. The page doesn't wait for them.
+
+Example: [`InstantPage.tsx`](../../examples/basic/src/components/InstantPage.tsx) (`/about` in the example).
+
+
+<!-- docs/guides/globals-and-multiple-documents.md -->
+
+# Globals and multiple documents
+
+A page often shows several documents: the page, a header global, a footer global, embedded documents. Enable each in the plugin and read each with `onpageContext()`:
+
+```ts
+onpage({ collections: ['pages'], globals: ['header', 'footer'], session: nextSession() })
+
+const header = await payload.findGlobal({ slug: 'header', draft, ...(await onpageContext()) })
+```
+
+The editor opens every document it finds on the page:
+
+- Each saves on its own, and undo spans all of them in order.
+- **Publish** publishes every document on the page that has unpublished changes.
+- The dock shows "N documents".
+- Document refs are `c:<collection>:<id>` or `g:<global>`; markers and annotations carry them.
+
+
+<!-- docs/guides/custom-field-editor.md -->
+
+# Custom field editor
+
+A field editor is a React component receiving `FieldEditorProps`, registered by id.
+
+```tsx
+'use client'
+import { Dialog, type FieldEditorProps } from '@payload-onpage/react/editor-kit'
+import { useState } from 'react'
+
+export function JsonEditor({ field, value, element, commit, close, t }: FieldEditorProps) {
+  const [text, setText] = useState(JSON.stringify(value ?? {}, null, 2))
+  const [error, setError] = useState<string | null>(null)
+  const apply = () => {
+    try {
+      commit(JSON.parse(text))
+      close()
+    } catch {
+      setError('Invalid JSON')
+    }
+  }
+  return (
+    <Dialog
+      variant="popover"
+      anchor={element}
+      title={field.label}
+      onClose={close}
+      t={t}
+      width={360}
+    >
+      <textarea
+        className="po-input"
+        rows={8}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        data-autofocus
+      />
+      {error && <p className="po-error">{error}</p>}
+      <button type="button" className="po-btn po-primary" onClick={apply}>
+        {t('common.apply')}
+      </button>
+    </Dialog>
+  )
+}
+```
+
+Register it from a client mount, and pass that mount to `<OnPage>`:
+
+```tsx
+'use client'
+import { OnPageMount, type OnPageMountProps } from '@payload-onpage/next/client'
+import { JsonEditor } from './JsonEditor'
+
+export const Mount = (p: OnPageMountProps) => (
+  <OnPageMount {...p} editors={{ json: { mode: 'popover', component: JsonEditor } }} />
+)
+```
+
+```tsx
+<OnPage mount={Mount} />
+```
+
+## Which editor a field gets
+
+1. `admin: { custom: { onpage: { editor: 'json' } } }` on the field
+2. The kind the element declares (`text`/`textarea`/`richtext`/`media`)
+3. The editor registered for the field's type (`json`, `select`…)
+
+`null` removes a default (`editors={{ color: null }}`).
+
+## Props
+
+| Prop              |                                                                        |
+| ----------------- | ---------------------------------------------------------------------- |
+| `field`           | Serialized field (label, options, relationTo, min/max…)                |
+| `value`           | Current value                                                          |
+| `commit(v)`       | Save a value: one undo step, autosaved                                 |
+| `preview(v)`      | Live preview (client mode); not saved                                  |
+| `close()`         | Close; reverts uncommitted previews                                    |
+| `element()`       | The page element showing the field (anchor, measurements)              |
+| `ghost({ html })` | Refresh mode: keep new content on screen until the server render lands |
+| `live`            | true when the page renders from editor state                           |
+| `t(key, vars)`    | UI strings                                                             |
+
+`editor-kit` also exports `useOnPage`, `useDebouncedSearch`, `useTrackElement`, `placeOver`, `copyTypography`, `sanitizeHtml` and friends.
+
+
+<!-- docs/guides/custom-data-source.md -->
+
+# Custom data source
+
+Implement `DataSource` (from `@payload-onpage/core`) to load and save through something other than Payload REST: GraphQL, server actions, a custom auth header.
+
+```ts
+import type { DataSource } from '@payload-onpage/core'
+
+export const graphqlSource = (endpoint: string): DataSource => ({
+  loadSchema: (ref, { locale }) =>
+    fetch(`/api/onpage/schema/${ref.kind}/${ref.slug}?locale=${locale ?? ''}`).then((r) =>
+      r.json(),
+    ),
+  async loadDocument(ref, { draft, locale }) {
+    /* query by ref; return the document (populated, depth 2) */
+  },
+  async saveDraft(ref, data, { locale, updatedAt }) {
+    // Save only `data` (the changed top-level fields) as a draft.
+    // Send `updatedAt` as the x-onpage-if-unmodified-since header (or your own check)
+    // and return { ok: false, status: 409 } when someone else saved first.
+    return { ok: true, updatedAt: '…new updatedAt…' }
+  },
+  async publish(ref, data, opts) {
+    /* save with _status: 'published' */ return { ok: true }
+  },
+  // Optional:
+  async search(collection, { query, titleField, limit }) {
+    return [/* { id, title, doc } */]
+  },
+  async createPreviewLink(ref, { locale }) {
+    return { url: '…', expiresAt: '…' }
+  },
+})
+```
+
+Pass it from a client mount: `<OnPageMount {...p} dataSource={graphqlSource('/api/graphql')} />`.
+
+## Contract
+
+| Method                           | Must                                                                 |
+| -------------------------------- | -------------------------------------------------------------------- |
+| `loadSchema`                     | Return the plugin's schema JSON (or your own `DocumentSchema`)       |
+| `loadDocument`                   | Return the draft (`draft: true`) or published version                |
+| `saveDraft`                      | Save only the given fields; return `updatedAt`; 409 on a stale write |
+| `publish`                        | Make the given values live                                           |
+| `search` _(optional)_            | Find documents by title for relationship fields                      |
+| `createPreviewLink` _(optional)_ | Enables the dock's **Share**                                         |
+
+Errors: return `{ ok: false, status, message }`. 0, 429 and 5xx are retried; other statuses stop with your message shown.
+
+The default adapter, [`core/src/payload.ts`](../../packages/core/src/payload.ts), is a complete reference, and its tests ([`payload-adapter.test.ts`](../../packages/core/src/__tests__/payload-adapter.test.ts)) can be copied as a contract test.
+
+
+<!-- docs/guides/custom-media-library.md -->
+
+# Custom media library
+
+`MediaLibrary` powers the image picker. The default, `payloadUploads()`, searches and uploads to a Payload upload collection.
+
+```ts
+import type { MediaLibrary } from '@payload-onpage/core'
+
+export const cloudinaryLibrary = (): MediaLibrary => ({
+  async search({ query, page, relationTo }) {
+    const res = await fetch(`/api/my-dam/search?q=${encodeURIComponent(query ?? '')}&page=${page}`)
+    const body = await res.json()
+    return {
+      // `doc` is what gets stored in the field (and rendered in client mode): usually the upload document.
+      items: body.results.map((r) => ({
+        id: r.payloadId,
+        url: r.url,
+        thumbnailUrl: r.thumb,
+        alt: r.alt,
+        doc: r.payloadDoc,
+      })),
+      hasMore: body.hasMore,
+    }
+  },
+  // Optional: enables "Upload…"
+  async upload(file, { relationTo, alt }) {
+    /* … */
+  },
+})
+```
+
+Pass it with `<OnPageMount {...p} media={cloudinaryLibrary()} />`. Without a media library, upload fields can't be changed on the page.
+
+
+<!-- docs/guides/localization.md -->
+
+# Localization
+
+## Content locales
+
+The editor edits one content locale: `<OnPage locale="es" />`, else the page's `<html lang>`. Reads, saves and the schema use it.
+
+- Text edits apply to that locale only.
+- Adding, moving or removing rows changes the shared structure, as in the admin. The dock says so when you're not editing the default locale.
+
+## Editor UI strings
+
+Every string the on-page editor shows is in `defaultMessages` (`@payload-onpage/react`). Override any subset:
+
+```tsx
+<OnPage messages={{ 'dock.publish': 'Publicar', 'dock.saved': 'Borrador guardado {ago}' }} />
+```
+
+Relative times use `Intl.RelativeTimeFormat` in the browser's language.
+
+## Admin strings
+
+"Edit on page" and "Copy preview link" use Payload's i18n (`onpage:*` keys) and follow the admin language. English, Spanish, French and German ship. Add or override others in your Payload config:
+
+```ts
+i18n: { translations: { it: { onpage: { editOnPage: 'Modifica nella pagina', copyPreviewLink: 'Copia link anteprima' } } } }
+```
+
+Field and block labels come from your Payload config, translated with Payload's `getTranslation` into the admin language.
+
+
+<!-- docs/guides/caching-and-ppr.md -->
+
+# Caching, static pages and PPR
+
+- **Visitors are unaffected.** `<OnPage />`, `isDraftEnabled()`, `getOnPageMode()` and `onpageContext()` read `draftMode().isEnabled` first and touch cookies only when draft mode is on. Next exempts that read from prerender bailout, so static and PPR pages stay static.
+- **Editors and link viewers get dynamic renders.** Draft-mode requests bypass the static cache, so edits and drafts always render fresh.
+- **Share links on static pages work.** The proxy injects draft mode into the request before Next decides how to serve it.
+- **Reads that feed the page** should pass `draft` and `...onpageContext()`. Anything cached with `unstable_cache` or `'use cache'` must not be shared between draft and published reads: key it by draft, or skip the cache when `draft` is true.
+- **Revalidation after publish** is your site's existing mechanism (Payload `afterChange` hooks calling `revalidatePath`/`revalidateTag`). Publishing from the page is a normal Payload update, so those hooks run.
+
+
+<!-- docs/troubleshooting.md -->
+
+# Troubleshooting
+
+| Symptom                                                                                    | Cause                                                                                                           | Fix                                                                                                                                    |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| No **Edit on page** button in the admin                                                    | Plugin not registered, the collection isn't listed, or the user can't update the document                       | Check `onpage({ collections })`; the button hides without update permission. Regenerate the import map (`payload generate:importmap`). |
+| "Edit on page" opens the page but there's no dock                                          | `<OnPage />` not mounted, or not inside the frontend layout                                                     | Mount it in the frontend root layout ([getting started](getting-started.md#3-mount-the-editor)).                                       |
+| Dock shows "Nothing editable on this page"                                                 | Reads don't pass `onpageContext()`, and nothing is annotated                                                    | Spread `...(await onpageContext())` into the draft reads that feed the page.                                                           |
+| Text isn't clickable but other text is                                                     | The string is transformed before rendering (sliced, formatted, uppercased in JS), or it's a machine-named field | Render the raw value, or annotate the element (`e.field(path)`). See [auto-mapping caveats](concepts/auto-mapping.md#caveats).         |
+| A comparison like `title === 'Home'` fails in edit mode                                    | Markers are appended to strings                                                                                 | Compare `stegaClean(title)`.                                                                                                           |
+| Share link shows published content                                                         | No proxy, a different secret in the proxy, or the matcher excludes the page                                     | Add `createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })` with the same secret as Payload; check `config.matcher`.               |
+| Redirects or links point to the wrong host                                                 | `serverURL` unset behind a proxy                                                                                | Set `serverURL` in the Payload config.                                                                                                 |
+| "Changed by someone else"                                                                  | Another editor (or the admin) saved the document after you loaded it                                            | **Reload latest** (your unsaved edits are dropped) or **Discard**.                                                                     |
+| Editing ends after signing out in another tab                                              | By design: edit mode is bound to the auth cookie                                                                | Sign in again and press **Edit on page**.                                                                                              |
+| `useEffectEvent is not a function`                                                         | React older than 19.2                                                                                           | Upgrade React to 19.2+.                                                                                                                |
+| Two Lexical copies / rich-text errors                                                      | Lexical version differs from Payload's                                                                          | Install the Lexical version Payload's `@payloadcms/richtext-lexical` uses (`~0.41.0` for Payload 3.87).                                |
+| The editor never appears; the console shows "useOnPage must be used inside <OnPageEditor>" | Two copies of `@payload-onpage/react` installed                                                                 | Dedupe (`npm ls @payload-onpage/react`). The hub is shared across copies, but contexts aren't.                                         |
+| 403 "Cross-site request refused" from enter/exit                                           | A link or form posts from another origin                                                                        | Use the built-in buttons; enter/mode/exit accept same-origin POSTs only.                                                               |
+
+
+<!-- docs/compatibility.md -->
+
+# Compatibility
+
+|                      | Supported                                                    | Tested in CI            |
+| -------------------- | ------------------------------------------------------------ | ----------------------- |
+| Payload              | `^3.87.0`                                                    | 3.87                    |
+| Next.js (App Router) | `^15.4.11 \|\| ^16.2.6` (Payload's own range)                | 15.4, 16                |
+| React                | `^19.2.0`                                                    | 19.2                    |
+| Node.js              | `>=20.9`                                                     | 20, 22, 24              |
+| Lexical              | `~0.41.0` (matches Payload's `@payloadcms/richtext-lexical`) | 0.41                    |
+| Databases            | Any Payload adapter: the plugin uses Payload's API only      | SQLite (tests, example) |
+
+**Next 15 vs 16:** the proxy file is `middleware.ts` (export `middleware`) on 15 and `proxy.ts` (export `proxy`) on 16. Everything else is identical.
+
+**Pages Router:** not supported. The session adapter and refresh renderer target the App Router. The ports allow other adapters.
+
+
+<!-- docs/upgrading.md -->
+
+# Upgrading
+
+## 0.1 → 0.2
+
+0.2 is a security and architecture release. Breaking changes:
+
+| Change                                                                                                                                                       | What to do                                                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| **The proxy is required for share links** and has a new API: `createOnPageProxy({ secret })`, or `withOnPage(request, { secret })` in an existing middleware | Replace `export { onpageProxy as proxy }` with `export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })` |
+| `enter`, `mode` and `exit` are same-origin **POST** endpoints                                                                                                | Use the built-in buttons. Custom links must become forms (`<form method="post" action=…>`).                                     |
+| `access({ req, ref })`: `ref` is undefined for "may use on-page editing"                                                                                     | Handle `ref === undefined`                                                                                                      |
+| Default preview-link lifetime is 1 day (was 7)                                                                                                               | Set `previewLinkTTL` if you need longer                                                                                         |
+| `/api/onpage/search` removed                                                                                                                                 | Relationship search uses Payload REST; nothing to do unless you called it                                                       |
+| Payload REST adapters moved to `@payload-onpage/core/payload`                                                                                                | `import { payloadRest, payloadUploads } from '@payload-onpage/core/payload'`                                                    |
+| `@payload-onpage/lexical` main entry no longer exports the component or nodes                                                                                | Import them from `@payload-onpage/lexical/editor`                                                                               |
+| `SessionAdapter` gained `enableLink()`; `Links.previewLink` → `DataSource.createPreviewLink`                                                                 | Custom adapters only                                                                                                            |
+| `<OnPageEditor media>` has no default                                                                                                                        | The Next adapter passes `payloadUploads()`. Pass a `MediaLibrary` if you mount `OnPageEditor` yourself.                         |
+| Peers: React ≥ 19.2, Next `^15.4.11 \|\| ^16.2.6`, Payload ≥ 3.87                                                                                            | Upgrade                                                                                                                         |

@@ -20,7 +20,9 @@
     "check": "bun run format:check && bun run lint && bun run typecheck && bun run coverage && bun run build && bun run size",
     "dev:example": "bun run build && cd examples/basic && bun run dev",
     "size": "size-limit",
-    "e2e": "bun run build && playwright test -c e2e/playwright.config.ts"
+    "e2e": "bun run build && playwright test -c e2e/playwright.config.ts",
+    "docs:api": "typedoc",
+    "docs:llms": "node scripts/llms-full.mjs"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
@@ -60,6 +62,7 @@
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "size-limit": "^11",
+    "typedoc": "^0.28.20",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",
     "vitest": "^3.2.7"

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "name": "payload-onpage API",
+  "entryPointStrategy": "expand",
+  "entryPoints": [
+    "packages/core/src/index.ts",
+    "packages/core/src/payload.ts",
+    "packages/plugin/src/index.ts",
+    "packages/react/src/index.ts",
+    "packages/react/src/annotations.ts",
+    "packages/react/src/editor-kit.ts",
+    "packages/lexical/src/index.ts",
+    "packages/next/src/index.tsx",
+    "packages/next/src/client.tsx",
+    "packages/next/src/proxy.ts"
+  ],
+  "tsconfig": "tsconfig.test.json",
+  "out": "docs/api",
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": true,
+  "skipErrorChecking": true,
+  "readme": "none"
+}
