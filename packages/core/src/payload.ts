@@ -1,12 +1,12 @@
 /**
- * Default adapters over Payload's REST API (cookie auth, same origin):
+ * @payload-onpage/core/payload — the default adapters over Payload's REST API (cookie auth, same origin):
  *   payloadRest()     DataSource for collections and globals
  *   payloadUploads()  MediaLibrary over an upload collection
  * Every write is a normal PATCH, so access control, hooks, validation, drafts
  * and versions behave exactly as in the admin.
  */
-import type { DocRef } from '../docref.ts'
-import { DEFAULTS, HEADER } from '../constants.ts'
+import type { DocRef } from './docref.ts'
+import { DEFAULTS, HEADER } from './constants.ts'
 import type {
   DataSource,
   Doc,
@@ -15,8 +15,8 @@ import type {
   PreviewLink,
   SaveResult,
   SearchHit,
-} from '../ports.ts'
-import type { DocumentSchema } from '../schema.ts'
+} from './ports.ts'
+import type { DocumentSchema } from './schema.ts'
 
 export interface PayloadRestOptions {
   /** API base, default "/api". */

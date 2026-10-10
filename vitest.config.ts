@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: [
       { find: /^@payload-onpage\/core$/, replacement: src('core') },
+      { find: /^@payload-onpage\/core\/payload$/, replacement: src('core', 'payload.ts') },
       { find: /^@payload-onpage\/plugin$/, replacement: src('plugin') },
       { find: /^@payload-onpage\/plugin\/admin$/, replacement: src('plugin', 'admin/index.ts') },
       { find: /^@payload-onpage\/react$/, replacement: src('react') },
@@ -19,6 +20,7 @@ export default defineConfig({
       { find: /^@payload-onpage\/react\/client$/, replacement: src('react', 'OnPageClient.tsx') },
       { find: /^@payload-onpage\/react\/editor-kit$/, replacement: src('react', 'editor-kit.ts') },
       { find: /^@payload-onpage\/lexical$/, replacement: src('lexical') },
+      { find: /^@payload-onpage\/lexical\/editor$/, replacement: src('lexical', 'editor.ts') },
       { find: /^@payload-onpage\/next$/, replacement: src('next', 'index.tsx') },
       { find: /^@payload-onpage\/next\/client$/, replacement: src('next', 'client.tsx') },
       { find: /^@payload-onpage\/next\/(session|proxy)$/, replacement: src('next', '$1.ts') },

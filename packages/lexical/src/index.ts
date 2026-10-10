@@ -1,25 +1,33 @@
+'use client'
+
 /**
  * @payload-onpage/lexical — inline rich-text editing for Payload's Lexical
- * richText fields. Add it to the editor registry:
+ * richText fields.
  *
  *   <OnPageEditor editors={lexicalEditors} … />   // the Next adapter includes it by default
  *
- * The editor reads and writes Payload's Lexical JSON. Links keep Payload's
- * shape; nodes it doesn't edit (uploads, blocks, relationships…) are kept
- * as-is and shown as placeholders.
+ * Light by design: the Lexical editor itself (~75 KB gz with Lexical) loads
+ * only when someone opens a rich-text field. It reads and writes Payload's
+ * Lexical JSON; links keep Payload's shape, and nodes it doesn't edit
+ * (uploads, blocks, relationships…) are kept as-is and shown as placeholders.
+ * The editor component and its nodes are in `@payload-onpage/lexical/editor`.
  */
-import type { EditorRegistry } from '@payload-onpage/react'
-import { InlineRichText } from './InlineRichText.tsx'
+import type { EditorRegistry } from '@payload-onpage/react/editor-kit'
+import { lazy } from 'react'
+
+const InlineRichText = lazy(() =>
+  import('./InlineRichText.tsx').then((m) => ({ default: m.InlineRichText })),
+)
 
 export const lexicalEditors: EditorRegistry = {
   richText: { mode: 'inline', component: InlineRichText },
 }
 
-export { InlineRichText, RICH_TEXT_NODES } from './InlineRichText.tsx'
-export { toEditorState, fromEditorState, plainText, type RichTextState } from './convert.ts'
 export {
-  PayloadLinkNode,
-  OpaqueNode,
-  $createPayloadLinkNode,
-  $isPayloadLinkNode,
-} from './nodes.tsx'
+  toEditorState,
+  fromEditorState,
+  plainText,
+  isRichTextState,
+  type RichTextState,
+} from './convert.ts'
+export { OPAQUE_TYPE } from './constants.ts'

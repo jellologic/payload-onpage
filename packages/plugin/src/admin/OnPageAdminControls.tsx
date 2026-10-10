@@ -5,7 +5,7 @@
  * mode, or copy a sealed read-only preview link. Hidden for users who can't
  * update the document.
  */
-import { payloadRest } from '@payload-onpage/core'
+import { payloadRest } from '@payload-onpage/core/payload'
 import { Button, toast, useConfig, useDocumentInfo, useLocale } from '@payloadcms/ui'
 import { useMemo, useState } from 'react'
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { fieldAtPath, getAt } from '@payload-onpage/core'
-import { useCallback } from 'react'
+import { Suspense, useCallback } from 'react'
 import { useOnPage } from '../context.tsx'
 import type { FieldEditorProps } from '../types.ts'
 
@@ -43,21 +43,24 @@ export function FieldHost({ mode }: { mode: 'inline' | 'popover' }) {
   const field = fieldAtPath(state.schema.fields, state.doc, path)?.field
   if (!field) return null
   const Editor = def.component
+  // Editors may be lazy (the rich-text editor is): render nothing until they've loaded.
   return (
-    <Editor
-      key={`${key}|${path}`}
-      docKey={key}
-      path={path}
-      field={field}
-      element={element}
-      value={getAt(state.doc, path)}
-      commit={commit}
-      preview={preview}
-      close={close}
-      ghost={ghost}
-      live={live}
-      point={editing.point}
-      t={t}
-    />
+    <Suspense fallback={null}>
+      <Editor
+        key={`${key}|${path}`}
+        docKey={key}
+        path={path}
+        field={field}
+        element={element}
+        value={getAt(state.doc, path)}
+        commit={commit}
+        preview={preview}
+        close={close}
+        ghost={ghost}
+        live={live}
+        point={editing.point}
+        t={t}
+      />
+    </Suspense>
   )
 }

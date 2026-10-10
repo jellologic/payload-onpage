@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * Lexical nodes for editing Payload rich text in place.
  *
@@ -115,7 +117,9 @@ export function $isPayloadLinkNode(node: LexicalNode | null | undefined): node i
 
 // ── Opaque ───────────────────────────────────────────────────────────────
 
-export const OPAQUE_TYPE = 'onpage-opaque'
+import { OPAQUE_TYPE } from './constants.ts'
+
+export { OPAQUE_TYPE }
 const INLINE_TYPES = new Set(['inlineBlock', 'autolink'])
 
 export type SerializedOpaqueNode = Spread<

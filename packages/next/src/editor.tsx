@@ -3,7 +3,8 @@
 /** The lazily loaded part of the Next adapter: the editor and the preview toolbar, wired to Next and Payload. */
 import React, { useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation.js'
-import { DEFAULTS, payloadRest, payloadUploads, type DocRef } from '@payload-onpage/core'
+import { DEFAULTS, type DocRef } from '@payload-onpage/core'
+import { payloadRest, payloadUploads } from '@payload-onpage/core/payload'
 import { OnPageEditor, PreviewToolbar, inPreviewFrame, type Links } from '@payload-onpage/react'
 import { lexicalEditors } from '@payload-onpage/lexical'
 import type { OnPageMountProps } from './client.tsx'

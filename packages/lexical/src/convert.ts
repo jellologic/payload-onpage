@@ -4,7 +4,7 @@
  * unwrapped on the way out, byte-for-byte.
  */
 import { eachLexicalNode, type LexicalNode, type LexicalState } from '@payload-onpage/core'
-import { OPAQUE_TYPE } from './nodes.tsx'
+import { OPAQUE_TYPE } from './constants.ts'
 
 export const EDITABLE_NODE_TYPES = new Set([
   'root',
