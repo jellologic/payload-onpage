@@ -10,14 +10,11 @@
  */
 import { cookies, draftMode, headers } from 'next/headers.js';
 import type { OnPageMode, SessionAdapter } from "@payload-onpage/core";
-import { PATH_HEADER } from "./constants.ts";
+import { BYPASS_COOKIE, LINK_COOKIE, MODE_COOKIE, PATH_HEADER, safeDecode, samePath } from "./constants.ts";
 
-export { PATH_HEADER };
+export { LINK_COOKIE, MODE_COOKIE, PATH_HEADER };
 
-export const MODE_COOKIE = "onpage";
-export const LINK_COOKIE = "onpage_link";
-/** Next.js's draft-mode cookie. */
-const BYPASS_COOKIE = "__prerender_bypass";
+
 
 export interface NextSessionOptions {
   /** Max age of the edit/preview cookies in seconds. Default: browser session. */
@@ -98,16 +95,6 @@ export async function isDraftEnabled(): Promise<boolean> {
     return false;
   }
 }
-
-const trim = (p: string) => (p.length > 1 ? p.replace(/\/+$/, "") : p);
-const samePath = (a: string, b: string) => trim(a) === trim(b);
-const safeDecode = (v: string) => {
-  try {
-    return decodeURIComponent(v);
-  } catch {
-    return v;
-  }
-};
 
 /**
  * Spread into Payload reads that feed the page: in edit mode it turns on

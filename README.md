@@ -65,6 +65,8 @@ const draft = await isDraftEnabled()
 const page = await payload.find({ collection: 'pages', where, draft, ...(await onpageContext()) })
 ```
 
+**Recommended:** add the one-line proxy from [Security](#security) so shared preview links stay on their page.
+
 That's it, with no component changes. Each document gets **Edit on page** and **Copy preview link** buttons in the admin. Text, textarea, rich-text and image fields become clickable on the page, and array and blocks rows get move, duplicate, delete and settings controls.
 
 ### How it finds fields: auto-mapping
@@ -171,15 +173,15 @@ Implement `loadSchema`, `loadDocument`, `saveDraft` and `publish` (plus `search`
   - `isDraftEnabled()` adds a second check on top.
   - A tampered or expired token gets a 403.
 - **Markers** exist only in responses for reads that pass `onpageContext()`, which happens only in edit mode. They are stripped on every write.
-- **Shared links to the home page.** Cookies can't be scoped to `/` alone, and server components can't see the request path. Without help, a link to `/` would show drafts site-wide. Install the optional proxy so `isDraftEnabled()` can compare paths:
+- **Install the proxy (recommended).** Cookies can't be scoped to `/` alone, so without help a shared link to the home page would put the whole site in draft mode. With the proxy, a link viewer gets draft mode only on the shared page. On any other path, Next's draft cookie is removed from the request before your code runs, so even direct `draftMode()` reads see published content.
 
   ```ts
   // proxy.ts (Next 16; middleware.ts on Next 15)
   export { onpageProxy as proxy } from '@payload-onpage/next/proxy'
-  export const config = { matcher: ['/((?!api|_next|admin|.*\\..*).*)'] }
+  export const config = { matcher: ['/((?!_next|.*\\..*).*)'] }
+  // Already have one? NextResponse.next({ request: { headers: withOnPagePath(request) } })
   ```
 
-  Even with the proxy, code that reads `draftMode()` directly can't benefit. Use `isDraftEnabled()` wherever drafts are fetched.
 - **Static pages stay static.** `<OnPage />` and the session helpers read `draftMode().isEnabled` first and touch `cookies()` only when draft mode is on.
 
 ## FAQ
