@@ -9,11 +9,12 @@ import React, { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { UI } from './dom.ts'
 import { injectStyles } from './styles.ts'
+import { PostButton } from './PostButton.tsx'
 
 export interface PreviewToolbarProps {
-  /** Leave preview (back to the published page). */
+  /** Endpoint that leaves preview (POST), back to the published page. */
   exitHref: string
-  /** Switch to editing; omit for people who can't edit (shared links). */
+  /** Endpoint that switches to editing (POST); omit for people who can't edit (shared links). */
   editHref?: string
   /** Opened from a shared preview link. */
   shared?: boolean
@@ -99,18 +100,13 @@ export function PreviewToolbar({ exitHref, editHref, shared }: PreviewToolbarPro
           </button>
         )}
         {editHref && (
-          <a
-            className="po-btn po-primary"
-            style={{ background: '#4f7cff' }}
-            href={editHref}
-            data-testid="onpage-edit"
-          >
+          <PostButton action={editHref} className="po-btn po-primary" testId="onpage-edit">
             Edit
-          </a>
+          </PostButton>
         )}
-        <a className="po-btn" href={exitHref} data-testid="onpage-exit-preview">
+        <PostButton action={exitHref} testId="onpage-exit-preview">
           {shared ? 'View published' : 'Exit'}
-        </a>
+        </PostButton>
       </div>
     </div>,
     document.body,

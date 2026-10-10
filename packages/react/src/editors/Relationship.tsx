@@ -29,8 +29,15 @@ const titleOf = (v: Rel): string => {
   return String(idOf(v) ?? '')
 }
 
-export function RelationshipEditor({ field, value, element, commit, close }: FieldEditorProps) {
-  const { session } = useOnPage()
+export function RelationshipEditor({
+  docKey,
+  field,
+  value,
+  element,
+  commit,
+  close,
+}: FieldEditorProps) {
+  const { session, snap } = useOnPage()
   const targets = Array.isArray(field.relationTo)
     ? field.relationTo
     : field.relationTo
@@ -44,12 +51,18 @@ export function RelationshipEditor({ field, value, element, commit, close }: Fie
   const many = !!field.hasMany
   const current: Rel[] = many ? (Array.isArray(value) ? value : []) : value == null ? [] : [value]
   const search = session.dataSource.search?.bind(session.dataSource)
+  const relations = snap.docs[docKey]?.schema?.relations ?? {}
 
   useEffect(() => {
     if (!search || !collection) return
     let live = true
     const t = setTimeout(() => {
-      search(collection, { query, locale: session.locale, limit: 12 })
+      search(collection, {
+        query,
+        titleField: relations[collection]?.titleField,
+        locale: session.locale,
+        limit: 12,
+      })
         .then((docs) => live && (setHits(docs), setError(null)))
         .catch((e: Error) => live && setError(e.message))
     }, 200)
@@ -57,7 +70,7 @@ export function RelationshipEditor({ field, value, element, commit, close }: Fie
       live = false
       clearTimeout(t)
     }
-  }, [search, collection, query, session.locale])
+  }, [search, collection, query, session.locale, relations])
 
   const wrap = (hit: SearchHit): Rel =>
     poly ? { relationTo: collection, value: hit.doc } : hit.doc

@@ -39,11 +39,19 @@ export interface DataSource {
     data: Doc,
     opts: { locale?: string; updatedAt?: string },
   ): Promise<SaveResult>
-  /** Find documents to link to (relationship fields), by title. Optional. */
+  /** Find documents to link to (relationship fields), by their title field. Optional. */
   search?(
     collection: string,
-    opts: { query?: string; locale?: string; limit?: number },
+    opts: { query?: string; titleField?: string; locale?: string; limit?: number },
   ): Promise<SearchHit[]>
+  /** Create a read-only preview link for a document. Optional. */
+  createPreviewLink?(ref: DocRef, opts: { locale?: string }): Promise<PreviewLink>
+}
+
+export interface PreviewLink {
+  url: string
+  expiresAt: string
+  id?: string
 }
 
 export interface SearchHit {
@@ -105,14 +113,28 @@ export interface Renderer {
 
 export type OnPageMode = 'edit' | 'view'
 
-/** Server side: turns a request's edit/preview mode on and off (framework-specific). */
+/**
+ * Server side: turns a browser's edit/preview access on and off. Framework
+ * specific (`nextSession()` for Next.js).
+ */
 export interface SessionAdapter {
   /**
-   * `path` (preview links): scope the mode to that page only, so a shared link
-   * doesn't open every draft on the site.
+   * Signed-in editors: site-wide draft mode in edit or view mode. `bindTo` names
+   * the auth cookie the mode is bound to, so signing out (or in as someone else)
+   * ends it.
    */
-  enable(mode: OnPageMode, opts: { secure: boolean; path?: string }): Promise<void>
-  /** `path`: the page being left (preview-link cookies are scoped to it). */
-  disable(opts?: { path?: string }): Promise<void>
+  enable(mode: OnPageMode, opts: { secure: boolean; bindTo?: string }): Promise<void>
+  /**
+   * Preview links: read-only draft access to one page until `expiresAt`. The
+   * adapter passes the framework's draft secret to `seal`, and stores only the
+   * sealed result, so the browser never holds a usable draft credential.
+   */
+  enableLink(opts: {
+    secure: boolean
+    path: string
+    expiresAt: Date
+    seal: (draftSecret: string) => Promise<string>
+  }): Promise<void>
+  disable(): Promise<void>
   getMode(): Promise<OnPageMode | null>
 }

@@ -11,14 +11,16 @@
  *   // where the page reads Payload in draft mode
  *   payload.find({ collection: 'pages', draft, ...(await onpageContext()) })
  */
-import { cookies } from 'next/headers.js'
 import type { ComponentType } from 'react'
 import { OnPageMount, type OnPageMountProps } from './client.tsx'
-import { getOnPageMode, LINK_COOKIE } from './session.ts'
+import { getOnPageMode, isSharedPreview } from './session.ts'
 
 export * from './session.ts'
 
-export interface OnPageProps extends Omit<OnPageMountProps, 'mode' | 'shared'> {
+/** Client-only options can't cross the server/client boundary; pass them from your own `mount`. */
+type ClientOnly = 'mode' | 'shared' | 'editors' | 'locator' | 'media' | 'dataSource'
+
+export interface OnPageProps extends Omit<OnPageMountProps, ClientOnly> {
   /**
    * Your own client mount, to pass client-only options (custom field
    * editors, locator, media library…):
@@ -31,12 +33,10 @@ export interface OnPageProps extends Omit<OnPageMountProps, 'mode' | 'shared'> {
 
 /**
  * Mounts the editor (edit mode) or the preview toolbar (preview mode) and
- * renders nothing otherwise. It reads cookies, so wrap it in <Suspense> when
- * the layout is statically rendered.
+ * renders nothing otherwise. Static-safe: it reads cookies only in draft mode.
  */
 export async function OnPage({ mount: Mount = OnPageMount, ...props }: OnPageProps) {
   const mode = await getOnPageMode()
   if (!mode) return null
-  const shared = !!(await cookies()).get(LINK_COOKIE)?.value
-  return <Mount {...props} mode={mode} shared={shared} />
+  return <Mount {...props} mode={mode} shared={await isSharedPreview()} />
 }

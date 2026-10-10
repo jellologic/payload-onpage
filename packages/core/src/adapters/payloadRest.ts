@@ -6,7 +6,16 @@
  * and versions behave exactly as in the admin.
  */
 import type { DocRef } from '../docref.ts'
-import type { DataSource, Doc, MediaItem, MediaLibrary, SaveResult, SearchHit } from '../ports.ts'
+import { DEFAULTS, HEADER } from '../constants.ts'
+import type {
+  DataSource,
+  Doc,
+  MediaItem,
+  MediaLibrary,
+  PreviewLink,
+  SaveResult,
+  SearchHit,
+} from '../ports.ts'
 import type { DocumentSchema } from '../schema.ts'
 
 export interface PayloadRestOptions {
@@ -25,7 +34,8 @@ const qs = (params: Record<string, string | number | boolean | undefined>) => {
   return s.toString()
 }
 
-async function errorMessage(res: Response): Promise<string> {
+/** The best human-readable message from a Payload error response. */
+export async function errorMessage(res: Response): Promise<string> {
   try {
     const body = await res.json()
     const first = body?.errors?.[0]
@@ -37,8 +47,8 @@ async function errorMessage(res: Response): Promise<string> {
 }
 
 export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
-  const api = opts.apiBase ?? '/api'
-  const prefix = opts.prefix ?? '/onpage'
+  const api = opts.apiBase ?? DEFAULTS.apiRoute
+  const prefix = opts.prefix ?? DEFAULTS.routePrefix
   const f = opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
   const init = (extra: RequestInit = {}): RequestInit => ({
     credentials: 'include',
@@ -61,16 +71,16 @@ export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
       draft: publish ? undefined : true,
       autosave: publish ? undefined : true,
     })
-    const body = {
-      ...data,
-      ...(o.updatedAt ? { updatedAt: o.updatedAt } : {}),
-      ...(publish ? { _status: 'published' } : {}),
-    }
+    const body = publish ? { ...data, _status: 'published' } : data
     const res = await f(
       `${docUrl(ref)}?${query}`,
       init({
         method: ref.kind === 'global' ? 'POST' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          // Stale-write guard, checked by the plugin (409 when someone else saved since).
+          ...(o.updatedAt ? { [HEADER.ifUnmodifiedSince]: o.updatedAt } : {}),
+        },
         body: JSON.stringify(body),
       }),
     )
@@ -99,13 +109,41 @@ export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
     },
     saveDraft: (ref, data, o) => write(ref, data, o, false),
     publish: (ref, data, o) => write(ref, data, o, true),
+    // Payload's own REST API: its access control decides what each user may find.
     async search(collection, o): Promise<SearchHit[]> {
+      const titleField = o.titleField ?? 'id'
+      const p = new URLSearchParams({ depth: '1', limit: String(o.limit ?? 10) })
+      if (o.locale) p.set('locale', o.locale)
+      if (o.query)
+        p.set(`where[${titleField}][${titleField === 'id' ? 'equals' : 'like'}]`, o.query)
+      const res = await f(`${api}/${collection}?${p}`, init())
+      if (!res.ok) throw new Error(await errorMessage(res))
+      const body = (await res.json()) as { docs?: Doc[] }
+      return (body.docs ?? []).map((doc) => {
+        const title = doc[titleField]
+        return {
+          id: doc.id as string | number,
+          title: typeof title === 'string' && title ? title : String(doc.id),
+          doc,
+        }
+      })
+    },
+    async createPreviewLink(ref, o): Promise<PreviewLink> {
       const res = await f(
-        `${api}${prefix}/search/${collection}?${qs({ q: o.query, locale: o.locale, limit: o.limit })}`,
-        init(),
+        `${api}${prefix}/preview-link`,
+        init({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: ref.kind,
+            slug: ref.slug,
+            id: ref.kind === 'collection' ? ref.id : undefined,
+            locale: o.locale,
+          }),
+        }),
       )
       if (!res.ok) throw new Error(await errorMessage(res))
-      return (await res.json()).docs ?? []
+      return (await res.json()) as PreviewLink
     },
   }
 }
@@ -135,7 +173,7 @@ const toItem = (doc: Doc): MediaItem => ({
 })
 
 export function payloadUploads(opts: PayloadUploadsOptions = {}): MediaLibrary {
-  const api = opts.apiBase ?? '/api'
+  const api = opts.apiBase ?? DEFAULTS.apiRoute
   const f = opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
   return {
     async search({ query, page = 1, relationTo }) {

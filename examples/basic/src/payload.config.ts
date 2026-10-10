@@ -11,12 +11,13 @@ import { Pages } from './collections/Pages'
 import { Users } from './collections/Users'
 import { Header } from './globals/Header'
 import { seed } from './seed'
+import { PAYLOAD_SECRET } from './secret'
 import { migrations } from './migrations'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default buildConfig({
-  secret: process.env.PAYLOAD_SECRET || 'payload-onpage-example-secret-change-me',
+  secret: PAYLOAD_SECRET,
   serverURL: process.env.SERVER_URL || 'http://localhost:3100',
   admin: {
     user: Users.slug,
