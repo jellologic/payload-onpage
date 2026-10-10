@@ -10,11 +10,12 @@
  */
 import { cookies, draftMode, headers } from 'next/headers.js';
 import type { OnPageMode, SessionAdapter } from "@payload-onpage/core";
+import { PATH_HEADER } from "./constants.ts";
+
+export { PATH_HEADER };
 
 export const MODE_COOKIE = "onpage";
 export const LINK_COOKIE = "onpage_link";
-/** Request header carrying the request path, set by onpageProxy() (see ./proxy). */
-export const PATH_HEADER = "x-onpage-path";
 /** Next.js's draft-mode cookie. */
 const BYPASS_COOKIE = "__prerender_bypass";
 

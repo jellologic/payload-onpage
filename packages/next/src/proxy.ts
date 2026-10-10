@@ -13,12 +13,14 @@
  *   NextResponse.next({ request: { headers: withOnPagePath(request) } })
  */
 import { NextResponse, type NextRequest } from 'next/server.js';
-import { PATH_HEADER } from './session.ts';
+import { PATH_HEADER } from './constants.ts';
 
 export function withOnPagePath(request: NextRequest, headers: Headers = new Headers(request.headers)): Headers {
   headers.set(PATH_HEADER, request.nextUrl.pathname);
   return headers;
 }
+
+export { PATH_HEADER };
 
 export function onpageProxy(request: NextRequest) {
   return NextResponse.next({ request: { headers: withOnPagePath(request) } });
