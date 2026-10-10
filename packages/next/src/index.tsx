@@ -11,14 +11,14 @@
  *   // where the page reads Payload in draft mode
  *   payload.find({ collection: 'pages', draft, ...(await onpageContext()) })
  */
-import { cookies } from 'next/headers.js';
-import type { ComponentType } from "react";
-import { OnPageMount, type OnPageMountProps } from "./client.tsx";
-import { getOnPageMode, LINK_COOKIE } from "./session.ts";
+import { cookies } from 'next/headers.js'
+import type { ComponentType } from 'react'
+import { OnPageMount, type OnPageMountProps } from './client.tsx'
+import { getOnPageMode, LINK_COOKIE } from './session.ts'
 
-export * from "./session.ts";
+export * from './session.ts'
 
-export interface OnPageProps extends Omit<OnPageMountProps, "mode" | "shared"> {
+export interface OnPageProps extends Omit<OnPageMountProps, 'mode' | 'shared'> {
   /**
    * Your own client mount, to pass client-only options (custom field
    * editors, locator, media library…):
@@ -26,7 +26,7 @@ export interface OnPageProps extends Omit<OnPageMountProps, "mode" | "shared"> {
    *   'use client'
    *   export const Mount = (p: OnPageMountProps) => <OnPageMount {...p} editors={{ json: myJsonEditor }} />
    */
-  mount?: ComponentType<OnPageMountProps>;
+  mount?: ComponentType<OnPageMountProps>
 }
 
 /**
@@ -35,8 +35,8 @@ export interface OnPageProps extends Omit<OnPageMountProps, "mode" | "shared"> {
  * the layout is statically rendered.
  */
 export async function OnPage({ mount: Mount = OnPageMount, ...props }: OnPageProps) {
-  const mode = await getOnPageMode();
-  if (!mode) return null;
-  const shared = !!(await cookies()).get(LINK_COOKIE)?.value;
-  return <Mount {...props} mode={mode} shared={shared} />;
+  const mode = await getOnPageMode()
+  if (!mode) return null
+  const shared = !!(await cookies()).get(LINK_COOKIE)?.value
+  return <Mount {...props} mode={mode} shared={shared} />
 }

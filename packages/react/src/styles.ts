@@ -2,7 +2,7 @@
  * The editor's own styles, injected once. Everything is prefixed `po-` and set
  * explicitly, so the host site's CSS (and its absence) doesn't matter.
  */
-export const PO_Z = 2147483000;
+export const PO_Z = 2147483000
 
 export const PO_CSS = `
 .po-layer{position:fixed;inset:0;pointer-events:none;z-index:${PO_Z};font:13px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif;color:#0f172a}
@@ -86,14 +86,14 @@ html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 .po-preview .po-status{padding:0 8px;font-size:12px;opacity:.85}
 .po-rel-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;background:#f1f5f9;font-size:12px;margin:0 0 4px}
 .po-rel-item button{all:unset;cursor:pointer;margin-left:auto;padding:0 4px;color:#64748b}
-`;
+`
 
-let injected = false;
+let injected = false
 export function injectStyles() {
-  if (injected || typeof document === "undefined") return;
-  injected = true;
-  const el = document.createElement("style");
-  el.setAttribute("data-onpage-styles", "");
-  el.textContent = PO_CSS;
-  document.head.appendChild(el);
+  if (injected || typeof document === 'undefined') return
+  injected = true
+  const el = document.createElement('style')
+  el.setAttribute('data-onpage-styles', '')
+  el.textContent = PO_CSS
+  document.head.appendChild(el)
 }

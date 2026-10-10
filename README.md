@@ -4,13 +4,13 @@
 
 On-page editing and draft previews for **Payload CMS 3 + Next.js App Router**. Editors click the text, images and sections they see on the page and change them in place. They can share a draft with anyone through a signed link. Every save goes through Payload's REST API, so access control, hooks, validation, drafts and versions behave exactly as they do in the admin.
 
-| Package | What it is |
-|---|---|
-| `@payload-onpage/core` | Framework-free building blocks: document refs, schema, path and field operations, the invisible-marker codec, autosave, the multi-document `EditorSession`, and the **port interfaces** |
-| `@payload-onpage/plugin` | The Payload plugin: endpoints, auto-mapping, marker stripping, and admin buttons |
-| `@payload-onpage/react` | The editor UI: overlay, row toolbars, settings panel, dock, preview toolbar, field editors, annotations, and client mode |
-| `@payload-onpage/next` | The Next.js adapter: draft-mode session, `<OnPage />`, `onpageContext()`, and the `router.refresh()` renderer |
-| `@payload-onpage/lexical` | Inline rich-text editing that reads and writes Payload's Lexical JSON |
+| Package                   | What it is                                                                                                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@payload-onpage/core`    | Framework-free building blocks: document refs, schema, path and field operations, the invisible-marker codec, autosave, the multi-document `EditorSession`, and the **port interfaces** |
+| `@payload-onpage/plugin`  | The Payload plugin: endpoints, auto-mapping, marker stripping, and admin buttons                                                                                                        |
+| `@payload-onpage/react`   | The editor UI: overlay, row toolbars, settings panel, dock, preview toolbar, field editors, annotations, and client mode                                                                |
+| `@payload-onpage/next`    | The Next.js adapter: draft-mode session, `<OnPage />`, `onpageContext()`, and the `router.refresh()` renderer                                                                           |
+| `@payload-onpage/lexical` | Inline rich-text editing that reads and writes Payload's Lexical JSON                                                                                                                   |
 
 ## Try it
 
@@ -39,7 +39,9 @@ import { onpage } from '@payload-onpage/plugin'
 import { nextSession } from '@payload-onpage/next/session' // the /session entry has no client code
 
 export default buildConfig({
-  plugins: [onpage({ collections: ['pages', 'posts'], globals: ['header'], session: nextSession() })],
+  plugins: [
+    onpage({ collections: ['pages', 'posts'], globals: ['header'], session: nextSession() }),
+  ],
 })
 ```
 
@@ -50,9 +52,11 @@ export default buildConfig({
 import { Suspense } from 'react'
 import { OnPage } from '@payload-onpage/next'
 // …
-<body>
+;<body>
   {children}
-  <Suspense fallback={null}><OnPage /></Suspense>
+  <Suspense fallback={null}>
+    <OnPage />
+  </Suspense>
 </body>
 ```
 
@@ -108,14 +112,14 @@ Client mode auto-maps too: the state it renders carries the same markers (`autoM
 
 Every point where the editor touches the outside world is an interface in `@payload-onpage/core`. The defaults ship with the packages, and you can replace any of them.
 
-| Port | Responsibility | Default | Replace with… |
-|---|---|---|---|
-| `DataSource` | Load the schema and documents; save drafts; publish; search for relationships | `payloadRest()` | GraphQL, server actions, custom auth headers |
-| `MediaLibrary` | Search and upload images | `payloadUploads()` | A DAM (Cloudinary, Bynder…) |
-| `Locator` | Map DOM elements to `{ doc, path, kind }` | `composite(annotations(), stega())` | Your own data attributes or markup conventions |
-| `Renderer` | Show a saved change | `useNextRefresh()`; `clientState()`, `fullReload()` | Another router |
-| `SessionAdapter` | Enter and leave edit or preview mode (server) | `nextSession()` | Another framework |
-| Field editors | Edit one kind of field | text, textarea, email, select, radio, checkbox, number, date, relationship, upload, color, richText | Anything |
+| Port             | Responsibility                                                                | Default                                                                                             | Replace with…                                  |
+| ---------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| `DataSource`     | Load the schema and documents; save drafts; publish; search for relationships | `payloadRest()`                                                                                     | GraphQL, server actions, custom auth headers   |
+| `MediaLibrary`   | Search and upload images                                                      | `payloadUploads()`                                                                                  | A DAM (Cloudinary, Bynder…)                    |
+| `Locator`        | Map DOM elements to `{ doc, path, kind }`                                     | `composite(annotations(), stega())`                                                                 | Your own data attributes or markup conventions |
+| `Renderer`       | Show a saved change                                                           | `useNextRefresh()`; `clientState()`, `fullReload()`                                                 | Another router                                 |
+| `SessionAdapter` | Enter and leave edit or preview mode (server)                                 | `nextSession()`                                                                                     | Another framework                              |
+| Field editors    | Edit one kind of field                                                        | text, textarea, email, select, radio, checkbox, number, date, relationship, upload, color, richText | Anything                                       |
 
 ### Writing a field editor
 
@@ -128,7 +132,14 @@ function JsonEditor({ field, value, element, commit, close }: FieldEditorProps) 
   return (
     <Popover anchor={element} title={field.label} onClose={close}>
       <textarea value={text} onChange={(e) => setText(e.target.value)} />
-      <button onClick={() => { commit(JSON.parse(text)); close() }}>Apply</button>
+      <button
+        onClick={() => {
+          commit(JSON.parse(text))
+          close()
+        }}
+      >
+        Apply
+      </button>
     </Popover>
   )
 }
@@ -139,10 +150,13 @@ Register it from your own client mount and pass that mount to `<OnPage mount={�
 ```tsx
 'use client'
 import { OnPageMount, type OnPageMountProps } from '@payload-onpage/next/client'
-export const Mount = (p: OnPageMountProps) => <OnPageMount {...p} editors={{ json: { mode: 'popover', component: JsonEditor } }} />
+export const Mount = (p: OnPageMountProps) => (
+  <OnPageMount {...p} editors={{ json: { mode: 'popover', component: JsonEditor } }} />
+)
 ```
 
 Each field resolves its editor in this order:
+
 1. `admin: { custom: { onpage: { editor: 'json' } } }` on the field
 2. The kind the element declares (text, textarea, richtext or media)
 3. The editor registered for the field's type
@@ -155,15 +169,15 @@ Implement `loadSchema`, `loadDocument`, `saveDraft` and `publish` (plus `search`
 
 ## Endpoints (added by the plugin, under `/api/onpage`)
 
-| Method | Path | Does |
-|---|---|---|
-| GET | `/schema/:kind/:slug` | Editable field schema, including static defaults (editors only) |
-| GET | `/enter?kind&slug&id&mode&locale&path` | Turns on draft mode in edit or view mode and redirects to the page |
-| GET | `/exit?path` | Leaves edit or preview mode |
-| GET | `/mode?mode&path` | Switches the current page between editing and previewing (signed-in editors only) |
-| GET | `/search/:slug?q` | Finds documents by `useAsTitle`, with the user's read access |
-| POST | `/preview-link` | Creates a signed, expiring read-only link (editors only) |
-| GET | `/preview?token` | Opens a preview link |
+| Method | Path                                   | Does                                                                              |
+| ------ | -------------------------------------- | --------------------------------------------------------------------------------- |
+| GET    | `/schema/:kind/:slug`                  | Editable field schema, including static defaults (editors only)                   |
+| GET    | `/enter?kind&slug&id&mode&locale&path` | Turns on draft mode in edit or view mode and redirects to the page                |
+| GET    | `/exit?path`                           | Leaves edit or preview mode                                                       |
+| GET    | `/mode?mode&path`                      | Switches the current page between editing and previewing (signed-in editors only) |
+| GET    | `/search/:slug?q`                      | Finds documents by `useAsTitle`, with the user's read access                      |
+| POST   | `/preview-link`                        | Creates a signed, expiring read-only link (editors only)                          |
+| GET    | `/preview?token`                       | Opens a preview link                                                              |
 
 ## Security
 
@@ -189,6 +203,7 @@ Implement `loadSchema`, `loadDocument`, `saveDraft` and `publish` (plus `search`
 **Does it change my public HTML?** No. Without draft mode, `<OnPage />` renders nothing, and annotations return `{}`.
 
 **My string comparison fails in edit mode.** Markers are appended to strings. Use `stegaClean(value)` from `@payload-onpage/core` before comparing or slicing. Some fields are never marked:
+
 - fields whose names look machine-readable: `url`, `href`, `slug`, `email`, `key`, `color` and similar
 - fields that use a non-text editor (for example `admin.custom.onpage.editor: 'color'`)
 

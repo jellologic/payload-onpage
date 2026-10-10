@@ -8,7 +8,9 @@
     "module": "esnext",
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "strict": false,
+    "strict": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
@@ -21,6 +23,6 @@
     "declarationMap": true,
     "sourceMap": true,
     "composite": true,
-    "types": ["bun"]
+    "types": ["node"]
   }
 }

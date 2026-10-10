@@ -22,13 +22,20 @@ export default buildConfig({
     user: Users.slug,
     importMap: { baseDir: dirname },
     // Example only: sign in automatically during development.
-    autoLogin: process.env.NODE_ENV === 'development' ? { email: 'dev@example.com', password: 'test' } : false,
+    autoLogin:
+      process.env.NODE_ENV === 'development'
+        ? { email: 'dev@example.com', password: 'test' }
+        : false,
   },
   collections: [Pages, Media, Users],
   globals: [Header],
   editor: lexicalEditor(),
   // Dev pushes the schema automatically; production runs the committed migrations on start.
-  db: sqliteAdapter({ prodMigrations: migrations, migrationDir: path.resolve(dirname, 'migrations'), client: { url: process.env.DATABASE_URL || `file:${path.resolve(dirname, '../payload.db')}` } }),
+  db: sqliteAdapter({
+    prodMigrations: migrations,
+    migrationDir: path.resolve(dirname, 'migrations'),
+    client: { url: process.env.DATABASE_URL || `file:${path.resolve(dirname, '../payload.db')}` },
+  }),
   sharp,
   typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },
   plugins: [

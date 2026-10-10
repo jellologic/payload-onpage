@@ -8,7 +8,9 @@ export async function getPage(slug: string) {
   const payload = await getPayload({ config })
   const { docs } = await payload.find({
     collection: 'pages',
-    where: draft ? { slug: { equals: slug } } : { and: [{ slug: { equals: slug } }, { _status: { equals: 'published' } }] },
+    where: draft
+      ? { slug: { equals: slug } }
+      : { and: [{ slug: { equals: slug } }, { _status: { equals: 'published' } }] },
     draft,
     depth: 1,
     limit: 1,

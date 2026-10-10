@@ -10,6 +10,9 @@ export async function renderPage(slug: string) {
   const page = await getPage(slug)
   if (!page) notFound()
   if (page.instant) return <InstantPage page={page} />
-  const e = editable({ collection: 'pages', doc: page }, { enabled: (await getOnPageMode()) === 'edit' })
+  const e = editable(
+    { collection: 'pages', doc: page },
+    { enabled: (await getOnPageMode()) === 'edit' },
+  )
   return <PageView page={page} e={e} />
 }
