@@ -8,7 +8,7 @@
  * settings panel).
  */
 import type { SchemaField, TargetKind } from '@payload-onpage/core'
-import type { EditorRegistry } from './context.tsx'
+import type { EditorRegistry } from './types.ts'
 
 const KIND_EDITOR: Partial<Record<TargetKind, string>> = { richtext: 'richText', media: 'upload' }
 const TEXTUAL = new Set(['text', 'textarea', 'email'])
@@ -19,11 +19,9 @@ export function resolveEditor(
   kind?: TargetKind,
 ): string | null {
   if (field.editor && editors[field.editor]) return field.editor
-  if (kind === 'text' || kind === 'textarea') {
-    // A marker/annotation may say "text" for an email field; keep the field's own type.
-    const id = TEXTUAL.has(field.type) ? field.type : kind
-    if (editors[id] && TEXTUAL.has(field.type)) return id
-  }
+  // A marker/annotation saying "text" keeps the field's own textual type (email stays email).
+  if ((kind === 'text' || kind === 'textarea') && TEXTUAL.has(field.type) && editors[field.type])
+    return field.type
   const byKind = kind ? KIND_EDITOR[kind] : undefined
   if (byKind && editors[byKind] && (byKind !== 'upload' || field.type === 'upload')) return byKind
   return editors[field.type] ? field.type : null

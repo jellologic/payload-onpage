@@ -259,8 +259,8 @@ describe('preview links', () => {
     const res = await handleEndpoints({ config, request: new Request(link.url) })
     expect(res.status).toBe(307)
     expect(res.headers.get('location')).toBe(`${ORIGIN}/admin-page`)
-    const args = calls[0]!.args as { path: string; sealed: string }
-    expect(calls[0]!.fn).toBe('enableLink')
+    const args = calls[0].args as { path: string; sealed: string }
+    expect(calls[0].fn).toBe('enableLink')
     expect(args.path).toBe('/admin-page')
     expect(args.sealed).not.toContain('NEXT_SECRET')
   })

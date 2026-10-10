@@ -5,15 +5,15 @@
  * useSyncExternalStore). One DocumentState per DocRef: its schema, its draft
  * (populated, for rendering), its autosave queue and its last `updatedAt`.
  * Undo/redo is session-wide, so ⌘Z undoes the last edit whichever document it
- * touched.
+ * touched. Publish, discard and reload run one at a time.
  */
 import { AutosaveQueue, type SaveState } from './autosave.ts'
 import { refKey, type DocRef } from './docref.ts'
 import { buildPatch, changedKeys } from './fields.ts'
 import { setAt } from './path.ts'
-import { stegaCleanDeep } from './stega.ts'
 import type { DataSource, Doc } from './ports.ts'
 import type { DocumentSchema } from './schema.ts'
+import { stegaCleanDeep } from './stega.ts'
 
 export interface DocumentState {
   key: string
@@ -31,6 +31,8 @@ export interface SessionSnapshot {
   docs: Record<string, DocumentState>
   canUndo: boolean
   canRedo: boolean
+  /** A publish, discard or reload is running. */
+  busy: boolean
 }
 
 interface HistoryEntry {
@@ -42,12 +44,21 @@ interface HistoryEntry {
 export interface EditorSessionOptions {
   dataSource: DataSource
   locale?: string
+  /** Autosave debounce, ms. Default: the collection's autosave interval, else 800. */
   autosaveDelay?: number
-  /** Called after a document's pending edits were saved (renderers refresh here). */
-  onSaved?: (ref: DocRef) => void
+  /** Called after a document's edits were saved; `seq` increments per save. Renderers refresh here. */
+  onSaved?: (ref: DocRef, seq: number) => void
+}
+
+export interface PublishResult {
+  ok: boolean
+  message?: string
+  published: DocRef[]
 }
 
 const HISTORY_LIMIT = 200
+const IDLE: SaveState = { status: 'idle', seq: 0 }
+const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export class EditorSession {
   readonly dataSource: DataSource
@@ -59,19 +70,24 @@ export class EditorSession {
   private saved = new Map<string, Doc>()
   /** Value before the current run of transient edits, per document. */
   private anchors = new Map<string, Doc>()
+  /** Documents whose value came from the page (client mode); a late server load must not replace it. */
+  private fromPage = new Set<string>()
   private loading = new Map<string, Promise<void>>()
   private schemaCache = new Map<string, Promise<DocumentSchema>>()
   private past: HistoryEntry[] = []
   private future: HistoryEntry[] = []
   private listeners = new Set<() => void>()
-  private snapshot: SessionSnapshot = { docs: {}, canUndo: false, canRedo: false }
-  private readonly autosaveDelay: number
-  private readonly onSaved?: (ref: DocRef) => void
+  private ops: Promise<unknown> = Promise.resolve()
+  private running = 0
+  private snapshot: SessionSnapshot = { docs: {}, canUndo: false, canRedo: false, busy: false }
+  private disposed = false
+  private readonly autosaveDelay: number | undefined
+  private readonly onSaved?: (ref: DocRef, seq: number) => void
 
   constructor(opts: EditorSessionOptions) {
     this.dataSource = opts.dataSource
     this.locale = opts.locale
-    this.autosaveDelay = opts.autosaveDelay ?? 800
+    this.autosaveDelay = opts.autosaveDelay
     this.onSaved = opts.onSaved
   }
 
@@ -84,10 +100,12 @@ export class EditorSession {
   getSnapshot = (): SessionSnapshot => this.snapshot
 
   private emit() {
+    if (this.disposed) return
     this.snapshot = {
       docs: Object.fromEntries(this.docs),
       canUndo: this.past.length > 0,
       canRedo: this.future.length > 0,
+      busy: this.running > 0,
     }
     for (const fn of this.listeners) fn()
   }
@@ -101,6 +119,22 @@ export class EditorSession {
 
   get(key: string): DocumentState | undefined {
     return this.docs.get(key)
+  }
+
+  /** Run session-level operations (publish, discard, reload) one at a time. */
+  private serial<T>(fn: () => Promise<T>): Promise<T> {
+    const run = this.ops.then(async () => {
+      this.running += 1
+      this.emit()
+      try {
+        return await fn()
+      } finally {
+        this.running -= 1
+        this.emit()
+      }
+    })
+    this.ops = run.catch(() => undefined)
+    return run
   }
 
   // ── loading ─────────────────────────────────────────────────────────────
@@ -117,13 +151,19 @@ export class EditorSession {
 
   /**
    * Start editing a document. With `initialDoc` (client mode: the page already
-   * holds the draft) nothing is fetched but the schema; otherwise the draft is
-   * loaded. Opening an open document is a no-op.
+   * holds the draft) only the schema is fetched; otherwise the draft is loaded.
+   * Opening an open document is a no-op, except that a page-provided value
+   * replaces one still loading.
    */
   open(ref: DocRef, initialDoc?: Doc): Promise<void> {
     const key = refKey(ref)
-    if (this.docs.has(key)) {
-      if (initialDoc && !this.docs.get(key)!.doc) this.adopt(key, initialDoc)
+    const existing = this.docs.get(key)
+    if (existing && existing.status !== 'error') {
+      if (initialDoc && !existing.edited && !this.fromPage.has(key)) {
+        this.fromPage.add(key)
+        this.adopt(key, initialDoc)
+        this.emit()
+      }
       return this.loading.get(key) ?? Promise.resolve()
     }
     this.docs.set(key, {
@@ -131,24 +171,28 @@ export class EditorSession {
       ref,
       status: 'loading',
       schema: null,
-      doc: initialDoc ?? null,
-      save: { status: 'idle' },
+      doc: null,
+      save: IDLE,
       edited: false,
     })
-    if (initialDoc) this.adopt(key, initialDoc)
+    if (initialDoc) {
+      this.fromPage.add(key)
+      this.adopt(key, initialDoc)
+    }
     this.emit()
     const task = (async () => {
       try {
         const [schema, doc] = await Promise.all([
           this.schemaFor(ref),
           initialDoc
-            ? Promise.resolve(initialDoc)
+            ? null
             : this.dataSource.loadDocument(ref, { draft: true, locale: this.locale, depth: 2 }),
         ])
-        if (!initialDoc) this.adopt(key, doc)
-        this.patchState(key, { schema, status: 'ready' })
+        // The page may have handed us its value meanwhile; it wins.
+        if (doc && !this.fromPage.has(key)) this.adopt(key, doc)
+        this.patchState(key, { schema, status: 'ready', error: undefined })
       } catch (e) {
-        this.patchState(key, { status: 'error', error: e instanceof Error ? e.message : String(e) })
+        this.patchState(key, { status: 'error', error: errorText(e) })
       } finally {
         this.loading.delete(key)
       }
@@ -157,9 +201,18 @@ export class EditorSession {
     return task
   }
 
+  /** Try loading a document again after an error. */
+  retry(key: string): Promise<void> {
+    const state = this.docs.get(key)
+    if (!state) return Promise.resolve()
+    if (state.status === 'error') return this.open(state.ref)
+    this.queues.get(key)?.retry()
+    return Promise.resolve()
+  }
+
   private adopt(key: string, raw: Doc) {
     // A page rendered with auto-mapping markers may hand us its marked copy; edit clean values.
-    const doc = stegaCleanDeep(raw) as Doc
+    const doc = stegaCleanDeep(raw)
     this.saved.set(key, doc)
     this.updatedAt.set(key, typeof doc.updatedAt === 'string' ? doc.updatedAt : undefined)
     const cur = this.docs.get(key)
@@ -171,10 +224,10 @@ export class EditorSession {
     if (q) return q
     const state = this.docs.get(key)!
     q = new AutosaveQueue({
-      delay: this.autosaveDelay,
+      delay: this.autosaveDelay ?? state.schema?.autosaveInterval ?? 800,
       onState: (save) => {
         this.patchState(key, { save })
-        if (save.status === 'saved') this.onSaved?.(state.ref)
+        if (save.status === 'saved') this.onSaved?.(state.ref, save.seq)
       },
       send: async (patch) => {
         const res = await this.dataSource.saveDraft(state.ref, patch, {
@@ -191,9 +244,8 @@ export class EditorSession {
 
   /** Schedule the editable top-level fields that changed since the last save. */
   private queueChanges(key: string, next: Doc) {
-    const state = this.docs.get(key)
-    const schema = state?.schema
-    if (!state || !schema) return
+    const schema = this.docs.get(key)?.schema
+    if (!schema) return
     const keys = changedKeys(this.saved.get(key) ?? {}, next, schema.editable)
     if (!keys.length) return
     this.saved.set(key, next)
@@ -276,72 +328,111 @@ export class EditorSession {
     return state.edited || state.doc?._status === 'draft'
   }
 
-  /** Publish every document with unpublished changes (edited here, or saved as a draft before). */
-  async publish(
-    opts: { keys?: string[] } = {},
-  ): Promise<{ ok: boolean; message?: string; published: DocRef[] }> {
-    await this.flush()
-    const published: DocRef[] = []
-    for (const state of this.docs.values()) {
-      if (opts.keys && !opts.keys.includes(state.key)) continue
-      if (!this.unpublished(state) || !state.doc || !state.schema) continue
-      if (state.save.status === 'conflict')
-        return {
-          ok: false,
-          message: `${state.schema.labels.singular}: resolve the conflict first`,
-          published,
-        }
-      const data = buildPatch(state.doc, state.schema.editable, state.schema.fields)
-      const res = await this.dataSource.publish(state.ref, data, {
-        locale: this.locale,
-        updatedAt: this.updatedAt.get(state.key),
-      })
-      if (!res.ok)
-        return { ok: false, message: res.message ?? `Publish failed (${res.status})`, published }
-      if (res.updatedAt) this.updatedAt.set(state.key, res.updatedAt)
-      this.patchState(state.key, { edited: false, doc: { ...state.doc, _status: 'published' } })
-      published.push(state.ref)
-    }
-    return { ok: true, published }
+  private selected(keys?: string[]): DocumentState[] {
+    return [...this.docs.values()].filter(
+      (s) => (!keys || keys.includes(s.key)) && s.doc && s.schema && this.unpublished(s),
+    )
   }
 
-  /** Reset drafts with unpublished changes to their published versions. */
-  async discard(opts: { keys?: string[] } = {}): Promise<void> {
-    await this.flush()
-    for (const state of [...this.docs.values()]) {
-      if (opts.keys && !opts.keys.includes(state.key)) continue
-      if (!this.unpublished(state) || !state.schema || !state.doc) continue
-      const published = await this.dataSource.loadDocument(state.ref, {
-        draft: false,
+  /** Publish every document with unpublished changes (edited here, or saved as a draft before). */
+  publish(opts: { keys?: string[] } = {}): Promise<PublishResult> {
+    return this.serial(async () => {
+      await this.flush()
+      const published: DocRef[] = []
+      for (const { key } of this.selected(opts.keys)) {
+        // Re-read after every await: edits made meanwhile must not be lost.
+        const state = this.docs.get(key)
+        if (!state?.doc || !state.schema) continue
+        const label = state.schema.labels.singular
+        if (state.save.status === 'conflict')
+          return { ok: false, message: `${label}: reload the latest version first`, published }
+        if (state.save.status === 'error')
+          return {
+            ok: false,
+            message: `${label}: ${state.save.message ?? 'unsaved changes'}`,
+            published,
+          }
+        let res
+        try {
+          res = await this.dataSource.publish(
+            state.ref,
+            buildPatch(state.doc, state.schema.editable, state.schema.fields),
+            {
+              locale: this.locale,
+              updatedAt: this.updatedAt.get(key),
+            },
+          )
+        } catch (e) {
+          return { ok: false, message: `${label}: ${errorText(e)}`, published }
+        }
+        if (!res.ok)
+          return {
+            ok: false,
+            message: res.message ?? `${label}: publish failed (${res.status})`,
+            published,
+          }
+        if (res.updatedAt) this.updatedAt.set(key, res.updatedAt)
+        const now = this.docs.get(key)!
+        this.patchState(key, {
+          edited: false,
+          doc: now.doc ? { ...now.doc, _status: 'published' } : now.doc,
+        })
+        published.push(state.ref)
+      }
+      return { ok: true, published }
+    })
+  }
+
+  /** Reset drafts with unpublished changes to their published versions (also clears a conflict). */
+  discard(opts: { keys?: string[] } = {}): Promise<void> {
+    return this.serial(async () => {
+      await this.flush()
+      for (const { key, ref } of this.selected(opts.keys)) {
+        const [published, latest] = await Promise.all([
+          this.dataSource.loadDocument(ref, { draft: false, locale: this.locale, depth: 2 }),
+          this.dataSource.loadDocument(ref, { draft: true, locale: this.locale, depth: 2 }),
+        ])
+        const state = this.docs.get(key)
+        if (!state?.schema || !state.doc) continue
+        // Continue from the server's latest draft (so the stale-write guard accepts the reset).
+        this.adopt(key, latest)
+        this.queues.get(key)?.reset()
+        const next = { ...stegaCleanDeep(latest) }
+        for (const k of state.schema.editable) next[k] = published[k]
+        this.apply(key, () => next)
+        await this.queues.get(key)?.flush()
+        const now = this.docs.get(key)!
+        this.patchState(key, {
+          edited: false,
+          doc: now.doc ? { ...now.doc, _status: 'published' } : now.doc,
+        })
+      }
+    })
+  }
+
+  /** After a conflict: load the latest draft of a document and continue from it (local edits are dropped). */
+  reload(key: string): Promise<void> {
+    return this.serial(async () => {
+      const state = this.docs.get(key)
+      if (!state) return
+      const doc = await this.dataSource.loadDocument(state.ref, {
+        draft: true,
         locale: this.locale,
         depth: 2,
       })
-      const next = { ...state.doc }
-      for (const k of state.schema.editable) next[k] = published[k]
-      this.apply(state.key, () => next)
-      await this.queues.get(state.key)?.flush()
-      const cur = this.docs.get(state.key)
-      this.patchState(state.key, {
-        edited: false,
-        doc: cur?.doc ? { ...cur.doc, _status: 'published' } : (cur?.doc ?? null),
-      })
-    }
+      this.adopt(key, doc)
+      this.anchors.delete(key)
+      this.past = this.past.filter((e) => e.key !== key)
+      this.future = this.future.filter((e) => e.key !== key)
+      this.queues.get(key)?.reset()
+      this.patchState(key, { edited: false })
+    })
   }
 
-  /** After a conflict: load the latest draft of a document and continue from it. */
-  async reload(key: string): Promise<void> {
-    const state = this.docs.get(key)
-    if (!state) return
-    const doc = await this.dataSource.loadDocument(state.ref, {
-      draft: true,
-      locale: this.locale,
-      depth: 2,
-    })
-    this.adopt(key, doc)
-    this.anchors.delete(key)
-    this.past = this.past.filter((e) => e.key !== key)
-    this.future = this.future.filter((e) => e.key !== key)
-    this.queues.get(key)?.reset()
-    this.patchState(key, { edited: false })
+  /** Stop timers and listeners (unmount). Call flush() first to keep unsent edits. */
+  dispose() {
+    for (const q of this.queues.values()) q.dispose()
+    this.listeners.clear()
+    this.disposed = true
   }
 }

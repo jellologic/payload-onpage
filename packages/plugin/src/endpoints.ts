@@ -73,7 +73,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     method: 'get',
     handler: async (req) => {
       const kind = req.routeParams?.kind === 'global' ? 'global' : 'collection'
-      const slug = String(req.routeParams?.slug ?? '')
+      const slug = typeof req.routeParams?.slug === 'string' ? req.routeParams.slug : ''
       const entry = ctx.entry(kind, slug)
       const cfg: CollectionConfig | GlobalConfig | undefined =
         kind === 'global'

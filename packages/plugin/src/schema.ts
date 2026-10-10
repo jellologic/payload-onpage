@@ -12,6 +12,7 @@ import {
   fieldIsHiddenOrDisabled,
   fieldIsVirtual,
   tabHasName,
+  formatLabels,
   toWords,
 } from 'payload/shared'
 
@@ -19,6 +20,28 @@ import {
 const SYSTEM_FIELDS = new Set(['id', 'createdAt', 'updatedAt', '_status', 'deletedAt'])
 /** Data fields with no meaningful on-page value. */
 const SKIP_TYPES = new Set(['join', 'ui'])
+
+/** The optional, type-specific field properties the serializer reads. */
+interface LooseField {
+  label?: unknown
+  labels?: { singular?: unknown; plural?: unknown }
+  localized?: boolean
+  required?: boolean
+  hasMany?: boolean
+  defaultValue?: unknown
+  options?: unknown[]
+  relationTo?: string | string[]
+  minRows?: number
+  maxRows?: number
+  min?: number
+  max?: number
+  custom?: { onpage?: { editor?: unknown } }
+  admin?: {
+    description?: unknown
+    custom?: { onpage?: { editor?: unknown } }
+    date?: { pickerAppearance?: unknown }
+  }
+}
 
 type I18nLike = Parameters<typeof getTranslation>[1]
 type AnyLabel = Parameters<typeof getTranslation>[0]
@@ -137,8 +160,8 @@ export function serializeFields(
     const perms = childPermissions(ctx.permissions, f.name)
     if (perms === false) continue
 
-    // Field is a large union; read the optional, type-specific properties loosely.
-    const anyField = f as unknown as Record<string, any>
+    // Field is a large union; read the optional, type-specific properties through one loose view.
+    const anyField = f as unknown as LooseField
     const field: SchemaField = {
       name: f.name,
       type: f.type,
@@ -184,15 +207,22 @@ export function serializeFields(
     }
     if (anyField.relationTo) field.relationTo = anyField.relationTo
     for (const k of ['minRows', 'maxRows', 'min', 'max'] as const) {
-      if (typeof anyField[k] === 'number') field[k] = anyField[k]
+      const n = anyField[k]
+      if (typeof n === 'number') field[k] = n
     }
     const editor = anyField.admin?.custom?.onpage?.editor ?? anyField.custom?.onpage?.editor
     if (typeof editor === 'string') field.editor = editor
-    if (typeof anyField.admin?.date?.pickerAppearance === 'string') {
-      field.pickerAppearance = anyField.admin.date.pickerAppearance
-    }
+    const picker = anyField.admin?.date?.pickerAppearance
+    if (typeof picker === 'string') field.pickerAppearance = picker
     const childCtx = { ...ctx, permissions: perms }
     if (f.type === 'group' || f.type === 'array') field.fields = serializeFields(f.fields, childCtx)
+    if (f.type === 'array') {
+      const fallback = formatLabels(f.name)
+      field.labels = {
+        singular: label(anyField.labels?.singular, fallback.singular, ctx),
+        plural: label(anyField.labels?.plural, fallback.plural, ctx),
+      }
+    }
     if (f.type === 'blocks') {
       const refs = (f.blockReferences ?? [])
         .map((b) => (typeof b === 'string' ? ctx.blocks?.find((x) => x.slug === b) : b))

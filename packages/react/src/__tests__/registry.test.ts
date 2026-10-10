@@ -3,7 +3,7 @@ import { Window } from 'happy-dom'
 import type { SchemaField, Target } from '@payload-onpage/core'
 import { mergeEditors, resolveEditor } from '../registry.ts'
 import { buildIndex } from '../targets.ts'
-import type { EditorRegistry } from '../context.tsx'
+import type { EditorRegistry } from '../types.ts'
 
 const C = () => null
 const reg: EditorRegistry = {

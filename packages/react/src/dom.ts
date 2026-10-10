@@ -1,7 +1,8 @@
-/** DOM helpers shared by the editor UI. Browser-only. */
-import { useEffect, useState } from 'react'
+/** DOM helpers shared by the editor UI (browser-only, no React). */
 
+/** Attribute that hides a page element while an editor or ghost stands in for it. */
 export const HIDDEN = 'data-onpage-hidden'
+/** Marks the editor's own UI, which locators and click handling ignore. */
 export const UI = 'data-onpage-ui'
 
 /** Computed styles copied onto an inline editor so it looks like the element it replaces. */
@@ -23,9 +24,16 @@ export const TYPOGRAPHY = [
   'paddingLeft',
 ] as const
 
-export function copyTypography(from: Element, to: HTMLElement) {
+export function copyTypography(from: Element, to: HTMLElement): void {
   const cs = getComputedStyle(from)
-  for (const k of TYPOGRAPHY) (to.style as unknown as Record<string, string>)[k] = cs[k]
+  for (const k of TYPOGRAPHY) to.style[k] = cs[k]
+}
+
+/** The typography inline styles of an element (for a ghost that must look like it). */
+export function typographyOf(el: HTMLElement): Partial<CSSStyleDeclaration> {
+  const out: Partial<CSSStyleDeclaration> = {}
+  for (const k of TYPOGRAPHY) out[k] = el.style[k]
+  return out
 }
 
 /** Place an absolutely positioned (document layer) box over `el`. */
@@ -33,7 +41,7 @@ export function placeOver(
   box: HTMLElement,
   el: Element,
   opts: { minWidth?: number; minHeight?: boolean } = {},
-) {
+): void {
   const r = el.getBoundingClientRect()
   box.style.top = `${r.top + window.scrollY}px`
   box.style.left = `${r.left + window.scrollX}px`
@@ -41,28 +49,17 @@ export function placeOver(
   if (opts.minHeight) box.style.minHeight = `${r.height}px`
 }
 
-export function isOurs(node: EventTarget | null): boolean {
-  return node instanceof Element && !!node.closest(`[${UI}]`)
-}
+/** Inside the editor's own UI? */
+export const isOurs = (node: EventTarget | null): boolean =>
+  node instanceof Element && !!node.closest(`[${UI}]`)
 
-/** Place the caret at a viewport point inside `el`, else at the end. */
-export function placeCaret(el: HTMLElement, point?: { x: number; y: number }) {
-  const sel = window.getSelection()
-  if (!sel) return
-  let range: Range | null = null
-  const hit = point ? caretAt(point, el) : null
-  if (hit) {
-    range = document.createRange()
-    range.setStart(hit.node, hit.offset)
-  } else {
-    range = document.createRange()
-    range.selectNodeContents(el)
-    range.collapse(false)
-  }
-  range.collapse(true)
-  sel.removeAllRanges()
-  sel.addRange(range)
-}
+/** Focus is in a text input or editable region (keyboard shortcuts stay out of the way). */
+export const isTyping = (t: EventTarget | null): boolean =>
+  t instanceof HTMLElement &&
+  (t.isContentEditable ||
+    t.tagName === 'INPUT' ||
+    t.tagName === 'TEXTAREA' ||
+    t.tagName === 'SELECT')
 
 /** The DOM caret position under a viewport point, if it falls inside `within`. */
 export function caretAt(
@@ -81,36 +78,20 @@ export function caretAt(
   return null
 }
 
-/** Re-render whenever the page scrolls, resizes or reflows (checked once per frame). */
-export function useFrame() {
-  const [, setTick] = useState(0)
-  useEffect(() => {
-    let raf = 0
-    let last = ''
-    const loop = () => {
-      const sig = `${window.scrollX},${window.scrollY},${window.innerWidth},${window.innerHeight},${document.body.scrollHeight}`
-      if (sig !== last) {
-        last = sig
-        setTick((t) => t + 1)
-      }
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  }, [])
-}
-
-/** Run `fn` every animation frame while mounted. */
-export function useEachFrame(fn: () => void) {
-  useEffect(() => {
-    let raf = 0
-    const loop = () => {
-      fn()
-      raf = requestAnimationFrame(loop)
-    }
-    raf = requestAnimationFrame(loop)
-    return () => cancelAnimationFrame(raf)
-  })
+/** Place the caret at a viewport point inside `el`, else at the end. */
+export function placeCaret(el: HTMLElement, point?: { x: number; y: number }): void {
+  const sel = window.getSelection()
+  if (!sel) return
+  const range = document.createRange()
+  const hit = point ? caretAt(point, el) : null
+  if (hit) range.setStart(hit.node, hit.offset)
+  else {
+    range.selectNodeContents(el)
+    range.collapse(false)
+  }
+  range.collapse(true)
+  sel.removeAllRanges()
+  sel.addRange(range)
 }
 
 /** Position a fixed popover below (or above) an element, kept inside the viewport. */
@@ -127,3 +108,11 @@ export function popoverPosition(
   const left = Math.min(Math.max(8, r.left), vw - size.width - 8)
   return { top, left }
 }
+
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
+export const focusableIn = (root: Element): HTMLElement[] =>
+  Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) => !el.hasAttribute('disabled'),
+  )

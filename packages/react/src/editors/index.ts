@@ -1,9 +1,13 @@
 /** The default field editors. Spread, override or remove (`null`) entries via the `editors` option. */
-import type { EditorRegistry } from '../context.tsx'
-import { CheckboxEditor, ColorEditor, DateEditor, NumberEditor, SelectEditor } from './basic.tsx'
+import type { EditorRegistry } from '../types.ts'
+import { CheckboxEditor } from './CheckboxEditor.tsx'
+import { ColorEditor } from './ColorEditor.tsx'
+import { DateEditor } from './DateEditor.tsx'
 import { InlineText } from './InlineText.tsx'
-import { RelationshipEditor } from './Relationship.tsx'
-import { UploadEditor } from './Upload.tsx'
+import { NumberEditor } from './NumberEditor.tsx'
+import { RelationshipEditor } from './RelationshipEditor.tsx'
+import { SelectEditor } from './SelectEditor.tsx'
+import { UploadEditor } from './UploadEditor.tsx'
 
 export const defaultEditors: EditorRegistry = {
   text: { mode: 'inline', component: InlineText },
@@ -20,13 +24,12 @@ export const defaultEditors: EditorRegistry = {
 }
 
 export {
-  InlineText,
-  SelectEditor,
   CheckboxEditor,
-  NumberEditor,
-  DateEditor,
   ColorEditor,
+  DateEditor,
+  InlineText,
+  NumberEditor,
   RelationshipEditor,
+  SelectEditor,
   UploadEditor,
 }
-export { Popover } from './Popover.tsx'

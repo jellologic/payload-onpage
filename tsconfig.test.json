@@ -15,6 +15,7 @@
       "@payload-onpage/react": ["./packages/react/src/index.ts"],
       "@payload-onpage/react/annotations": ["./packages/react/src/annotations.ts"],
       "@payload-onpage/react/client": ["./packages/react/src/OnPageClient.tsx"],
+      "@payload-onpage/react/editor-kit": ["./packages/react/src/editor-kit.ts"],
       "@payload-onpage/lexical": ["./packages/lexical/src/index.ts"],
       "@payload-onpage/next": ["./packages/next/src/index.tsx"],
       "@payload-onpage/next/client": ["./packages/next/src/client.tsx"],

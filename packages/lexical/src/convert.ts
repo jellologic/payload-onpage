@@ -3,6 +3,7 @@
  * through as-is; everything else is wrapped in an OpaqueNode on the way in and
  * unwrapped on the way out, byte-for-byte.
  */
+import { eachLexicalNode, type LexicalNode, type LexicalState } from '@payload-onpage/core'
 import { OPAQUE_TYPE } from './nodes.tsx'
 
 export const EDITABLE_NODE_TYPES = new Set([
@@ -18,10 +19,8 @@ export const EDITABLE_NODE_TYPES = new Set([
   'link',
 ])
 
-type Node = Record<string, any>
-export interface RichTextState {
-  root: Node
-}
+type Node = LexicalNode
+export type RichTextState = LexicalState
 
 export const EMPTY_STATE: RichTextState = {
   root: {
@@ -37,19 +36,19 @@ export const EMPTY_STATE: RichTextState = {
 }
 
 function wrap(node: Node): Node {
-  if (!node || typeof node !== 'object') return node
   if (!EDITABLE_NODE_TYPES.has(node.type)) return { type: OPAQUE_TYPE, version: 1, data: node }
   return Array.isArray(node.children) ? { ...node, children: node.children.map(wrap) } : node
 }
 
 function unwrap(node: Node): Node {
-  if (!node || typeof node !== 'object') return node
-  if (node.type === OPAQUE_TYPE) return node.data
+  if (node.type === OPAQUE_TYPE) return node.data as Node
   return Array.isArray(node.children) ? { ...node, children: node.children.map(unwrap) } : node
 }
 
 export function isRichTextState(value: unknown): value is RichTextState {
-  return !!value && typeof value === 'object' && (value as RichTextState).root?.type === 'root'
+  return (
+    !!value && typeof value === 'object' && (value as Partial<RichTextState>).root?.type === 'root'
+  )
 }
 
 export function toEditorState(value: unknown): RichTextState {
@@ -67,10 +66,8 @@ export function fromEditorState(state: RichTextState): RichTextState {
 /** Plain text of a state (used to treat a blank editor as "no value"). */
 export function plainText(state: RichTextState): string {
   const parts: string[] = []
-  const walk = (n: Node) => {
-    if (typeof n?.text === 'string') parts.push(n.text)
-    ;(n?.children ?? []).forEach(walk)
-  }
-  walk(state.root)
+  eachLexicalNode(state, (n) => {
+    if (typeof n.text === 'string') parts.push(n.text)
+  })
   return parts.join('').trim()
 }

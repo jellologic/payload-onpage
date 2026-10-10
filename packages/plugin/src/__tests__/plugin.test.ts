@@ -122,17 +122,17 @@ describe('serializeFields', () => {
     expect(schema[2]).toMatchObject({ type: 'group', label: 'SEO' })
   })
   it('keeps static defaults; function defaults need a request', () => {
-    const hero = schema[1]!.blocks![0]!
-    expect(hero.fields.find((f) => f.name === 'section')!.fields![0]!.defaultValue).toBe('white')
-    expect(schema[2]!.fields![0]!.defaultValue).toBeUndefined()
+    const hero = schema[1].blocks![0]
+    expect(hero.fields.find((f) => f.name === 'section')!.fields![0].defaultValue).toBe('white')
+    expect(schema[2].fields![0].defaultValue).toBeUndefined()
   })
   it('labels like the admin does (toWords), and keeps string options as-is', () => {
-    const bg = schema[1]!.blocks![0]!.fields.find((f) => f.name === 'section')!.fields![0]!
+    const bg = schema[1].blocks![0].fields.find((f) => f.name === 'section')!.fields![0]
     expect(bg.options).toEqual([
       { label: 'White', value: 'white' },
       { label: 'light', value: 'light' },
     ])
-    expect(schema[1]!.blocks![1]!.labels.singular).toBe('Gallery')
+    expect(schema[1].blocks![1].labels.singular).toBe('Gallery')
   })
   it('leaves out system, hidden, disabled, virtual and join fields', () => {
     const out = serializeFields([
@@ -153,7 +153,7 @@ describe('serializeFields', () => {
         blocks: [{ slug: 'cta', fields: [{ name: 'label', type: 'text' }] }] as any,
       },
     )
-    expect(out[0]!.blocks!.map((b) => b.slug)).toEqual(['cta'])
+    expect(out[0].blocks!.map((b) => b.slug)).toEqual(['cta'])
   })
   it('drops fields the user may not update (field permissions)', () => {
     const out = serializeFields(
@@ -177,7 +177,7 @@ describe('serializeFields', () => {
       },
     )
     expect(out.map((f) => f.name)).toEqual(['title', 'seo'])
-    expect(out[1]!.fields!.map((f) => f.name)).toEqual(['a'])
+    expect(out[1].fields!.map((f) => f.name)).toEqual(['a'])
   })
 })
 

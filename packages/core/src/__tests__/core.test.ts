@@ -20,7 +20,8 @@ import {
   newBlockRow,
   normalizeValue,
 } from '../fields.ts'
-import { AutosaveQueue, type SaveState, type SendResult } from '../autosave.ts'
+import { AutosaveQueue, type SaveState } from '../autosave.ts'
+import type { SaveResult as SendResult } from '../ports.ts'
 
 // The editor schema the plugin produces for fixtures/payloadFields.ts (see plugin tests).
 const schema = schemaFixture as SchemaField[]
@@ -171,6 +172,42 @@ describe('AutosaveQueue', () => {
     await h.tick()
     expect(h.q.current.status).toBe('saved')
     expect(h.sent).toHaveLength(3)
+  })
+
+  it('stops immediately on validation and permission errors, keeping the changes for retry()', async () => {
+    const h = harness([{ ok: false, status: 400, message: 'Title is required' }])
+    h.q.schedule({ title: '' })
+    await h.tick()
+    expect(h.q.current).toMatchObject({ status: 'error', message: 'Title is required' })
+    expect(h.timers).toHaveLength(0)
+    h.q.retry()
+    await h.tick()
+    expect(h.sent).toEqual([{ title: '' }, { title: '' }])
+    expect(h.q.current.status).toBe('saved')
+  })
+
+  it('retries network failures and 429s', async () => {
+    const h = harness([
+      { ok: false, status: 0 },
+      { ok: false, status: 429 },
+    ])
+    h.q.schedule({ a: 1 })
+    await h.tick()
+    await h.tick()
+    await h.tick()
+    expect(h.q.current.status).toBe('saved')
+  })
+
+  it('counts successful saves and stops timers on dispose', async () => {
+    const h = harness([])
+    h.q.schedule({ a: 1 })
+    await h.tick()
+    h.q.schedule({ a: 2 })
+    await h.tick()
+    expect(h.q.current.seq).toBe(2)
+    h.q.schedule({ a: 3 })
+    h.q.dispose()
+    expect(h.timers).toHaveLength(0)
   })
 
   it('flush sends immediately and waits', async () => {

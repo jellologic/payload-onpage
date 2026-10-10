@@ -11,9 +11,9 @@
  * Text is auto-mapped as in refresh mode: the rendered state carries the same
  * invisible markers (turn off with `autoMap={false}`).
  */
-import { useEffect, useMemo, type ReactNode } from 'react'
-import { encodeDocument, refKey } from '@payload-onpage/core'
-import { editable, toRef, type Editable, type EditableTarget } from './annotations.ts'
+import { encodeDocument, refKey, type DocRef } from '@payload-onpage/core'
+import { useEffect, useEffectEvent, useMemo, type ReactNode } from 'react'
+import { editable, editableOff, type Editable } from './annotations.ts'
 import { useOnPageOptional } from './context.tsx'
 
 export type OnPageClientProps<T> = {
@@ -26,36 +26,41 @@ export type OnPageClientProps<T> = {
 export function OnPageClient<T extends { id?: string | number } | null | undefined>(
   props: OnPageClientProps<T>,
 ) {
-  const { doc, render } = props
+  const { doc, render, global: globalSlug, collection } = props
   const ctx = useOnPageOptional()
-  const target: EditableTarget | null = props.global
-    ? { global: props.global }
-    : props.collection
-      ? { collection: props.collection, doc }
-      : null
-  const ref = target ? toRef(target) : null
+  const id = doc?.id
+  const ref = useMemo<DocRef | null>(
+    () =>
+      globalSlug
+        ? { kind: 'global', slug: globalSlug }
+        : collection && id != null
+          ? { kind: 'collection', slug: collection, id }
+          : null,
+    [globalSlug, collection, id],
+  )
   const key = ref ? refKey(ref) : null
-  const enabled = !!ctx && !!key
+  const enabled = !!ctx && !!ref
 
-  useEffect(() => {
-    if (!ctx || !ref || !key) return
-    const off = ctx.registerClientDoc(key)
-    void ctx.session.open(ref, (doc ?? undefined) as Record<string, unknown> | undefined)
+  // Join the editor once it's there: render from its state (it adopts this page's value).
+  const join = useEffectEvent((r: DocRef) => {
+    if (!ctx) return undefined
+    const off = ctx.registerClientDoc(refKey(r))
+    void ctx.session.open(r, doc ?? undefined)
     return off
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, key])
+  })
+  useEffect(() => (enabled && ref ? join(ref) : undefined), [enabled, ref])
 
   const state = key ? ctx?.snap.docs[key] : undefined
+  const stateDoc = state?.doc
+  const fields = state?.schema?.fields
   const autoMap = props.autoMap !== false
   const current = useMemo(() => {
-    if (!state?.doc) return doc
-    return autoMap && state.schema && key
-      ? encodeDocument(state.doc, state.schema.fields, key)
-      : state.doc
-  }, [state?.doc, state?.schema, key, autoMap, doc])
+    if (!stateDoc) return doc
+    return autoMap && fields && key ? encodeDocument(stateDoc, fields, key) : stateDoc
+  }, [stateDoc, fields, key, autoMap, doc])
   const e = useMemo(
-    () => (ref ? editable(ref, { enabled }) : editable({ global: '' }, { enabled: false })),
-    [key, enabled],
-  ) // eslint-disable-line react-hooks/exhaustive-deps
+    () => (enabled && ref ? editable(ref, { enabled: true }) : editableOff),
+    [enabled, ref],
+  )
   return <>{render(current as T, e)}</>
 }

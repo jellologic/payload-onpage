@@ -16,7 +16,7 @@ export async function resolvePath(
   locale?: string,
 ): Promise<string | null> {
   const localeArg = locale ? { locale: locale as never } : {}
-  const doc = (
+  const doc =
     ref.kind === 'global'
       ? await req.payload
           .findGlobal({
@@ -37,14 +37,13 @@ export async function resolvePath(
             ...localeArg,
           })
           .catch(() => null)
-  ) as Record<string, unknown> | null
   if (!doc) return null
 
   let url: string | null | undefined
   if (entry.options.url) url = await entry.options.url({ doc, locale, req })
   else if (ref.kind === 'collection') {
     const preview = req.payload.collections[ref.slug]?.config.admin?.preview
-    if (preview) url = await preview(doc, { locale: locale ?? '', req, token: null } as never)
+    if (preview) url = await preview(doc, { locale: locale ?? '', req, token: null })
     if (!url && typeof doc.slug === 'string') url = `/${doc.slug.replace(/^\/+/, '')}`
   } else url = '/'
   if (!url) return null

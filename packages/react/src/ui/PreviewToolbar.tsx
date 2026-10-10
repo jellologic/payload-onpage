@@ -5,10 +5,11 @@
  * page in a framed viewport. Signed-in editors can switch back to editing;
  * people on a shared link can leave to the published page.
  */
-import React, { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
-import { UI } from './dom.ts'
-import { injectStyles } from './styles.ts'
+import { UI } from '../dom.ts'
+import { createTranslate, type Messages } from '../messages.ts'
+import { injectStyles } from '../styles.ts'
 import { PostButton } from './PostButton.tsx'
 
 export interface PreviewToolbarProps {
@@ -18,27 +19,34 @@ export interface PreviewToolbarProps {
   editHref?: string
   /** Opened from a shared preview link. */
   shared?: boolean
+  messages?: Messages
 }
 
 const DEVICES = [
-  { id: 'phone', label: 'Phone', width: 390 },
-  { id: 'tablet', label: 'Tablet', width: 820 },
+  { id: 'phone', width: 390 },
+  { id: 'tablet', width: 820 },
 ] as const
 
 export const FRAME_PARAM = 'onpage-frame'
 
 /** True inside the device-preview frame (the toolbar and editor stay out of it). */
-export const inPreviewFrame = () =>
+export const inPreviewFrame = (): boolean =>
   typeof window !== 'undefined' &&
   (window.self !== window.top || new URLSearchParams(window.location.search).has(FRAME_PARAM))
 
-export function PreviewToolbar({ exitHref, editHref, shared }: PreviewToolbarProps) {
+const noop = () => () => {}
+const useMounted = () =>
+  useSyncExternalStore(
+    noop,
+    () => true,
+    () => false,
+  )
+
+export function PreviewToolbar({ exitHref, editHref, shared, messages }: PreviewToolbarProps) {
   const [device, setDevice] = useState<(typeof DEVICES)[number] | null>(null)
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => {
-    injectStyles()
-    setMounted(true)
-  }, [])
+  const mounted = useMounted()
+  const t = useMemo(() => createTranslate(messages), [messages])
+  useEffect(() => injectStyles(), [])
   useEffect(() => {
     if (!device) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDevice(null)
@@ -56,56 +64,57 @@ export function PreviewToolbar({ exitHref, editHref, shared }: PreviewToolbarPro
   return createPortal(
     <div className="po-layer" {...{ [UI]: '' }}>
       {device && (
-        <div
-          className="po-frame-bg"
-          onClick={() => setDevice(null)}
-          data-testid="onpage-device-frame"
-        >
+        <div className="po-frame-bg" data-testid="onpage-device-frame">
+          <button
+            type="button"
+            className="po-frame-close"
+            onClick={() => setDevice(null)}
+            aria-label={t('common.close')}
+          />
           <iframe
             src={frameSrc()}
-            title={`${device.label} preview`}
+            title={t(`preview.${device.id}`)}
             style={{ width: device.width }}
-            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}
       <div
         className="po-preview"
         role="toolbar"
-        aria-label="Draft preview"
+        aria-label={t('preview.label')}
         data-testid="onpage-preview-toolbar"
       >
-        <span className="po-badge">Draft</span>
-        <span className="po-status">
-          {shared ? 'Shared preview — not published yet' : 'Previewing the draft'}
-        </span>
+        <span className="po-badge">{t('preview.badge')}</span>
+        <span className="po-status">{t(shared ? 'preview.shared' : 'preview.own')}</span>
         {DEVICES.map((d) => (
           <button
             key={d.id}
+            type="button"
             className="po-btn"
             aria-pressed={device?.id === d.id}
             onClick={() => setDevice(device?.id === d.id ? null : d)}
             data-testid={`onpage-device-${d.id}`}
           >
-            {d.label}
+            {t(`preview.${d.id}`)}
           </button>
         ))}
         {device && (
           <button
+            type="button"
             className="po-btn"
             onClick={() => setDevice(null)}
             data-testid="onpage-device-desktop"
           >
-            Desktop
+            {t('preview.desktop')}
           </button>
         )}
         {editHref && (
           <PostButton action={editHref} className="po-btn po-primary" testId="onpage-edit">
-            Edit
+            {t('preview.edit')}
           </PostButton>
         )}
         <PostButton action={exitHref} testId="onpage-exit-preview">
-          {shared ? 'View published' : 'Exit'}
+          {t(shared ? 'preview.viewPublished' : 'preview.exit')}
         </PostButton>
       </div>
     </div>,
