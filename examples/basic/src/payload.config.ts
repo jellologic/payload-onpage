@@ -11,6 +11,7 @@ import { Pages } from './collections/Pages'
 import { Users } from './collections/Users'
 import { Header } from './globals/Header'
 import { seed } from './seed'
+import { migrations } from './migrations'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -26,7 +27,8 @@ export default buildConfig({
   collections: [Pages, Media, Users],
   globals: [Header],
   editor: lexicalEditor(),
-  db: sqliteAdapter({ client: { url: process.env.DATABASE_URL || `file:${path.resolve(dirname, '../payload.db')}` } }),
+  // Dev pushes the schema automatically; production runs the committed migrations on start.
+  db: sqliteAdapter({ prodMigrations: migrations, migrationDir: path.resolve(dirname, 'migrations'), client: { url: process.env.DATABASE_URL || `file:${path.resolve(dirname, '../payload.db')}` } }),
   sharp,
   typescript: { outputFile: path.resolve(dirname, 'payload-types.ts') },
   plugins: [
