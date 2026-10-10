@@ -1,7 +1,8 @@
 /**
  * @payload-onpage/core — framework-agnostic building blocks: document refs,
  * schema, path and field operations, the stega codec, autosave, the editor
- * session, and the port interfaces adapters implement.
+ * session, and the port interfaces adapters implement. The default Payload REST
+ * adapters are in `@payload-onpage/core/payload`.
  */
 export * from './docref.ts'
 export * from './path.ts'
@@ -15,4 +16,3 @@ export * from './ports.ts'
 export * from './session.ts'
 export * from './seal.ts'
 export * from './constants.ts'
-export * from './adapters/payloadRest.ts'

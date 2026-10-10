@@ -26,6 +26,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./payload": {
+      "types": "./dist/payload.d.ts",
+      "default": "./dist/payload.js"
     }
   },
   "main": "./dist/index.js",

@@ -17,8 +17,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "coverage": "vitest run --coverage",
-    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build",
-    "dev:example": "bun run build && cd examples/basic && bun run dev"
+    "check": "bun run format:check && bun run lint && bun run typecheck && bun run test && bun run build && bun run size",
+    "dev:example": "bun run build && cd examples/basic && bun run dev",
+    "size": "size-limit"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
@@ -33,7 +34,8 @@
     "@payloadcms/db-sqlite": "3.87.0",
     "@payloadcms/translations": "3.87.0",
     "@payloadcms/ui": "3.87.0",
-    "@size-limit/esbuild": "^14.2.0",
+    "@size-limit/esbuild": "^11",
+    "@size-limit/file": "^11",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",
@@ -54,7 +56,7 @@
     "publint": "^0.3.25",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "size-limit": "^14.2.0",
+    "size-limit": "^11",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.1",
     "vitest": "^3.2.7"
