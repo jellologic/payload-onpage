@@ -62,7 +62,7 @@ export function toEditorState(value: unknown): RichTextState {
   // children must never be shared between documents.
   return root.children?.length
     ? { root }
-    : { root: { ...root, children: structuredClone(EMPTY_STATE.root.children) } }
+    : { root: { ...root, children: structuredClone(EMPTY_STATE.root.children ?? []) } }
 }
 
 /**

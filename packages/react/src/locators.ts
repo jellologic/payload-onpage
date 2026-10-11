@@ -55,7 +55,7 @@ const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TEXTAREA'
 /** Lowest common ancestor of a set of elements. */
 function commonAncestor(els: Element[]): Element | null {
   if (!els.length) return null
-  let anc: Element | null = els[0]
+  let anc: Element | null = els[0] ?? null
   for (const el of els.slice(1)) {
     while (anc && !anc.contains(el)) anc = anc.parentElement
     if (!anc) return null
@@ -114,8 +114,9 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
         rich.set(k, [...(rich.get(k) ?? []), t])
       }
       for (const group of rich.values()) {
+        const [first] = group
         const el = commonAncestor(group.map((t) => t.el))
-        if (el) out.push({ ...group[0], el })
+        if (first && el) out.push({ ...first, el })
       }
 
       if (!inferRows) return out
@@ -163,7 +164,7 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
         byList.set(k, entry)
       }
       for (const { ref, path, els } of byList.values()) {
-        const anc = els.length > 1 ? commonAncestor(els) : els[0].parentElement
+        const anc = els.length > 1 ? commonAncestor(els) : (els[0]?.parentElement ?? null)
         if (anc && anc !== root) rows.push({ el: anc, ref, path, kind: 'list', source: 'stega' })
       }
       return [...out, ...rows]

@@ -42,7 +42,7 @@ export function buildIndex(all: Target[]): TargetIndex {
 export function targetsAt(
   index: TargetIndex,
   el: Element | null,
-): { field?: Target; rows: Target[] } {
+): { field?: Target | undefined; rows: Target[] } {
   let field: Target | undefined
   const rows: Target[] = []
   for (let node = el; node; node = node.parentElement) {

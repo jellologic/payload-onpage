@@ -28,7 +28,7 @@ import { insertRow, rowOps } from '../rowOps.ts'
 import { hasSettings } from '../settings.ts'
 
 interface Hover {
-  field?: Target
+  field?: Target | undefined
   rows: Target[] // innermost first
 }
 

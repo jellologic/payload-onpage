@@ -170,7 +170,7 @@ describe('field editors', () => {
     render(<DateEditor {...d.props} />)
     fireEvent.change(screen.getByTestId('onpage-date-input'), { target: { value: '2026-12-25' } })
     fireEvent.click(screen.getByTestId('onpage-apply'))
-    expect(new Date(d.commit.mock.calls[0][0] as string).getHours()).toBe(12)
+    expect(new Date(d.commit.mock.calls[0]![0] as string).getHours()).toBe(12)
   })
   it('checkbox: toggles and closes', () => {
     const c = editorProps<ScalarField, boolean>({ type: 'checkbox' }, false)

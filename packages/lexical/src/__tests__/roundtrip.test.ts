@@ -61,7 +61,7 @@ describe('rich text round trip', () => {
   it('keeps Payload link fields and ids', () => {
     const state = (fixtures as any).withLink
     const before = collect(state.root, 'link')
-    expect(before[0].fields.linkType).toBeDefined()
+    expect(before[0]!.fields.linkType).toBeDefined()
     expect(collect(roundTrip(state).out.root, 'link')).toEqual(before)
   })
 
@@ -124,9 +124,9 @@ describe('rich text round trip', () => {
       },
     }
     const out: any = normalizeRichText(state)
-    expect(out.root.children[0].value).toBe(42)
-    expect(out.root.children[1].children[0].fields.doc).toEqual({ relationTo: 'posts', value: 7 })
-    expect(state.root.children[0].value).toEqual({ id: 42, url: '/a.jpg' })
+    expect(out.root.children[0]!.value).toBe(42)
+    expect(out.root.children[1]!.children[0]!.fields.doc).toEqual({ relationTo: 'posts', value: 7 })
+    expect(state.root.children[0]!.value).toEqual({ id: 42, url: '/a.jpg' })
   })
 })
 

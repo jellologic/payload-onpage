@@ -59,8 +59,7 @@ export function moveItem<T>(arr: T[], from: number, to: number): T[] {
   if (from === to || from < 0 || from >= arr.length) return arr
   const target = Math.max(0, Math.min(arr.length - 1, to))
   const copy = arr.slice()
-  const [item] = copy.splice(from, 1)
-  copy.splice(target, 0, item)
+  copy.splice(target, 0, ...copy.splice(from, 1))
   return copy
 }
 

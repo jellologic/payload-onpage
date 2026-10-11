@@ -12,6 +12,7 @@ import { useOnPage } from '../context.tsx'
 import { relativeTime } from '../messages.ts'
 import { PostButton } from './PostButton.tsx'
 import { ToolbarButton } from './ToolbarButton.tsx'
+import type { Flash } from '../types.ts'
 
 const title = (d: DocumentState) => d.schema?.labels.singular ?? d.ref.slug
 
@@ -23,7 +24,7 @@ function useTicker(ms: number) {
   }, [ms])
 }
 
-export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null }) {
+export function Dock({ flash }: { flash: Flash | null }) {
   const { session, snap, links, rendering, notify, rerender, docKeys, t } = useOnPage()
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   useTicker(5000)

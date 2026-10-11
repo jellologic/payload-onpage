@@ -77,15 +77,15 @@ describe('encodeDocument (auto-mapping)', () => {
   it('marks displayable strings with their exact field paths', () => {
     expect(stegaDecode(out.title)).toEqual([{ ref: 'c:pages:5', path: 'title', kind: 'text' }])
     expect(stegaDecode(out.summary)[0]).toMatchObject({ path: 'summary', kind: 'textarea' })
-    expect(stegaDecode(out.layout[0].heading)[0].path).toBe('layout.0.heading')
-    expect(stegaDecode(out.layout[0].buttons[0].label)[0].path).toBe('layout.0.buttons.0.label')
+    expect(stegaDecode(out.layout[0]!.heading)[0]!.path).toBe('layout.0.heading')
+    expect(stegaDecode(out.layout[0]!.buttons[0]!.label)[0]!.path).toBe('layout.0.buttons.0.label')
   })
 
   it('marks rich-text text nodes (including inside links) with the field path', () => {
     const p = out.body.root.children[0]
-    expect(stegaDecode(p.children[0].text)[0]).toMatchObject({ path: 'body', kind: 'richtext' })
-    expect(stegaDecode(p.children[1].children[0].text)[0].path).toBe('body')
-    expect(p.children[1].fields.url).toBe('/x')
+    expect(stegaDecode(p.children[0]!.text)[0]).toMatchObject({ path: 'body', kind: 'richtext' })
+    expect(stegaDecode(p.children[1]!.children[0]!.text)[0]!.path).toBe('body')
+    expect(p.children[1]!.fields.url).toBe('/x')
   })
 
   it("maps images through the upload's alt text", () => {
@@ -98,7 +98,7 @@ describe('encodeDocument (auto-mapping)', () => {
     expect(out.slug).toBe('home')
     expect(out.status).toBe('a')
     expect(out.views).toBe(3)
-    expect(out.layout[0].buttons[0].url).toBe('/contact')
+    expect(out.layout[0]!.buttons[0]!.url).toBe('/contact')
     expect(out.id).toBe(5)
   })
 
@@ -125,7 +125,7 @@ describe('serializeFields', () => {
     expect(schema[2]).toMatchObject({ type: 'group', label: 'SEO' })
   })
   it('keeps static defaults; function defaults need a request', () => {
-    const hero = narrow(schema[1], 'blocks').blocks[0]
+    const hero = narrow(schema[1], 'blocks').blocks[0]!
     const section = narrow(
       hero.fields.find((f) => f.name === 'section'),
       'group',
@@ -134,7 +134,7 @@ describe('serializeFields', () => {
     expect(narrow(schema[2], 'group').fields[0]?.defaultValue).toBeUndefined()
   })
   it('labels like the admin does (toWords), and keeps string options as-is', () => {
-    const hero = narrow(schema[1], 'blocks').blocks[0]
+    const hero = narrow(schema[1], 'blocks').blocks[0]!
     const bg = narrow(
       narrow(
         hero.fields.find((f) => f.name === 'section'),
@@ -251,11 +251,11 @@ describe('onpage() plugin', () => {
     const pages = out.collections.find((c: any) => c.slug === 'pages')
     expect(pages.hooks.afterRead).toHaveLength(2)
     expect(pages.hooks.beforeChange).toHaveLength(2)
-    expect(pages.admin.components.edit.beforeDocumentControls[0].path).toBe(
+    expect(pages.admin.components.edit.beforeDocumentControls[0]!.path).toBe(
       '@payload-onpage/plugin/admin#OnPageAdminControls',
     )
     expect(out.collections.find((c: any) => c.slug === 'media').hooks).toBeUndefined()
-    expect(out.globals[0].admin.components.elements.beforeDocumentControls).toHaveLength(1)
+    expect(out.globals[0]!.admin.components.elements.beforeDocumentControls).toHaveLength(1)
   })
 
   it('marks reads only when asked, and strips markers from writes', async () => {
@@ -280,7 +280,7 @@ describe('onpage() plugin', () => {
       onpage({ collections: ['pages'], session })({ ...config }) as any,
     )
     expect(twice.endpoints.filter((e: any) => e.path === '/onpage/enter')).toHaveLength(1)
-    expect(twice.collections[0].hooks.afterRead).toHaveLength(2)
+    expect(twice.collections[0]!.hooks.afterRead).toHaveLength(2)
     expect(() => onpage({ collections: ['nope'], session })(config)).toThrow(
       /unknown collection "nope"/,
     )

@@ -54,7 +54,7 @@ export type EncodeFilter = (args: { field: SchemaField; path: string; ref: strin
 
 interface Ctx {
   ref: string
-  filter?: EncodeFilter
+  filter?: EncodeFilter | undefined
 }
 
 const allowed = (field: SchemaField, path: string, ctx: Ctx) =>
@@ -116,7 +116,7 @@ export function encodeDocument<T extends Record<string, unknown>>(
   doc: T,
   fields: SchemaField[],
   ref: string,
-  opts: { only?: string[]; filter?: EncodeFilter } = {},
+  opts: { only?: string[] | undefined; filter?: EncodeFilter | undefined } = {},
 ): T {
   const { only } = opts
   const scope = only ? fields.filter((f) => only.includes(f.name)) : fields

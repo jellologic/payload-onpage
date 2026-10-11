@@ -16,10 +16,10 @@ export interface PreviewToolbarProps {
   /** Endpoint that leaves preview (POST), back to the published page. */
   exitHref: string
   /** Endpoint that switches to editing (POST); omit for people who can't edit (shared links). */
-  editHref?: string
+  editHref?: string | undefined
   /** Opened from a shared preview link. */
-  shared?: boolean
-  messages?: Messages
+  shared?: boolean | undefined
+  messages?: Messages | undefined
 }
 
 const DEVICES = [

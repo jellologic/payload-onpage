@@ -23,7 +23,8 @@ export interface Marker {
   kind: MarkerKind
 }
 
-const DIGITS = ['\u200b', '\u200c', '\u200d', '\u2060'] as const
+/** The four invisible code points that carry base-4 digits, in digit order. */
+const DIGITS = '\u200b\u200c\u200d\u2060'
 const START = '\u2063\u2062'
 const END = '\u2064'
 const KIND_CODE = {
@@ -37,7 +38,7 @@ const CODE_KIND = new Map<string, MarkerKind>(
   (Object.entries(KIND_CODE) as Array<[MarkerKind, string]>).map(([kind, code]) => [code, kind]),
 )
 
-const DIGIT_VALUE = new Map<string, number>(DIGITS.map((c, i) => [c, i]))
+const DIGIT_VALUE = new Map<string, number>([...DIGITS].map((c, i) => [c, i]))
 // The codec's characters are single invisible code points (not combining sequences).
 // eslint-disable-next-line no-misleading-character-class
 const MARKER_RE = /\u2063\u2062([\u200b\u200c\u200d\u2060]*)\u2064/g
@@ -51,7 +52,11 @@ export function encodeMarker(marker: Marker): string {
   const bytes = encoder.encode(`${marker.ref}|${marker.path}|${KIND_CODE[marker.kind]}`)
   let body = ''
   for (const b of bytes)
-    body += DIGITS[(b >> 6) & 3] + DIGITS[(b >> 4) & 3] + DIGITS[(b >> 2) & 3] + DIGITS[b & 3]
+    body +=
+      DIGITS.charAt((b >> 6) & 3) +
+      DIGITS.charAt((b >> 4) & 3) +
+      DIGITS.charAt((b >> 2) & 3) +
+      DIGITS.charAt(b & 3)
   return START + body + END
 }
 
@@ -61,7 +66,7 @@ function decodeBody(body: string): Marker | null {
   for (let i = 0; i < bytes.length; i++) {
     let b = 0
     for (let j = 0; j < 4; j++) {
-      const v = DIGIT_VALUE.get(body[i * 4 + j])
+      const v = DIGIT_VALUE.get(body.charAt(i * 4 + j))
       if (v === undefined) return null
       b = (b << 2) | v
     }
@@ -92,7 +97,7 @@ export function stegaDecode(value: string): Marker[] {
   const out: Marker[] = []
   if (!value) return out
   for (const m of value.matchAll(MARKER_RE)) {
-    const marker = decodeBody(m[1])
+    const marker = decodeBody(m[1] ?? '')
     if (marker) out.push(marker)
   }
   return out

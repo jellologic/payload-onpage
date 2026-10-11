@@ -35,7 +35,7 @@ describe('path', () => {
     const doc: any = { a: { b: [{ c: 1 }, { c: 2 }] }, z: { keep: true } }
     const next = setAt(doc, 'a.b.1.c', 9)
     expect(getAt<number>(next, 'a.b.1.c')).toBe(9)
-    expect(doc.a.b[1].c).toBe(2)
+    expect(doc.a.b[1]!.c).toBe(2)
     expect(next.z).toBe(doc.z)
     expect(next.a.b[0]).toBe(doc.a.b[0])
   })
@@ -75,7 +75,7 @@ describe('schema-aware field ops', () => {
     expect(fieldAtPath(schema, doc, 'sections.9.heading')).toBeNull()
   })
   it('builds new blocks from defaults and minRows', () => {
-    const hero = newBlockRow(narrow(schema[1], 'blocks').blocks[0])
+    const hero = newBlockRow(narrow(schema[1], 'blocks').blocks[0]!)
     expect(hero).toMatchObject({
       blockType: 'hero',
       heading: 'Heading',
@@ -83,23 +83,23 @@ describe('schema-aware field ops', () => {
       ctas: [],
     })
     expect(typeof hero.id).toBe('string')
-    const gallery = newBlockRow(narrow(schema[1], 'blocks').blocks[1]) as { images: unknown[] }
+    const gallery = newBlockRow(narrow(schema[1], 'blocks').blocks[1]!) as { images: unknown[] }
     expect(gallery.images).toHaveLength(1)
     expect(defaultsFor([])).toEqual({})
   })
   it('clones rows with new row ids but keeps related-document ids', () => {
-    const heroFields = narrow(schema[1], 'blocks').blocks[0].fields
+    const heroFields = narrow(schema[1], 'blocks').blocks[0]!.fields
     const copy = cloneRow(doc.sections[0], heroFields) as any
     expect(copy.id).not.toBe('a1')
-    expect(copy.ctas[0].id).not.toBe('c1')
-    expect(copy.ctas[0].label).toBe('Go')
+    expect(copy.ctas[0]!.id).not.toBe('c1')
+    expect(copy.ctas[0]!.label).toBe('Go')
     expect(copy.image.id).toBe(7)
   })
   it('normalizes populated uploads to ids for saving, keeping row ids', () => {
-    const out = normalizeValue(doc.sections, schema[1]) as any[]
-    expect(out[0].image).toBe(7)
-    expect(out[0].id).toBe('a1')
-    expect(out[1].images[0]).toEqual({ id: 'g1', image: 8 })
+    const out = normalizeValue(doc.sections, schema[1]!) as any[]
+    expect(out[0]!.image).toBe(7)
+    expect(out[0]!.id).toBe('a1')
+    expect(out[1]!.images[0]).toEqual({ id: 'g1', image: 8 })
     expect(buildPatch(doc as any, ['sections'], schema).sections).toEqual(out)
   })
   it('reports changed top-level keys only', () => {
@@ -167,9 +167,9 @@ describe('AutosaveQueue', () => {
     const q2 = h.q
     q2.schedule({ title: 'x' })
     await h.tick()
-    expect(h.timers[0].ms).toBe(1000)
+    expect(h.timers[0]!.ms).toBe(1000)
     await h.tick()
-    expect(h.timers[0].ms).toBe(2000)
+    expect(h.timers[0]!.ms).toBe(2000)
     await h.tick()
     expect(h.q.current.status).toBe('saved')
     expect(h.sent).toHaveLength(3)

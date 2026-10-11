@@ -387,7 +387,7 @@ function Bridge({
   point,
 }: {
   onReady: (editor: LexicalEditor) => void
-  point?: { x: number; y: number }
+  point?: { x: number; y: number } | undefined
 }) {
   const [editor] = useLexicalComposerContext()
   useEffect(() => {

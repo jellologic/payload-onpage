@@ -36,6 +36,7 @@ import { useTargets } from '../targets.ts'
 import type {
   EditingState,
   EditorRegistry,
+  Flash,
   FieldEditorDef,
   Links,
   OnPageContextValue,
@@ -54,22 +55,22 @@ import { useGhosts } from './useGhosts.ts'
 export interface OnPageEditorProps {
   dataSource: DataSource
   /** Image search/upload (e.g. `payloadUploads()`). Without it, upload fields can't be changed. */
-  media?: MediaLibrary
+  media?: MediaLibrary | undefined
   /** How elements map to fields. Default: composite(annotations(), stega()). */
-  locator?: Locator
+  locator?: Locator | undefined
   /** How saved changes reach the page. Default: clientState() (no server refresh). */
-  renderer?: Renderer
+  renderer?: Renderer | undefined
   /** Extra or replacement field editors by id; `null` removes a default. */
-  editors?: Record<string, FieldEditorDef | null>
+  editors?: Record<string, FieldEditorDef | null> | undefined
   links: Links
   /** Content locale to edit. */
-  locale?: string
+  locale?: string | undefined
   /** Autosave debounce, ms. Default: 250 with a refreshing renderer; else the collection's autosave interval, else 800. */
-  autosaveDelay?: number
+  autosaveDelay?: number | undefined
   /** Where to look for editable content. Default: document.body. */
-  root?: () => ParentNode | null
+  root?: (() => ParentNode | null) | undefined
   /** Override any UI string (see `defaultMessages`). */
-  messages?: Messages
+  messages?: Messages | undefined
 }
 
 const EMPTY_SNAP: SessionSnapshot = { docs: {}, canUndo: false, canRedo: false, busy: false }
@@ -94,7 +95,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [selected, setSelected] = useState<Selection | null>(null)
   const [renders, setRenders] = useState(0)
-  const [flash, setFlash] = useState<{ text: string; bad?: boolean } | null>(null)
+  const [flash, setFlash] = useState<Flash | null>(null)
   const [clientDocs, setClientDocs] = useState<ReadonlySet<string>>(() => new Set())
   const [session, setSession] = useState<EditorSession | null>(null)
   const snap = useSyncExternalStore(

@@ -45,13 +45,13 @@ type Permissions = SanitizedFieldsPermissions | undefined
 
 export interface SerializeContext {
   /** Translates labels into the admin language. Without it, plain-string labels or the field name are used. */
-  i18n?: I18nLike
+  i18n?: I18nLike | undefined
   /** Global blocks (`config.blocks`), to resolve `blockReferences`. */
-  blocks?: Block[]
+  blocks?: Block[] | undefined
   /** Field-level permissions: fields the user can't update are left out. */
-  permissions?: Permissions
+  permissions?: Permissions | undefined
   /** Collects function defaults to evaluate for this request. */
-  defaults?: { req: PayloadRequest; pending: Promise<void>[] }
+  defaults?: { req: PayloadRequest; pending: Promise<void>[] } | undefined
 }
 
 /** A config label (string, translations or function) in the request's language, else `fallback`. */

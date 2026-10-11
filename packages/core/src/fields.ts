@@ -21,9 +21,9 @@ import { assertNever } from './util.ts'
 export interface FieldAtPath {
   field: SchemaField
   /** The block whose fields contain this field, when inside a blocks row. */
-  block?: SchemaBlock
+  block?: SchemaBlock | undefined
   /** Path of the nearest blocks row ("sections.3"), when inside one. */
-  blockPath?: string
+  blockPath?: string | undefined
 }
 
 type Data = Record<string, unknown>

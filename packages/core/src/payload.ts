@@ -83,7 +83,7 @@ export function payloadRest(
   const write = async (
     ref: DocRef,
     data: Doc,
-    o: { locale?: string; updatedAt?: string },
+    o: { locale?: string | undefined; updatedAt?: string | undefined },
     publish: boolean,
   ): Promise<SaveResult> => {
     const query = qs({

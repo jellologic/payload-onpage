@@ -113,14 +113,14 @@ const headerSchema: DocumentSchema = {
 }
 
 function fakeSource(docs: Record<string, Doc>, opts: { conflictOn?: string } = {}) {
-  const saves: Array<{ key: string; data: Doc; updatedAt?: string }> = []
+  const saves: Array<{ key: string; data: Doc; updatedAt?: string | undefined }> = []
   const published: string[] = []
   let version = 0
   const key = (r: any) => (r.kind === 'global' ? `g:${r.slug}` : `c:${r.slug}:${r.id}`)
   const ds: DataSource = {
     loadSchema: async (ref) => (ref.kind === 'global' ? headerSchema : pageSchema),
     loadDocument: async (ref, o) =>
-      structuredClone(docs[key(ref) + (o.draft ? '' : ':published')] ?? docs[key(ref)]),
+      structuredClone(docs[key(ref) + (o.draft ? '' : ':published')] ?? docs[key(ref)] ?? {}),
     saveDraft: async (ref, data, o): Promise<SaveResult> => {
       saves.push({ key: key(ref), data, updatedAt: o.updatedAt })
       if (opts.conflictOn === key(ref)) return { ok: false, status: 409, message: 'stale' }
@@ -155,7 +155,7 @@ describe('EditorSession', () => {
       s.open({ kind: 'collection', slug: 'pages', id: 1 }),
       s.open({ kind: 'global', slug: 'header' }),
     ])
-    expect(s.getSnapshot().docs['c:pages:1'].status).toBe('ready')
+    expect(s.getSnapshot().docs['c:pages:1']?.status).toBe('ready')
     s.setValue('c:pages:1', 'layout.0.heading', 'Hello')
     s.setValue('g:header', 'tagline', 'Made in Ohio')
     await s.flush()

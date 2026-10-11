@@ -37,7 +37,7 @@ export type SerializedPayloadLinkNode = Spread<
 
 export class PayloadLinkNode extends ElementNode {
   __fields: PayloadLinkFields
-  __linkId?: string
+  __linkId: string | undefined
 
   static override getType(): string {
     return 'link'
@@ -85,12 +85,13 @@ export class PayloadLinkNode extends ElementNode {
   }
 
   override exportJSON(): SerializedPayloadLinkNode {
+    const latest = this.getLatest()
     return {
       ...super.exportJSON(),
       type: 'link',
       version: 3,
-      fields: { ...this.getLatest().__fields },
-      ...(this.getLatest().__linkId ? { id: this.getLatest().__linkId } : {}),
+      fields: { ...latest.__fields },
+      ...(latest.__linkId ? { id: latest.__linkId } : {}),
     }
   }
 

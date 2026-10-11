@@ -51,7 +51,7 @@ export const editableOff: Editable = {
 
 export type EditableTarget =
   | DocRef
-  | { collection: string; doc: { id?: string | number } | null | undefined }
+  | { collection: string; doc: { id?: string | number | undefined } | null | undefined }
   | { global: string }
 
 export function toRef(t: EditableTarget): DocRef | null {

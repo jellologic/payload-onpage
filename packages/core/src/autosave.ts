@@ -12,8 +12,8 @@ export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'co
 
 export interface SaveState {
   status: SaveStatus
-  lastSavedAt?: number
-  message?: string
+  lastSavedAt?: number | undefined
+  message?: string | undefined
   /** Increments with every successful save. */
   seq: number
 }

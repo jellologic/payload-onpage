@@ -1,7 +1,7 @@
 'use client'
 
 /** The lazily loaded part of the Next adapter: the editor and the preview toolbar, wired to Next and Payload. */
-import React, { useMemo } from 'react'
+import { useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation.js'
 import { DEFAULTS, ROUTES, type DocRef } from '@payload-onpage/core'
 import { payloadRest, payloadUploads } from '@payload-onpage/core/payload'

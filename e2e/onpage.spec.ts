@@ -44,7 +44,7 @@ test('edit text in place; the draft is saved without markers', async ({ context 
     page,
     '/api/pages/1?draft=true&depth=0',
   )
-  expect(draft.layout[0].heading).toMatch(/^E2E /)
+  expect(draft.layout[0]!.heading).toMatch(/^E2E /)
   expect(JSON.stringify(draft)).not.toMatch(/[⁢⁣⁤]/)
 })
 

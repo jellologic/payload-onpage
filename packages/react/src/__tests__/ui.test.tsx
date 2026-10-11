@@ -159,7 +159,7 @@ describe('row toolbar, settings and block picker', () => {
     fireEvent.click(await screen.findByTestId('onpage-block-duplicate'))
     await waitFor(() => expect((saves.at(-1)?.layout as unknown[]).length).toBe(2))
     const dup = saves.at(-1)!.layout as Array<{ id: string }>
-    expect(dup[0].id).not.toBe(dup[1].id) // fresh row id
+    expect(dup[0]!.id).not.toBe(dup[1]!.id) // fresh row id
   })
 })
 

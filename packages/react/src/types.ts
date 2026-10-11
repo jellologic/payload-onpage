@@ -19,9 +19,9 @@ export interface EditingState {
   path: string
   /** Editor id from the registry ("text", "richText", …). */
   editor: string
-  point?: { x: number; y: number }
+  point?: { x: number; y: number } | undefined
   /** The element that was clicked (several elements may show one field). */
-  el?: Element
+  el?: Element | undefined
 }
 
 export type Panel =
@@ -101,11 +101,17 @@ export interface TargetIndex {
 }
 
 /** What extensions and field editors can use from the editor (`useOnPage()`). */
+/** A short message shown in the dock. */
+export interface Flash {
+  text: string
+  bad?: boolean | undefined
+}
+
 export interface OnPageContextValue {
   session: EditorSession
   snap: SessionSnapshot
   renderer: Renderer
-  media?: MediaLibrary
+  media?: MediaLibrary | undefined
   editors: EditorRegistry
   targets: TargetIndex
   links: Links
@@ -128,7 +134,11 @@ export interface OnPageContextValue {
   edit: (
     key: string,
     path: string,
-    opts?: { point?: { x: number; y: number }; kind?: TargetKind; anchor?: Element },
+    opts?: {
+      point?: { x: number; y: number } | undefined
+      kind?: TargetKind | undefined
+      anchor?: Element | undefined
+    },
   ) => boolean
   /** Re-render documents after an operation outside autosave (publish, reload). */
   rerender: (refs: DocRef[]) => Promise<void>

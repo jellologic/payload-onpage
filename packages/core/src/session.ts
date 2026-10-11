@@ -20,13 +20,25 @@ export interface DocumentState {
   key: string
   ref: DocRef
   status: 'loading' | 'ready' | 'error'
-  error?: string
+  /** Why loading failed (status "error"). */
+  error?: string | undefined
   schema: DocumentSchema | null
   doc: Doc | null
   save: SaveState
   /** Edited in this session since load or the last publish/discard. */
   edited: boolean
 }
+
+/** A document that can be edited: loaded, with its schema and data. */
+export type ReadyDocumentState = DocumentState & {
+  status: 'ready'
+  schema: DocumentSchema
+  doc: Doc
+}
+
+/** Narrows a document's state to one that can be edited (instead of checking `schema && doc` by hand). */
+export const isReady = (state: DocumentState | undefined): state is ReadyDocumentState =>
+  state?.status === 'ready' && !!state.schema && !!state.doc
 
 export interface SessionSnapshot {
   docs: Record<string, DocumentState>
@@ -44,16 +56,16 @@ interface HistoryEntry {
 
 export interface EditorSessionOptions {
   dataSource: DataSource
-  locale?: string
+  locale?: string | undefined
   /** Autosave debounce, ms. Default: the collection's autosave interval, else 800. */
-  autosaveDelay?: number
+  autosaveDelay?: number | undefined
   /** Called after a document's edits were saved; `seq` increments per save. Renderers refresh here. */
-  onSaved?: (ref: DocRef, seq: number) => void
+  onSaved?: ((ref: DocRef, seq: number) => void) | undefined
 }
 
 export interface PublishResult {
   ok: boolean
-  message?: string
+  message?: string | undefined
   published: DocRef[]
 }
 
@@ -62,7 +74,7 @@ const IDLE: SaveState = { status: 'idle', seq: 0 }
 
 export class EditorSession {
   readonly dataSource: DataSource
-  readonly locale?: string
+  readonly locale: string | undefined
   private docs = new Map<string, DocumentState>()
   private queues = new Map<string, AutosaveQueue>()
   private updatedAt = new Map<string, string | undefined>()
@@ -82,7 +94,7 @@ export class EditorSession {
   private snapshot: SessionSnapshot = { docs: {}, canUndo: false, canRedo: false, busy: false }
   private disposed = false
   private readonly autosaveDelay: number | undefined
-  private readonly onSaved?: (ref: DocRef, seq: number) => void
+  private readonly onSaved: ((ref: DocRef, seq: number) => void) | undefined
 
   constructor(opts: EditorSessionOptions) {
     this.dataSource = opts.dataSource
