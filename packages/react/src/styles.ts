@@ -2,6 +2,7 @@
  * The editor's own styles, injected once. Everything is prefixed `po-` and set
  * explicitly, so the host site's CSS (and its absence) doesn't matter.
  */
+import { DOM_ATTR } from './dom.ts'
 export const PO_Z = 2147483000
 
 export const PO_CSS = `
@@ -116,7 +117,7 @@ export function injectStyles() {
   if (injected || typeof document === 'undefined') return
   injected = true
   const el = document.createElement('style')
-  el.setAttribute('data-onpage-styles', '')
+  el.setAttribute(DOM_ATTR.styles, '')
   el.textContent = PO_CSS
   document.head.appendChild(el)
 }

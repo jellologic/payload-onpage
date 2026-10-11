@@ -1,5 +1,36 @@
 # Upgrading
 
+## 0.2 → 0.3
+
+0.3 makes the compiler catch more mistakes and fixes several bugs. Most sites only notice the first two rows.
+
+| Change                                                                                                                                                      | What to do                                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session` is **required**: without it, `onpage()` throws `InvalidConfiguration` when the config is built, not on the first request                          | Pass `session: nextSession()` (or your own `SessionAdapter`)                                                                                                                                                          |
+| `collections` / `globals` keys are checked against your generated `CollectionSlug` / `GlobalSlug`                                                           | A typo is now a compile error. Without generated types, any string is accepted                                                                                                                                        |
+| `routePrefix` must start with `/` (a `` `/${string}` `` type)                                                                                               | Nothing, unless you set one without a leading slash                                                                                                                                                                   |
+| Custom field editors: use `defineEditor({ mode, accepts, normalize?, component })`                                                                          | Plain `{ mode, component }` objects still work and accept any field. With `accepts`, props are typed (`FieldEditorProps<NumberField, number \| null>`), and the registry never hands the editor another kind of field |
+| `SchemaField` is a union discriminated on `type` (`ScalarField`, `NumberField`, `ChoiceField`, `RelationField`, `GroupField`, `ArrayField`, `BlocksField`…) | Check `field.type` before reading kind-specific properties (`options`, `relationTo`, `fields`, `blocks`, `min`…)                                                                                                      |
+| `t(key, vars)` accepts only message keys, and requires exactly the variables a message uses                                                                 | Show raw text without `t`                                                                                                                                                                                             |
+| `notify(text, bad?)` takes already-translated text                                                                                                          | `notify(t('notify.published'))` instead of `notify('notify.published')`                                                                                                                                               |
+| `useOnPageOptional()` returns the editor's API (no `snap`). New: `useOnPageApi()`, `useSessionSnapshot(session)`                                            | Read documents with `useSessionSnapshot(api?.session)`. `useOnPage()` is unchanged                                                                                                                                    |
+| `SaveResult` is a union: `{ ok: true, updatedAt? }` or `{ ok: false, status, message? }`                                                                    | Custom data sources: return a `status` with every failure (0 for a network error)                                                                                                                                     |
+| `DataSource.search` and `MediaLibrary.search` receive a `signal`                                                                                            | Pass it to `fetch`, so superseded searches are cancelled. `useDebouncedSearch(search)` no longer takes `deps`; its search gets `(query, page, signal)`                                                                |
+| `getAt()` returns `unknown`                                                                                                                                 | Narrow the result (`Array.isArray`, `typeof`)                                                                                                                                                                         |
+| Document keys are typed `RefKey` (`` `c:${string}:${string}` \| `g:${string}` ``)                                                                           | Build them with `refKey(ref)`                                                                                                                                                                                         |
+| Fewer exports from `@payload-onpage/core`: internal helpers (the field walker, `collectionRef`, …) are no longer public                                     | Everything documented is still exported                                                                                                                                                                               |
+| The schema endpoint and preview-link endpoint answer errors in Payload's format (`{ errors: [{ message }] }`)                                               | Nothing, unless you parsed their old `{ error }` body yourself                                                                                                                                                        |
+| The mode endpoint answers 403 (not 401) to a signed-in user who isn't allowed                                                                               | Nothing                                                                                                                                                                                                               |
+
+**Fixed:**
+
+- **Wrong document opened:** text ids that look numeric (`"007"`) and ids past 2^53 opened the wrong document. The server now uses the collection's id type.
+- **Lexical links without an id:** old Payload Lexical links (versions 1 and 2) got no id after an edit.
+- **Custom auth on media:** the media adapter ignored `init` headers.
+- **Translations:** the admin "link copied" message and translated collection labels are now translated.
+- **Dialogs:** the popover dialog could miss an outside click while typing.
+- **Settings panel:** the panel ignored a field's custom editor (e.g. `color`).
+
 ## 0.1 → 0.2
 
 0.2 is a security and architecture release. Breaking changes:

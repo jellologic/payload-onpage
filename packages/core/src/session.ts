@@ -69,6 +69,10 @@ export interface PublishResult {
   published: DocRef[]
 }
 
+/** Schemas are per collection or global, not per document. */
+type SchemaKey = `${DocRef['kind']}:${string}`
+const schemaKey = (ref: DocRef): SchemaKey => `${ref.kind}:${ref.slug}`
+
 const HISTORY_LIMIT = 200
 const IDLE: SaveState = { status: 'idle', seq: 0 }
 
@@ -85,7 +89,7 @@ export class EditorSession {
   /** Documents whose value came from the page (client mode); a late server load must not replace it. */
   private fromPage = new Set<RefKey>()
   private loading = new Map<RefKey, Promise<void>>()
-  private schemaCache = new Map<string, Promise<DocumentSchema>>()
+  private schemaCache = new Map<SchemaKey, Promise<DocumentSchema>>()
   private past: HistoryEntry[] = []
   private future: HistoryEntry[] = []
   private listeners = new Set<() => void>()
@@ -157,7 +161,7 @@ export class EditorSession {
 
   // ── loading ─────────────────────────────────────────────────────────────
   private schemaFor(ref: DocRef): Promise<DocumentSchema> {
-    const k = `${ref.kind}:${ref.slug}`
+    const k = schemaKey(ref)
     let p = this.schemaCache.get(k)
     if (!p) {
       p = this.dataSource.loadSchema(ref, { locale: this.locale })

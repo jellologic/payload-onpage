@@ -16,14 +16,16 @@ export const graphqlSource = (endpoint: string): DataSource => ({
   async saveDraft(ref, data, { locale, updatedAt }) {
     // Save only `data` (the changed top-level fields) as a draft.
     // Send `updatedAt` as the x-onpage-if-unmodified-since header (or your own check)
-    // and return { ok: false, status: 409 } when someone else saved first.
+    // and return { ok: false, status: 409 } when someone else saved first
+    // (a failure always has a status: 0 for a network error).
     return { ok: true, updatedAt: '…new updatedAt…' }
   },
   async publish(ref, data, opts) {
     /* save with _status: 'published' */ return { ok: true }
   },
   // Optional:
-  async search(collection, { query, titleField, limit }) {
+  async search(collection, { query, titleField, limit, signal }) {
+    // Pass `signal` to fetch: it aborts when the user keeps typing.
     return [/* { id, title, doc } */]
   },
   async createPreviewLink(ref, { locale }) {

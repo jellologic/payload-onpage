@@ -6,8 +6,12 @@
 import type { MediaLibrary } from '@payload-onpage/core'
 
 export const cloudinaryLibrary = (): MediaLibrary => ({
-  async search({ query, page, relationTo }) {
-    const res = await fetch(`/api/my-dam/search?q=${encodeURIComponent(query ?? '')}&page=${page}`)
+  async search({ query, page, relationTo, signal }) {
+    // `signal` aborts a search the user has moved on from.
+    const res = await fetch(
+      `/api/my-dam/search?q=${encodeURIComponent(query ?? '')}&page=${page}`,
+      { signal },
+    )
     const body = await res.json()
     return {
       // `doc` is what gets stored in the field (and rendered in client mode): usually the upload document.

@@ -11,11 +11,11 @@ import { useEvent } from '../useEvent.ts'
 import { refKey, resolveRow, isReady } from '@payload-onpage/core'
 import { rowOps } from '../rowOps.ts'
 import { useEffect } from 'react'
-import { isOurs, isTyping } from '../dom.ts'
+import { DOM_ATTR, isOurs, isTyping } from '../dom.ts'
 import { isFieldTarget, isRowTarget, targetsAt } from '../targets.ts'
 import type { OnPageContextValue } from '../types.ts'
 
-const FOCUSABLE_FLAG = 'data-onpage-focusable'
+const FOCUSABLE_FLAG = DOM_ATTR.focusable
 
 export function usePageEvents(ctx: OnPageContextValue | null, root: () => ParentNode | null): void {
   const onClick = useEvent((e: MouseEvent) => {
@@ -119,7 +119,7 @@ export function usePageEvents(ctx: OnPageContextValue | null, root: () => Parent
   })
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-onpage-editing', '')
+    document.documentElement.setAttribute(DOM_ATTR.editing, '')
     const click = (e: MouseEvent) => onClick(e)
     const key = (e: KeyboardEvent) => onKey(e)
     const focus = (e: FocusEvent) => onFocus(e)
@@ -129,7 +129,7 @@ export function usePageEvents(ctx: OnPageContextValue | null, root: () => Parent
     document.addEventListener('focusin', focus)
     window.addEventListener('beforeunload', unload)
     return () => {
-      document.documentElement.removeAttribute('data-onpage-editing')
+      document.documentElement.removeAttribute(DOM_ATTR.editing)
       document.removeEventListener('click', click, true)
       document.removeEventListener('keydown', key)
       document.removeEventListener('focusin', focus)
