@@ -14,13 +14,16 @@ export {
   FRAME_PARAM,
   type PreviewToolbarProps,
 } from './ui/PreviewToolbar.tsx'
-export { useOnPage, useOnPageOptional } from './context.tsx'
+export { useOnPage, useOnPageApi, useOnPageOptional, useSessionSnapshot } from './context.tsx'
 export type {
   EditorRegistry,
   FieldEditorDef,
   FieldEditorProps,
   Links,
+  OnPageApi,
   OnPageContextValue,
+  OnPageState,
+  PanelKind,
   TargetIndex,
 } from './types.ts'
 export {

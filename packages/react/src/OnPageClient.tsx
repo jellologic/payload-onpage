@@ -16,7 +16,7 @@ import { toRef } from './annotations.ts'
 import { encodeDocument, refKey, type DocRef } from '@payload-onpage/core'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import { editable, editableOff, type Editable } from './annotations.ts'
-import { useOnPageOptional } from './context.tsx'
+import { useOnPageOptional, useSessionSnapshot } from './context.tsx'
 
 export type OnPageClientProps<T> = {
   doc: T
@@ -52,7 +52,8 @@ export function OnPageClient<T extends { id?: string | number } | null | undefin
   })
   useEffect(() => (enabled && ref ? join(ref) : undefined), [enabled, ref, join])
 
-  const state = key ? ctx?.snap.docs[key] : undefined
+  const snap = useSessionSnapshot(ctx?.session)
+  const state = key ? snap.docs[key] : undefined
   const stateDoc = state?.doc
   const fields = state?.schema?.fields
   const autoMap = props.autoMap !== false

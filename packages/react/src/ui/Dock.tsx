@@ -56,8 +56,8 @@ function useTicker(ms: number) {
   }, [ms])
 }
 
-export function Dock({ flash }: { flash: Flash | null }) {
-  const { session, snap, links, rendering, notify, rerender, docKeys, t } = useOnPage()
+export function Dock() {
+  const { session, snap, links, rendering, notify, rerender, docKeys, flash, t } = useOnPage()
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   useTicker(5000)
   useEffect(() => {

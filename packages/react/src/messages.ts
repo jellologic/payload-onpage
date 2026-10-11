@@ -123,12 +123,12 @@ export type Translate = <K extends MessageKey>(
 
 export function createTranslate(overrides: Messages = {}): Translate {
   const table: Record<string, string> = { ...defaultMessages, ...overrides }
-  return ((key: string, vars?: Record<string, string | number>) => {
+  return (key: string, vars?: Record<string, string | number>) => {
     const template = table[key] ?? key
     return vars
       ? template.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m))
       : template
-  })
+  }
 }
 
 /** "5 seconds ago", "2 minutes ago", in the browser's language. */

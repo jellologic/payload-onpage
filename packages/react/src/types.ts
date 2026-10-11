@@ -25,6 +25,7 @@ export interface EditingState {
   el?: Element | undefined
 }
 
+/** Which panel is open. */
 export type Panel =
   | { kind: 'settings'; key: RefKey; path: string; title: string }
   | { kind: 'blocks'; key: RefKey; listPath: string; index: number }
@@ -101,36 +102,31 @@ export interface TargetIndex {
   find: (key: RefKey, path: string, kinds?: TargetKind[]) => Target | undefined
 }
 
-/** What extensions and field editors can use from the editor (`useOnPage()`). */
 /** A short message shown in the dock. */
 export interface Flash {
   text: string
   bad?: boolean | undefined
 }
 
-export interface OnPageContextValue {
+/**
+ * The editor's stable API: the session, configuration and actions. It changes
+ * only when the editor is reconfigured, so components that only act (toolbars,
+ * custom UI, client-mode documents) don't re-render on every keystroke.
+ */
+export interface OnPageApi {
   session: EditorSession
-  snap: SessionSnapshot
   renderer: Renderer
   media?: MediaLibrary | undefined
   editors: EditorRegistry
-  targets: TargetIndex
   links: Links
   t: Translate
-  panel: Panel
   setPanel: (p: Panel) => void
-  editing: EditingState | null
   setEditing: (e: EditingState | null) => void
-  selected: Selection | null
   setSelected: (s: Selection | null) => void
-  /** Documents shown on the current page (the session may hold others from earlier pages). */
-  docKeys: RefKey[]
   /** Is this document rendered from session state (client mode)? */
   isLive: (key: RefKey) => boolean
   /** Client-mode documents register here (they don't need a server refresh). */
   registerClientDoc: (key: RefKey) => () => void
-  /** The page is re-rendering after a save (refresh mode). */
-  rendering: boolean
   /** Open the right editor for a field (registry resolution); false if none applies. */
   edit: (
     key: RefKey,
@@ -147,3 +143,23 @@ export interface OnPageContextValue {
   notify: (text: string, bad?: boolean) => void
   addGhost: (g: GhostInput & { key: RefKey; path: string }) => void
 }
+
+/** What changes as people edit: the documents, what's on the page and what's open. */
+export interface OnPageState {
+  snap: SessionSnapshot
+  targets: TargetIndex
+  panel: Panel
+  editing: EditingState | null
+  selected: Selection | null
+  /** Documents shown on the current page (the session may hold others from earlier pages). */
+  docKeys: RefKey[]
+  /** The page is re-rendering after a save (refresh mode). */
+  rendering: boolean
+  /** The dock's current message. */
+  flash: Flash | null
+}
+
+/** Everything inside the editor (`useOnPage()`): its API and its state. */
+export type OnPageContextValue = OnPageApi & OnPageState
+
+export type PanelKind = NonNullable<Panel>['kind']
