@@ -36,6 +36,16 @@ const tarballs = pending.map((p) => {
     dest,
     readdirSync(dest).find((f) => f.endsWith('.tgz')),
   )
+  // bun takes workspace:* versions from bun.lock; a stale lockfile publishes stale ranges.
+  const packed = JSON.parse(run('tar', ['-xOf', file, 'package/package.json']))
+  for (const field of ['dependencies', 'peerDependencies', 'optionalDependencies']) {
+    for (const [dep, range] of Object.entries(packed[field] ?? {})) {
+      if (dep.startsWith('@payload-onpage/') && range !== packed.version)
+        throw new Error(
+          `${packed.name}@${packed.version} would depend on ${dep}@${range}; run \`bun install\` and commit bun.lock`,
+        )
+    }
+  }
   run('npm', ['publish', file, '--access', 'public', '--provenance', '--dry-run'])
   return { p, file }
 })

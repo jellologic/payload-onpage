@@ -22,7 +22,8 @@
     "size": "size-limit",
     "e2e": "bun run build && playwright test -c e2e/playwright.config.ts",
     "docs:api": "typedoc",
-    "docs:llms": "node scripts/llms-full.mjs"
+    "docs:llms": "node scripts/llms-full.mjs",
+    "version-packages": "changeset version && bun install --lockfile-only"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.18.5",
