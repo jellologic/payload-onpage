@@ -22,7 +22,7 @@ export interface PayloadRestOptions {
   /** API base, default "/api". */
   apiBase?: string
   /** Plugin endpoint prefix, default "/onpage". */
-  prefix?: string
+  prefix?: `/${string}`
   /** Extra request init (headers for a custom auth scheme, etc.). */
   init?: RequestInit
   fetch?: typeof fetch

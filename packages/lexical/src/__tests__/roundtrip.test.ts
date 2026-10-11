@@ -8,14 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { $getRoot, $isElementNode, createEditor, type ElementNode } from 'lexical'
 import { RICH_TEXT_NODES } from '../nodeList.ts'
-import {
-  fromEditorState,
-  hasOpaque,
-  plainText,
-  toEditorState,
-  EMPTY_STATE,
-  type RichTextState,
-} from '../convert.ts'
+import { fromEditorState, hasOpaque, plainText, toEditorState, EMPTY_STATE } from '../convert.ts'
 import { $createPayloadLinkNode, $isPayloadLinkNode } from '../nodes.tsx'
 import { normalizeRichText } from '@payload-onpage/core'
 import fixtures from './fixtures.json'
@@ -30,7 +23,7 @@ const roundTrip = (state: unknown) => {
   editor.setEditorState(editor.parseEditorState(JSON.stringify(toEditorState(state))))
   return {
     editor,
-    out: fromEditorState(editor.getEditorState().toJSON() as unknown as RichTextState),
+    out: fromEditorState(editor.getEditorState().toJSON()),
   }
 }
 
@@ -87,7 +80,7 @@ describe('rich text round trip', () => {
       },
       { discrete: true },
     )
-    const json = fromEditorState(editor.getEditorState().toJSON() as unknown as RichTextState)
+    const json = fromEditorState(editor.getEditorState().toJSON())
     const link = collect(json.root, 'link')[0]
     expect(link).toMatchObject({
       type: 'link',

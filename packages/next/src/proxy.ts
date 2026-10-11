@@ -21,7 +21,7 @@ import {
   samePath,
   unseal,
 } from '@payload-onpage/core'
-import { NextResponse, type NextRequest } from 'next/server.js'
+import { NextResponse, type NextMiddleware, type NextRequest } from 'next/server.js'
 
 export interface OnPageProxyOptions {
   /** Same secret as the plugin (default: Payload's `secret`, i.e. PAYLOAD_SECRET). */
@@ -54,7 +54,7 @@ export async function withOnPage(
   return headers
 }
 
-export function createOnPageProxy(opts: OnPageProxyOptions) {
+export function createOnPageProxy(opts: OnPageProxyOptions): NextMiddleware {
   if (!opts.secret)
     console.warn(
       'payload-onpage: createOnPageProxy() has no secret; preview links will show published content.',

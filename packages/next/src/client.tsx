@@ -5,17 +5,17 @@
  * is loaded only when someone is editing or previewing.
  */
 import dynamic from 'next/dynamic.js'
-import type { DataSource, Locator, MediaLibrary } from '@payload-onpage/core'
+import type { DataSource, Locator, MediaLibrary, OnPageMode } from '@payload-onpage/core'
 import type { FieldEditorDef, Messages } from '@payload-onpage/react'
 
 export interface OnPageMountProps {
-  mode: 'edit' | 'view'
+  mode: OnPageMode
   /** Opened from a shared preview link (no editing). */
   shared?: boolean
   /** Payload API route. Default "/api". */
   apiRoute?: string
   /** Plugin endpoint prefix. Default "/onpage". */
-  prefix?: string
+  prefix?: `/${string}`
   /** Payload admin route. Default "/admin". */
   adminRoute?: string
   /** Locale to edit. Default: <html lang>. */

@@ -82,6 +82,7 @@ export const defaultMessages = {
   'rt.italic': 'Italic',
   'rt.underline': 'Underline',
   'rt.link': 'Link',
+  'rt.linkApply': 'Apply',
   'rt.h2': 'Heading 2',
   'rt.h3': 'Heading 3',
   'rt.ul': 'Bulleted list',

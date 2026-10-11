@@ -3,7 +3,7 @@
 /** The lazily loaded part of the Next adapter: the editor and the preview toolbar, wired to Next and Payload. */
 import React, { useMemo } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation.js'
-import { DEFAULTS, type DocRef } from '@payload-onpage/core'
+import { DEFAULTS, ROUTES, type DocRef } from '@payload-onpage/core'
 import { payloadRest, payloadUploads } from '@payload-onpage/core/payload'
 import { OnPageEditor, PreviewToolbar, inPreviewFrame, type Links } from '@payload-onpage/react'
 import { lexicalEditors } from '@payload-onpage/lexical'
@@ -17,15 +17,20 @@ function useHere(): string {
   return `${pathname}${qs ? `?${qs}` : ''}`
 }
 
+/** Routes resolved once, with the defaults applied. */
+const routesOf = (props: OnPageMountProps) => {
+  const api = props.apiRoute ?? DEFAULTS.apiRoute
+  const prefix = props.prefix ?? DEFAULTS.routePrefix
+  return { api, prefix, base: `${api}${prefix}`, admin: props.adminRoute ?? DEFAULTS.adminRoute }
+}
+
 function useLinks(props: OnPageMountProps): Links {
   const here = useHere()
-  const api = props.apiRoute ?? DEFAULTS.apiRoute
-  const base = `${api}${props.prefix ?? DEFAULTS.routePrefix}`
-  const admin = props.adminRoute ?? DEFAULTS.adminRoute
+  const { base, admin } = routesOf(props)
   return useMemo<Links>(
     () => ({
-      exit: `${base}/exit?path=${encodeURIComponent(here)}`,
-      mode: (mode) => `${base}/mode?mode=${mode}&path=${encodeURIComponent(here)}`,
+      exit: `${base}${ROUTES.exit}?path=${encodeURIComponent(here)}`,
+      mode: (mode) => `${base}${ROUTES.mode}?mode=${mode}&path=${encodeURIComponent(here)}`,
       admin: (ref: DocRef) =>
         ref.kind === 'global'
           ? `${admin}/globals/${ref.slug}`
@@ -42,10 +47,10 @@ export function NextEditor(props: OnPageMountProps) {
   const locale = props.locale ?? htmlLang()
   const links = useLinks(props)
   const renderer = useNextRefresh()
-  const api = props.apiRoute ?? DEFAULTS.apiRoute
+  const { api, prefix } = routesOf(props)
   const dataSource = useMemo(
-    () => props.dataSource ?? payloadRest({ apiBase: api, prefix: props.prefix }),
-    [props.dataSource, api, props.prefix],
+    () => props.dataSource ?? payloadRest({ apiBase: api, prefix }),
+    [props.dataSource, api, prefix],
   )
   const media = useMemo(() => props.media ?? payloadUploads({ apiBase: api }), [props.media, api])
   const editors = useMemo(() => ({ ...lexicalEditors, ...props.editors }), [props.editors])

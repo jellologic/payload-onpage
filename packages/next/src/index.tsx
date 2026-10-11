@@ -36,7 +36,7 @@ export interface OnPageProps extends Omit<OnPageMountProps, ClientOnly> {
  * renders nothing otherwise. Static-safe: it reads cookies only in draft mode.
  */
 export async function OnPage({ mount: Mount = OnPageMount, ...props }: OnPageProps) {
-  const mode = await getOnPageMode()
+  const [mode, shared] = await Promise.all([getOnPageMode(), isSharedPreview()])
   if (!mode) return null
-  return <Mount {...props} mode={mode} shared={await isSharedPreview()} />
+  return <Mount {...props} mode={mode} shared={shared} />
 }

@@ -10,6 +10,7 @@ import {
   describeNode,
 } from '../nodes.tsx'
 import * as editorEntry from '../editor.ts'
+import { EDITABLE_NODE_TYPES } from '../convert.ts'
 
 const editor = (): LexicalEditor =>
   createEditor({
@@ -77,6 +78,13 @@ describe('PayloadLinkNode ids', () => {
       },
       { discrete: true },
     )
+  })
+})
+
+describe('node registry', () => {
+  it('lists every registered node type as editable, except the placeholder', () => {
+    const types = RICH_TEXT_NODES.map((n) => n.getType()).filter((t) => t !== OpaqueNode.getType())
+    for (const t of types) expect(EDITABLE_NODE_TYPES.has(t), t).toBe(true)
   })
 })
 

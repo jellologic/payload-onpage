@@ -20,12 +20,14 @@ import {
   $createQuoteNode,
   $isHeadingNode,
   $isQuoteNode,
+  type HeadingTagType,
 } from '@lexical/rich-text'
 import {
   $isListNode,
   INSERT_ORDERED_LIST_COMMAND,
   INSERT_UNORDERED_LIST_COMMAND,
   REMOVE_LIST_COMMAND,
+  type ListType,
 } from '@lexical/list'
 import { $setBlocksType } from '@lexical/selection'
 import { $findMatchingParent } from '@lexical/utils'
@@ -56,32 +58,36 @@ import {
 } from '@payload-onpage/react/editor-kit'
 import { $createPayloadLinkNode, $isPayloadLinkNode, type PayloadLinkNode } from './nodes.tsx'
 import { RICH_TEXT_NODES } from './nodeList.ts'
-import {
-  fromEditorState,
-  hasOpaque,
-  plainText,
-  toEditorState,
-  type RichTextState,
-} from './convert.ts'
+import { fromEditorState, hasOpaque, plainText, toEditorState } from './convert.ts'
 
 export { RICH_TEXT_NODES }
+
+/** The block the selection is in, as the toolbar shows it. */
+type BlockKind = 'paragraph' | 'quote' | HeadingTagType | `list-${ListType}`
 
 interface ToolbarState {
   bold: boolean
   italic: boolean
   underline: boolean
-  block: string
+  block: BlockKind
   link: boolean
+}
+
+const EMPTY_TOOLBAR: ToolbarState = {
+  bold: false,
+  italic: false,
+  underline: false,
+  block: 'paragraph',
+  link: false,
 }
 
 function readToolbarState(): ToolbarState {
   const sel = $getSelection()
-  if (!$isRangeSelection(sel))
-    return { bold: false, italic: false, underline: false, block: 'paragraph', link: false }
+  if (!$isRangeSelection(sel)) return EMPTY_TOOLBAR
   const anchor = sel.anchor.getNode()
   const top = anchor.getKey() === 'root' ? anchor : anchor.getTopLevelElementOrThrow()
   const list = $findMatchingParent(anchor, $isListNode)
-  const block = list
+  const block: BlockKind = list
     ? `list-${list.getListType()}`
     : $isHeadingNode(top)
       ? top.getTag()
@@ -127,8 +133,10 @@ function currentLinkUrl(editor: LexicalEditor): string | undefined {
   return url
 }
 
-/** Link the selection to `url`; an empty url removes the link around it. */
-/** Link the selection; returns false (and changes nothing) for an unsafe URL such as `javascript:`. */
+/**
+ * Link the selection to `url`; an empty url removes the link around it. Returns
+ * false (and changes nothing) for an unsafe URL such as `javascript:`.
+ */
 function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection | null): boolean {
   const url = rawUrl.trim()
   if (url && !safeLinkUrl(url)) return false
@@ -138,8 +146,9 @@ function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection |
     const sel = $getSelection()
     if (!$isRangeSelection(sel)) return
     const nodes = sel.extract()
-    const existing = nodes.map((n) => $findMatchingParent(n, $isPayloadLinkNode)).find(Boolean) as
-      PayloadLinkNode | undefined
+    const existing = nodes
+      .map((n) => $findMatchingParent(n, $isPayloadLinkNode))
+      .find((n): n is PayloadLinkNode => n !== null)
     if (existing) {
       if (!url) {
         for (const child of existing.getChildren()) existing.insertBefore(child)
@@ -203,13 +212,7 @@ function ToolButton({
 
 function Toolbar({ onDone, t }: { onDone: () => void; t: Translate }) {
   const [editor] = useLexicalComposerContext()
-  const [state, setState] = useState<ToolbarState>({
-    bold: false,
-    italic: false,
-    underline: false,
-    block: 'paragraph',
-    link: false,
-  })
+  const [state, setState] = useState<ToolbarState>(EMPTY_TOOLBAR)
   const [linkDraft, setLinkDraft] = useState<string | null>(null)
   const savedSelection = useRef<BaseSelection | null>(null)
   const [linkError, setLinkError] = useState(false)
@@ -366,7 +369,7 @@ function Toolbar({ onDone, t }: { onDone: () => void; t: Translate }) {
             onClick={saveLink}
             data-testid="onpage-rt-link-apply"
           >
-            Apply
+            {t('rt.linkApply')}
           </button>
         </span>
       )}
@@ -402,7 +405,7 @@ function Bridge({
           editor.update(
             () => {
               const node = hit ? $getNearestNodeFromDOMNode(hit.node) : null
-              if (node && $isTextNode(node)) node.select(hit!.offset, hit!.offset)
+              if (hit && $isTextNode(node)) node.select(hit.offset, hit.offset)
               else $getRoot().selectEnd()
             },
             { discrete: true },
@@ -463,7 +466,7 @@ export function InlineRichText({
     done.current = true
     const editor = editorRef.current
     if (save && editor) {
-      const json = editor.getEditorState().toJSON() as unknown as RichTextState
+      const json = editor.getEditorState().toJSON()
       if (JSON.stringify(json) !== baseline.current) {
         const next = fromEditorState(json)
         commit(plainText(next) || hasOpaque(next) ? next : null)
