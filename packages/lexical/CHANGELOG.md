@@ -1,5 +1,13 @@
 # @payload-onpage/lexical
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [[`c44ca24`](https://github.com/jellologic/payload-onpage/commit/c44ca24c6b137d665a3526606c9fce34c38a46c9)]:
+  - @payload-onpage/react@0.3.1
+  - @payload-onpage/core@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes
