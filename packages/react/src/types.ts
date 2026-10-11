@@ -6,6 +6,7 @@ import type {
   MediaLibrary,
   Renderer,
   SchemaField,
+  SchemaFieldType,
   SessionSnapshot,
   Target,
   TargetKind,
@@ -33,14 +34,17 @@ export interface Selection {
   path: string
 }
 
-/** Props every field editor receives. */
-export interface FieldEditorProps {
+/**
+ * Props a field editor receives. `F` is the field kind it edits (e.g.
+ * `NumberField`, with `min`/`max`) and `V` its value after `normalize`.
+ */
+export interface FieldEditorProps<F extends SchemaField = SchemaField, V = unknown> {
   docKey: string
   path: string
-  field: SchemaField
+  field: F
   /** The element showing the field (re-resolved after each refresh). */
   element: () => Element | null
-  value: unknown
+  value: V
   /** Commit a value (one undo step, autosaved). */
   commit: (value: unknown) => void
   /** Live preview while editing (no history entry, not saved). */
@@ -48,12 +52,19 @@ export interface FieldEditorProps {
   /** Close the editor (after commit, or to cancel: transient previews are reverted). */
   close: () => void
   /** Leave a stand-in showing the new content until the page re-renders (refresh mode). */
-  ghost: (g: { html: string; className?: string; style?: Partial<CSSStyleDeclaration> }) => void
+  ghost: (g: GhostInput) => void
   /** True when the page renders this document from editor state (instant); false = server refresh. */
   live: boolean
-  point?: { x: number; y: number }
+  point?: { x: number; y: number } | undefined
   /** UI strings. */
   t: Translate
+}
+
+/** What an editor leaves on the page until it re-renders. */
+export interface GhostInput {
+  html: string
+  className?: string | undefined
+  style?: Partial<CSSStyleDeclaration> | undefined
 }
 
 /**
@@ -61,10 +72,15 @@ export interface FieldEditorProps {
  * in place (text, rich text); `popover` editors open beside it or as a dialog
  * (select, date, relationship, image…). Register your own by id and refer to it
  * from a field with `admin: { custom: { onpage: { editor: 'my-id' } } }`, or by
- * field type ("json", "code"…) to replace or add a default.
+ * field type ("json", "code"…) to replace or add a default. Build one with
+ * `defineEditor()` so its props are typed by the field kinds it accepts.
  */
 export interface FieldEditorDef {
   mode: 'inline' | 'popover'
+  /** Field types it can edit. The registry never hands it any other kind. Default: any. */
+  accepts?: readonly SchemaFieldType[]
+  /** The raw stored value → the editor's value. Default: passed through. */
+  normalize?: (raw: unknown, field: SchemaField) => unknown
   component: ComponentType<FieldEditorProps>
 }
 

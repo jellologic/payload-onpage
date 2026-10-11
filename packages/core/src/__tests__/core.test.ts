@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { narrow } from './fixtures/narrow.ts'
 import {
   getAt,
   insertItem,
@@ -74,7 +75,7 @@ describe('schema-aware field ops', () => {
     expect(fieldAtPath(schema, doc, 'sections.9.heading')).toBeNull()
   })
   it('builds new blocks from defaults and minRows', () => {
-    const hero = newBlockRow(schema[1].blocks![0])
+    const hero = newBlockRow(narrow(schema[1], 'blocks').blocks[0])
     expect(hero).toMatchObject({
       blockType: 'hero',
       heading: 'Heading',
@@ -82,12 +83,12 @@ describe('schema-aware field ops', () => {
       ctas: [],
     })
     expect(typeof hero.id).toBe('string')
-    const gallery = newBlockRow(schema[1].blocks![1]) as { images: unknown[] }
+    const gallery = newBlockRow(narrow(schema[1], 'blocks').blocks[1]) as { images: unknown[] }
     expect(gallery.images).toHaveLength(1)
     expect(defaultsFor([])).toEqual({})
   })
   it('clones rows with new row ids but keeps related-document ids', () => {
-    const heroFields = schema[1].blocks![0].fields
+    const heroFields = narrow(schema[1], 'blocks').blocks[0].fields
     const copy = cloneRow(doc.sections[0], heroFields) as any
     expect(copy.id).not.toBe('a1')
     expect(copy.ctas[0].id).not.toBe('c1')

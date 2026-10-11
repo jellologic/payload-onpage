@@ -46,7 +46,7 @@ import {
   UNDO_COMMAND,
   type LexicalEditor,
 } from 'lexical'
-import { newRowId, safeLinkUrl } from '@payload-onpage/core'
+import { newRowId, safeLinkUrl, type ScalarField } from '@payload-onpage/core'
 import {
   HIDDEN,
   caretAt,
@@ -427,7 +427,7 @@ export function InlineRichText({
   live,
   point,
   t,
-}: FieldEditorProps) {
+}: FieldEditorProps<ScalarField>) {
   const box = useRef<HTMLDivElement>(null)
   const editorRef = useRef<LexicalEditor | null>(null)
   const baseline = useRef<string | null>(null)

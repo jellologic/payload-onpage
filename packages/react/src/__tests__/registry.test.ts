@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { Window } from 'happy-dom'
-import type { SchemaField, Target } from '@payload-onpage/core'
-import { mergeEditors, resolveEditor } from '../registry.ts'
+import type { NumberField, SchemaField, Target } from '@payload-onpage/core'
+import { canEdit, defineEditor, mergeEditors, resolveEditor } from '../registry.ts'
 import { buildIndex } from '../targets.ts'
-import type { EditorRegistry } from '../types.ts'
+import type { EditorRegistry, FieldEditorProps } from '../types.ts'
 
 const C = () => null
 const reg: EditorRegistry = {
@@ -15,12 +15,17 @@ const reg: EditorRegistry = {
   select: { mode: 'popover', component: C },
   color: { mode: 'popover', component: C },
 }
-const f = (type: string, extra: Partial<SchemaField> = {}): SchemaField => ({
-  name: 'x',
-  type,
-  label: 'X',
-  ...extra,
-})
+const f = (type: SchemaField['type'], extra: Record<string, unknown> = {}): SchemaField =>
+  ({
+    name: 'x',
+    type,
+    label: 'X',
+    options: [],
+    relationTo: 'media',
+    fields: [],
+    blocks: [],
+    ...extra,
+  })
 
 describe('resolveEditor', () => {
   it("prefers the field's own editor choice", () => {
@@ -66,5 +71,29 @@ describe('buildIndex', () => {
     expect(idx.at(a)).toHaveLength(1)
     expect(idx.find('c:pages:1', 'title')?.el).toBe(b)
     expect(idx.find('c:pages:1', 'title', ['richtext'])).toBeUndefined()
+  })
+})
+
+describe('typed editors', () => {
+  it('never hands an editor a field kind it does not accept', () => {
+    const typed = mergeEditors(reg, {
+      color: defineEditor({ mode: 'popover', accepts: ['text'], component: C }),
+      text: defineEditor({ mode: 'inline', accepts: ['text', 'textarea', 'email'], component: C }),
+    })
+    // `editor: 'color'` on a number field: not the color editor.
+    expect(resolveEditor(typed, f('number', { editor: 'color' }))).toBeNull()
+    expect(resolveEditor(typed, f('text', { editor: 'color' }))).toBe('color')
+  })
+  it('never edits a list of values in place', () => {
+    const typed = { text: defineEditor({ mode: 'inline', accepts: ['text'], component: C }) }
+    expect(resolveEditor(typed, f('text', { hasMany: true }), 'text')).toBeNull()
+    expect(canEdit(typed.text, f('text'))).toBe(true)
+  })
+  it('types the component by the accepted kinds', () => {
+    const NumberOnly = (_: FieldEditorProps<NumberField, number | null>) => null
+    defineEditor({ mode: 'popover', accepts: ['number'], component: NumberOnly })
+    // @ts-expect-error a number editor can't be registered for select fields
+    defineEditor({ mode: 'popover', accepts: ['select'], component: NumberOnly })
+    expect(true).toBe(true)
   })
 })

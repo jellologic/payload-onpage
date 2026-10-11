@@ -21,27 +21,23 @@ const SYSTEM_FIELDS = new Set(['id', 'createdAt', 'updatedAt', '_status', 'delet
 /** Data fields with no meaningful on-page value. */
 const SKIP_TYPES = new Set(['join', 'ui'])
 
-/** The optional, type-specific field properties the serializer reads. */
-interface LooseField {
+/**
+ * The properties every data field may have. Payload's `Field` union declares
+ * them per member, so they're read through this one view; everything specific
+ * to a field type is read from Payload's narrowed type in `serializeFields`.
+ */
+interface CommonField {
   label?: unknown
-  labels?: { singular?: unknown; plural?: unknown }
   localized?: boolean
   required?: boolean
-  hasMany?: boolean
   defaultValue?: unknown
-  options?: unknown[]
-  relationTo?: string | string[]
-  minRows?: number
-  maxRows?: number
-  min?: number
-  max?: number
   custom?: { onpage?: { editor?: unknown } }
-  admin?: {
-    description?: unknown
-    custom?: { onpage?: { editor?: unknown } }
-    date?: { pickerAppearance?: unknown }
-  }
+  admin?: { description?: unknown; custom?: { onpage?: { editor?: unknown } } }
 }
+
+/** `{ key: n }` when n is a number, else nothing (for spreading optional limits). */
+const num = <K extends string>(key: K, n: unknown): Partial<Record<K, number>> =>
+  typeof n === 'number' ? ({ [key]: n } as Record<K, number>) : {}
 
 type I18nLike = Parameters<typeof getTranslation>[1]
 type AnyLabel = Parameters<typeof getTranslation>[0]
@@ -165,76 +161,134 @@ export function serializeFields(
     const perms = childPermissions(ctx.permissions, f.name)
     if (perms === false) continue
 
-    // Field is a large union; read the optional, type-specific properties through one loose view.
-    const anyField = f as unknown as LooseField
-    const field: SchemaField = {
+    const common = f as CommonField
+    const base = {
       name: f.name,
-      type: f.type,
-      label: label(anyField.label, toWords(f.name), ctx),
+      label: label(common.label, toWords(f.name), ctx),
+      ...(common.localized ? { localized: true } : {}),
+      ...(common.required ? { required: true } : {}),
     }
-    if (anyField.localized) field.localized = true
-    if (anyField.required) field.required = true
-    if (anyField.hasMany) field.hasMany = true
-    if (typeof anyField.defaultValue === 'function') {
+    const description = label(common.admin?.description, '', ctx)
+    const editor = common.admin?.custom?.onpage?.editor ?? common.custom?.onpage?.editor
+    const childCtx = { ...ctx, permissions: perms }
+    const rows = (
+      labels: { singular?: unknown; plural?: unknown } | undefined,
+      min: unknown,
+      max: unknown,
+    ) => {
+      const fallback = formatLabels(f.name)
+      return {
+        labels: {
+          singular: label(labels?.singular, fallback.singular, ctx),
+          plural: label(labels?.plural, fallback.plural, ctx),
+        },
+        ...num('minRows', min),
+        ...num('maxRows', max),
+      }
+    }
+
+    let field: SchemaField
+    switch (f.type) {
+      case 'text':
+      case 'textarea':
+      case 'email':
+      case 'code':
+      case 'json':
+      case 'checkbox':
+      case 'point':
+      case 'richText':
+        field = { ...base, type: f.type, ...('hasMany' in f && f.hasMany ? { hasMany: true } : {}) }
+        break
+      case 'number':
+        field = {
+          ...base,
+          type: 'number',
+          ...(f.hasMany ? { hasMany: true } : {}),
+          ...num('min', f.min),
+          ...num('max', f.max),
+        }
+        break
+      case 'date': {
+        const picker = f.admin?.date?.pickerAppearance
+        field = {
+          ...base,
+          type: 'date',
+          ...(typeof picker === 'string' ? { pickerAppearance: picker } : {}),
+        }
+        break
+      }
+      case 'select':
+      case 'radio':
+        field = {
+          ...base,
+          type: f.type,
+          options: f.options.map((o) =>
+            typeof o === 'string'
+              ? { label: o, value: o }
+              : { label: label(o.label, String(o.value), ctx), value: String(o.value) },
+          ),
+          ...('hasMany' in f && f.hasMany ? { hasMany: true } : {}),
+        }
+        break
+      case 'relationship':
+      case 'upload':
+        field = {
+          ...base,
+          type: f.type,
+          relationTo: f.relationTo,
+          ...(f.hasMany ? { hasMany: true } : {}),
+        }
+        break
+      case 'group':
+        field = { ...base, type: 'group', fields: serializeFields(f.fields, childCtx) }
+        break
+      case 'array':
+        field = {
+          ...base,
+          type: 'array',
+          fields: serializeFields(f.fields, childCtx),
+          ...rows(f.labels, f.minRows, f.maxRows),
+        }
+        break
+      case 'blocks': {
+        const refs = (f.blockReferences ?? [])
+          .map((b) => (typeof b === 'string' ? ctx.blocks?.find((x) => x.slug === b) : b))
+          .filter((b): b is Block => !!b)
+        field = {
+          ...base,
+          type: 'blocks',
+          blocks: [...f.blocks, ...refs].map((b) =>
+            serializeBlock(b, blockPermissions(ctx.permissions, f.name, b.slug), ctx),
+          ),
+          ...rows(f.labels, f.minRows, f.maxRows),
+        }
+        break
+      }
+      default:
+        // join/ui are skipped above; anything newer than this plugin isn't editable on the page.
+        continue
+    }
+    if (description) field.description = description
+    if (typeof editor === 'string') field.editor = editor
+    if (typeof common.defaultValue === 'function') {
       if (ctx.defaults) {
         const { req, pending } = ctx.defaults
+        const target = field
         pending.push(
           getDefaultValue({
-            defaultValue: anyField.defaultValue,
+            defaultValue: common.defaultValue,
             locale: req.locale ?? undefined,
             req,
             user: req.user,
           })
             .then((v) => {
-              if (isJsonSafe(v)) field.defaultValue = v
+              if (isJsonSafe(v)) target.defaultValue = v
             })
             .catch(() => undefined),
         )
       }
-    } else if (isJsonSafe(anyField.defaultValue)) {
-      field.defaultValue = anyField.defaultValue
-    }
-    const description = label(anyField.admin?.description, '', ctx)
-    if (description) field.description = description
-    if (Array.isArray(anyField.options)) {
-      field.options = anyField.options.map((o: unknown) =>
-        typeof o === 'string'
-          ? { label: o, value: o }
-          : {
-              label: label(
-                (o as { label?: unknown }).label,
-                String((o as { value: unknown }).value),
-                ctx,
-              ),
-              value: String((o as { value: unknown }).value),
-            },
-      )
-    }
-    if (anyField.relationTo) field.relationTo = anyField.relationTo
-    for (const k of ['minRows', 'maxRows', 'min', 'max'] as const) {
-      const n = anyField[k]
-      if (typeof n === 'number') field[k] = n
-    }
-    const editor = anyField.admin?.custom?.onpage?.editor ?? anyField.custom?.onpage?.editor
-    if (typeof editor === 'string') field.editor = editor
-    const picker = anyField.admin?.date?.pickerAppearance
-    if (typeof picker === 'string') field.pickerAppearance = picker
-    const childCtx = { ...ctx, permissions: perms }
-    if (f.type === 'group' || f.type === 'array') field.fields = serializeFields(f.fields, childCtx)
-    if (f.type === 'array') {
-      const fallback = formatLabels(f.name)
-      field.labels = {
-        singular: label(anyField.labels?.singular, fallback.singular, ctx),
-        plural: label(anyField.labels?.plural, fallback.plural, ctx),
-      }
-    }
-    if (f.type === 'blocks') {
-      const refs = (f.blockReferences ?? [])
-        .map((b) => (typeof b === 'string' ? ctx.blocks?.find((x) => x.slug === b) : b))
-        .filter((b): b is Block => !!b)
-      field.blocks = [...(f.blocks ?? []), ...refs].map((b) =>
-        serializeBlock(b, blockPermissions(ctx.permissions, f.name, b.slug), ctx),
-      )
+    } else if (isJsonSafe(common.defaultValue)) {
+      field.defaultValue = common.defaultValue
     }
     out.push(field)
   }
@@ -244,11 +298,10 @@ export function serializeFields(
 /** Every collection a relationship or upload field in `fields` points to. */
 export function relationTargets(fields: SchemaField[], into = new Set<string>()): Set<string> {
   for (const f of fields) {
-    if ((f.type === 'relationship' || f.type === 'upload') && f.relationTo) {
+    if (f.type === 'relationship' || f.type === 'upload')
       for (const slug of Array.isArray(f.relationTo) ? f.relationTo : [f.relationTo]) into.add(slug)
-    }
-    if (f.fields) relationTargets(f.fields, into)
-    for (const b of f.blocks ?? []) relationTargets(b.fields, into)
+    if (f.type === 'group' || f.type === 'array') relationTargets(f.fields, into)
+    if (f.type === 'blocks') for (const b of f.blocks) relationTargets(b.fields, into)
   }
   return into
 }

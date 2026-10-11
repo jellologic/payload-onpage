@@ -2,51 +2,134 @@
  * A JSON-safe description of a document's editable fields, produced on the
  * server by the plugin's schema endpoint (`@payload-onpage/plugin`) and consumed
  * by the editor to build settings forms, new rows and save payloads.
+ *
+ * `SchemaField` is a union discriminated on `type`: each kind carries only its
+ * own properties, so `field.options` exists only after checking for a select,
+ * and a `switch (field.type)` can be checked for exhaustiveness.
  */
+import type { DocRef } from './docref.ts'
 
 export interface SchemaOption {
   label: string
   value: string
 }
 
-export interface SchemaField {
+/** Singular and plural names ("Feature" / "Features"). */
+export interface SchemaLabels {
+  singular: string
+  plural: string
+}
+
+/** What every field has. */
+interface FieldBase {
   name: string
-  type: string
   label: string
   localized?: boolean
   required?: boolean
-  hasMany?: boolean
   defaultValue?: unknown
   description?: string
-  options?: SchemaOption[]
-  relationTo?: string | string[]
-  minRows?: number
-  /** array: what one row and many rows are called (\"Feature\" / \"Features\"). */
-  labels?: { singular: string; plural: string }
-  maxRows?: number
-  /** group / array / named tab */
-  fields?: SchemaField[]
-  /** blocks */
-  blocks?: SchemaBlock[]
   /** Field-editor override: `admin.custom.onpage.editor` (e.g. "color"). */
   editor?: string
-  /** Number limits / date picker appearance, when set on the field. */
+}
+
+/** Fields whose value is a scalar or opaque JSON, edited as a whole. */
+export type ScalarFieldType =
+  'text' | 'textarea' | 'email' | 'code' | 'json' | 'checkbox' | 'point' | 'richText'
+
+export interface ScalarField extends FieldBase {
+  type: ScalarFieldType
+  /** A list of values (text/textarea/email with `hasMany`): not edited inline. */
+  hasMany?: boolean
+}
+
+export interface NumberField extends FieldBase {
+  type: 'number'
+  hasMany?: boolean
   min?: number
   max?: number
+}
+
+export interface DateField extends FieldBase {
+  type: 'date'
+  /** Payload's `admin.date.pickerAppearance` ("dayOnly", "dayAndTime"…). */
   pickerAppearance?: string
 }
 
+export interface ChoiceField extends FieldBase {
+  type: 'select' | 'radio'
+  options: SchemaOption[]
+  hasMany?: boolean
+}
+
+export interface RelationField extends FieldBase {
+  type: 'relationship' | 'upload'
+  relationTo: string | string[]
+  hasMany?: boolean
+}
+
+export interface GroupField extends FieldBase {
+  type: 'group'
+  fields: SchemaField[]
+}
+
+interface RowsField extends FieldBase {
+  labels?: SchemaLabels
+  minRows?: number
+  maxRows?: number
+}
+
+export interface ArrayField extends RowsField {
+  type: 'array'
+  fields: SchemaField[]
+}
+
+export interface BlocksField extends RowsField {
+  type: 'blocks'
+  blocks: SchemaBlock[]
+}
+
+export type SchemaField =
+  | ScalarField
+  | NumberField
+  | DateField
+  | ChoiceField
+  | RelationField
+  | GroupField
+  | ArrayField
+  | BlocksField
+
+export type SchemaFieldType = SchemaField['type']
+
+/**
+ * The field kinds that can have one of the given types: `FieldOf<'select'>` is
+ * `ChoiceField`, `FieldOf<'text' | 'email'>` is `ScalarField`. (A plain
+ * `Extract` would give `never`, since a kind's `type` is itself a union.)
+ */
+export type FieldOf<T extends SchemaFieldType> = SchemaField extends infer F
+  ? F extends { type: infer U }
+    ? [Extract<U, T>] extends [never]
+      ? never
+      : F
+    : never
+  : never
+
+/** An array or blocks field: one that holds a list of rows. */
+export type ListField = ArrayField | BlocksField
+
+export const isListField = (field: SchemaField): field is ListField =>
+  field.type === 'array' || field.type === 'blocks'
+
 export interface SchemaBlock {
   slug: string
-  labels: { singular: string; plural: string }
+  labels: SchemaLabels
   fields: SchemaField[]
 }
 
 /** The editable shape of one collection or global, as served by the plugin. */
 export interface DocumentSchema {
-  kind: 'collection' | 'global'
+  kind: DocRef['kind']
   slug: string
-  labels: { singular: string; plural: string }
+  labels: SchemaLabels
   /** Top-level field names the editor may change. */
   editable: string[]
   fields: SchemaField[]

@@ -1,7 +1,15 @@
 // @vitest-environment happy-dom
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import type { DataSource, DocumentSchema, SchemaField } from '@payload-onpage/core'
+import type {
+  ChoiceField,
+  DataSource,
+  DateField,
+  DocumentSchema,
+  NumberField,
+  ScalarField,
+  SchemaField,
+} from '@payload-onpage/core'
 import { createTranslate, defaultMessages, relativeTime } from '../messages.ts'
 import { Dialog } from '../ui/Dialog.tsx'
 import { PreviewToolbar } from '../ui/PreviewToolbar.tsx'
@@ -14,16 +22,20 @@ import type { FieldEditorProps } from '../types.ts'
 
 const t = createTranslate()
 
-function editorProps(field: Partial<SchemaField> & { type: string }, value: unknown = null) {
+/** Props for an editor under test: `field` as the editor's kind, `value` already normalized. */
+function editorProps<F extends SchemaField = SchemaField, V = unknown>(
+  field: Partial<F> & { type: F['type'] },
+  value: V = null as V,
+) {
   const commit = vi.fn()
   const close = vi.fn()
   const preview = vi.fn()
   const anchor = document.createElement('span')
   document.body.appendChild(anchor)
-  const props: FieldEditorProps = {
+  const props: FieldEditorProps<F, V> = {
     docKey: 'c:pages:1',
     path: 'x',
-    field: { name: 'x', label: 'X', ...field },
+    field: { name: 'x', label: 'X', ...field } as F,
     element: () => anchor,
     value,
     commit,
@@ -104,7 +116,7 @@ describe('Dialog', () => {
 
 describe('field editors', () => {
   it('select: picks one and closes; hasMany toggles', () => {
-    const one = editorProps(
+    const one = editorProps<ChoiceField, string[]>(
       {
         type: 'select',
         options: [
@@ -112,7 +124,7 @@ describe('field editors', () => {
           { label: 'B', value: 'b' },
         ],
       },
-      'a',
+      ['a'],
     )
     render(<SelectEditor {...one.props} />)
     fireEvent.click(screen.getByTestId('onpage-option-b'))
@@ -120,7 +132,7 @@ describe('field editors', () => {
     expect(one.close).toHaveBeenCalled()
   })
   it('select hasMany keeps option order and stays open', () => {
-    const many = editorProps(
+    const many = editorProps<ChoiceField, string[]>(
       {
         type: 'select',
         hasMany: true,
@@ -137,7 +149,7 @@ describe('field editors', () => {
     expect(many.close).not.toHaveBeenCalled()
   })
   it('number: previews live, commits a number on Apply', () => {
-    const n = editorProps({ type: 'number', min: 0, max: 10 }, 2)
+    const n = editorProps<NumberField, number | null>({ type: 'number', min: 0, max: 10 }, 2)
     render(<NumberEditor {...n.props} />)
     fireEvent.change(screen.getByTestId('onpage-number-input'), { target: { value: '7' } })
     expect(n.preview).toHaveBeenCalledWith(7)
@@ -146,7 +158,7 @@ describe('field editors', () => {
     expect(n.commit).toHaveBeenCalledWith(7)
   })
   it('color: rejects an invalid hex', () => {
-    const c = editorProps({ type: 'text', editor: 'color' }, '#fff')
+    const c = editorProps<ScalarField, string | null>({ type: 'text', editor: 'color' }, '#fff')
     render(<ColorEditor {...c.props} />)
     fireEvent.change(screen.getByTestId('onpage-color-input'), { target: { value: 'nope' } })
     fireEvent.click(screen.getByTestId('onpage-apply'))
@@ -154,14 +166,14 @@ describe('field editors', () => {
     expect(c.close).toHaveBeenCalled()
   })
   it('date: stores a date at local noon as ISO', () => {
-    const d = editorProps({ type: 'date' })
+    const d = editorProps<DateField, string | null>({ type: 'date' }, null)
     render(<DateEditor {...d.props} />)
     fireEvent.change(screen.getByTestId('onpage-date-input'), { target: { value: '2026-12-25' } })
     fireEvent.click(screen.getByTestId('onpage-apply'))
     expect(new Date(d.commit.mock.calls[0][0] as string).getHours()).toBe(12)
   })
   it('checkbox: toggles and closes', () => {
-    const c = editorProps({ type: 'checkbox' }, false)
+    const c = editorProps<ScalarField, boolean>({ type: 'checkbox' }, false)
     render(<CheckboxEditor {...c.props} />)
     fireEvent.click(screen.getByTestId('onpage-checkbox-input'))
     expect(c.commit).toHaveBeenCalledWith(true)

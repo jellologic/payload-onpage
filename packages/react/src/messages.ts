@@ -57,6 +57,7 @@ export const defaultMessages = {
   'common.apply': 'Apply',
   'common.clear': 'Clear',
   'common.remove': 'Remove',
+  'common.removeItem': 'Remove {item}',
   'common.none': '—',
   'common.selected': '{count} selected',
   'search.placeholder': 'Search…',

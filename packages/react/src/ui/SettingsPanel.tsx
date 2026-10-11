@@ -6,39 +6,26 @@
  * spacing…), checkboxes, numbers, dates, relationships, URLs and other plain
  * text, images that aren't on the page. Changes apply immediately.
  */
-import { fieldAtPath, getAt, relationTitle, toText, type SchemaField } from '@payload-onpage/core'
+import {
+  fieldAtPath,
+  getAt,
+  relationTitle,
+  rowFieldsOf,
+  toText,
+  isListField,
+  type ChoiceField,
+  type NumberField,
+  type ScalarField,
+  type SchemaField,
+} from '@payload-onpage/core'
 import { useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { useOnPage } from '../context.tsx'
 import type { Translate } from '../messages.ts'
-import type { TargetIndex } from '../types.ts'
+import { checkedOf } from '../editors/CheckboxEditor.tsx'
+import { selectedValues } from '../editors/SelectEditor.tsx'
+import { canEdit } from '../registry.ts'
+import { settable } from '../settings.ts'
 import { Dialog } from './Dialog.tsx'
-
-const SKIP = new Set(['id', 'blockType', 'blockName'])
-const TEXTUAL = new Set(['text', 'textarea', 'email', 'number', 'date', 'relationship', 'upload'])
-const INPUT_TYPES = new Set(['text', 'textarea', 'email', 'number'])
-
-function settable(field: SchemaField, path: string, key: string, targets: TargetIndex): boolean {
-  if (SKIP.has(field.name)) return false
-  const full = `${path}.${field.name}`
-  switch (field.type) {
-    case 'select':
-    case 'radio':
-    case 'checkbox':
-      return true
-    case 'group':
-      return (field.fields ?? []).some((f) => settable(f, full, key, targets))
-    default:
-      // Shown on the page? Edit it there.
-      return TEXTUAL.has(field.type) && !targets.find(key, full)
-  }
-}
-
-export const hasSettings = (
-  fields: SchemaField[],
-  path: string,
-  key: string,
-  targets: TargetIndex,
-): boolean => fields.some((f) => settable(f, path, key, targets))
 
 const display = (v: unknown, t: Translate): string => {
   if (v == null || v === '') return t('common.none')
@@ -55,7 +42,7 @@ function TextInput({
 }: {
   docKey: string
   path: string
-  field: SchemaField
+  field: ScalarField | NumberField
   id: string
 }) {
   const { session, snap } = useOnPage()
@@ -94,12 +81,13 @@ function Segmented({
 }: {
   docKey: string
   path: string
-  field: SchemaField
+  field: ChoiceField
   labelId: string
 }) {
   const { session, snap } = useOnPage()
-  const options = field.options ?? []
-  const current = getAt(snap.docs[docKey]?.doc, path) ?? field.defaultValue ?? ''
+  const options = field.options
+  const current =
+    selectedValues(getAt(snap.docs[docKey]?.doc, path) ?? field.defaultValue, field)[0] ?? ''
   const index = Math.max(
     0,
     options.findIndex((o) => o.value === current),
@@ -155,47 +143,10 @@ function Control({
   id: string
   labelId: string
 }) {
-  const { session, snap, edit, t } = useOnPage()
+  const { session, snap, edit, editors, t } = useOnPage()
   const value = getAt(snap.docs[docKey]?.doc, path)
   const set = (v: unknown) => session.setValue(docKey, path, v)
-  if ((field.type === 'select' || field.type === 'radio') && !field.hasMany) {
-    const options = field.options ?? []
-    if (options.length <= 5)
-      return <Segmented docKey={docKey} path={path} field={field} labelId={labelId} />
-    return (
-      <select
-        id={id}
-        className="po-select"
-        value={toText(value ?? field.defaultValue)}
-        onChange={(e) => set(e.target.value || null)}
-        data-testid={`onpage-setting-${path}`}
-      >
-        {!field.required && <option value="">{t('common.none')}</option>}
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    )
-  }
-  if (field.type === 'checkbox') {
-    return (
-      <label className="po-check">
-        <input
-          type="checkbox"
-          checked={Boolean(value ?? field.defaultValue)}
-          onChange={(e) => set(e.target.checked)}
-          data-testid={`onpage-setting-${path}`}
-        />
-        {field.label}
-      </label>
-    )
-  }
-  if (INPUT_TYPES.has(field.type))
-    return <TextInput docKey={docKey} path={path} field={field} id={id} />
-  // Everything else opens its field editor, anchored to the panel row.
-  return (
+  const openEditor = (
     <button
       id={id}
       type="button"
@@ -208,6 +159,56 @@ function Control({
         : display(value, t)}
     </button>
   )
+  // A field with its own editor (e.g. `editor: 'color'`) opens it, whatever its type.
+  if (field.editor && canEdit(editors[field.editor], field)) return openEditor
+  switch (field.type) {
+    case 'select':
+    case 'radio': {
+      if (field.hasMany) return openEditor
+      if (field.options.length <= 5)
+        return <Segmented docKey={docKey} path={path} field={field} labelId={labelId} />
+      return (
+        <select
+          id={id}
+          className="po-select"
+          value={selectedValues(value ?? field.defaultValue, field)[0] ?? ''}
+          onChange={(e) => set(e.target.value || null)}
+          data-testid={`onpage-setting-${path}`}
+        >
+          {!field.required && <option value="">{t('common.none')}</option>}
+          {field.options.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )
+    }
+    case 'checkbox':
+      return (
+        <label className="po-check">
+          <input
+            type="checkbox"
+            checked={checkedOf(value, field)}
+            onChange={(e) => set(e.target.checked)}
+            data-testid={`onpage-setting-${path}`}
+          />
+          {field.label}
+        </label>
+      )
+    case 'text':
+    case 'textarea':
+    case 'email':
+    case 'number':
+      return 'hasMany' in field && field.hasMany ? (
+        openEditor
+      ) : (
+        <TextInput docKey={docKey} path={path} field={field} id={id} />
+      )
+    default:
+      // Dates, relationships, images…: open the field editor, anchored to the panel row.
+      return openEditor
+  }
 }
 
 function Row({ docKey, path, field }: { docKey: string; path: string; field: SchemaField }) {
@@ -246,7 +247,7 @@ function Fields({ docKey, fields, path }: { docKey: string; fields: SchemaField[
             return (
               <fieldset key={f.name} className="po-group">
                 <legend className="po-h4">{f.label}</legend>
-                <Fields docKey={docKey} fields={f.fields ?? []} path={full} />
+                <Fields docKey={docKey} fields={f.fields} path={full} />
               </fieldset>
             )
           }
@@ -261,10 +262,10 @@ export function SettingsPanel() {
   if (panel?.kind !== 'settings') return null
   const state = snap.docs[panel.key]
   if (!state?.schema || !state.doc) return null
-  const owner = fieldAtPath(state.schema.fields, state.doc, panel.path)
+  const owner = fieldAtPath(state.schema.fields, state.doc, panel.path)?.field
   // Row fields: the block's fields for a blocks row, the item fields for an array row.
   const fields =
-    owner?.field.type === 'blocks' ? (owner.block?.fields ?? []) : (owner?.field.fields ?? [])
+    owner && isListField(owner) ? (rowFieldsOf(owner, getAt(state.doc, panel.path)) ?? []) : []
   return (
     <Dialog
       variant="panel"

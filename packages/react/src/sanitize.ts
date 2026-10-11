@@ -50,3 +50,9 @@ export function sanitizeHtml(html: string): string {
   walk(tpl.content)
   return tpl.innerHTML
 }
+
+/** Text made safe to put in HTML. */
+export const escapeHtml = (s: string): string =>
+  s.replace(/[&<>"]/g, (c) => ESCAPES[c as keyof typeof ESCAPES])
+
+const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' } as const

@@ -3,6 +3,7 @@ import { InvalidConfiguration } from 'payload'
 import type { SessionAdapter } from '@payload-onpage/core'
 import { stegaClean, stegaCleanDeep, stegaDecode } from '@payload-onpage/core'
 import { serializeFields } from '../schema.ts'
+import { narrow } from '../../../core/src/__tests__/fixtures/narrow.ts'
 import { payloadFields } from '../../../core/src/__tests__/fixtures/payloadFields.ts'
 import { encodeDocument } from '@payload-onpage/core'
 import { createPreviewToken, verifyPreviewToken } from '../tokens.ts'
@@ -124,17 +125,28 @@ describe('serializeFields', () => {
     expect(schema[2]).toMatchObject({ type: 'group', label: 'SEO' })
   })
   it('keeps static defaults; function defaults need a request', () => {
-    const hero = schema[1].blocks![0]
-    expect(hero.fields.find((f) => f.name === 'section')!.fields![0].defaultValue).toBe('white')
-    expect(schema[2].fields![0].defaultValue).toBeUndefined()
+    const hero = narrow(schema[1], 'blocks').blocks[0]
+    const section = narrow(
+      hero.fields.find((f) => f.name === 'section'),
+      'group',
+    )
+    expect(section.fields[0]?.defaultValue).toBe('white')
+    expect(narrow(schema[2], 'group').fields[0]?.defaultValue).toBeUndefined()
   })
   it('labels like the admin does (toWords), and keeps string options as-is', () => {
-    const bg = schema[1].blocks![0].fields.find((f) => f.name === 'section')!.fields![0]
+    const hero = narrow(schema[1], 'blocks').blocks[0]
+    const bg = narrow(
+      narrow(
+        hero.fields.find((f) => f.name === 'section'),
+        'group',
+      ).fields[0],
+      'select',
+    )
     expect(bg.options).toEqual([
       { label: 'White', value: 'white' },
       { label: 'light', value: 'light' },
     ])
-    expect(schema[1].blocks![1].labels.singular).toBe('Gallery')
+    expect(narrow(schema[1], 'blocks').blocks[1]?.labels.singular).toBe('Gallery')
   })
   it('leaves out system, hidden, disabled, virtual and join fields', () => {
     const out = serializeFields([
@@ -155,7 +167,7 @@ describe('serializeFields', () => {
         blocks: [{ slug: 'cta', fields: [{ name: 'label', type: 'text' }] }] as any,
       },
     )
-    expect(out[0].blocks!.map((b) => b.slug)).toEqual(['cta'])
+    expect(narrow(out[0], 'blocks').blocks.map((b) => b.slug)).toEqual(['cta'])
   })
   it('drops fields the user may not update (field permissions)', () => {
     const out = serializeFields(
@@ -179,7 +191,7 @@ describe('serializeFields', () => {
       },
     )
     expect(out.map((f) => f.name)).toEqual(['title', 'seo'])
-    expect(out[1].fields!.map((f) => f.name)).toEqual(['a'])
+    expect(narrow(out[1], 'group').fields.map((f) => f.name)).toEqual(['a'])
   })
 })
 

@@ -3,6 +3,7 @@
 import { fieldAtPath, getAt } from '@payload-onpage/core'
 import { Suspense, useCallback } from 'react'
 import { useOnPage } from '../context.tsx'
+import { canEdit } from '../registry.ts'
 import type { FieldEditorProps } from '../types.ts'
 
 /** Renders the open field editor, if it belongs to this layer. */
@@ -41,8 +42,9 @@ export function FieldHost({ mode }: { mode: 'inline' | 'popover' }) {
 
   if (!editing || !def || def.mode !== mode || !state?.schema || !state.doc) return null
   const field = fieldAtPath(state.schema.fields, state.doc, path)?.field
-  if (!field) return null
+  if (!field || !canEdit(def, field)) return null
   const Editor = def.component
+  const raw = getAt(state.doc, path)
   // Editors may be lazy (the rich-text editor is): render nothing until they've loaded.
   return (
     <Suspense fallback={null}>
@@ -52,7 +54,7 @@ export function FieldHost({ mode }: { mode: 'inline' | 'popover' }) {
         path={path}
         field={field}
         element={element}
-        value={getAt(state.doc, path)}
+        value={def.normalize ? def.normalize(raw, field) : raw}
         commit={commit}
         preview={preview}
         close={close}

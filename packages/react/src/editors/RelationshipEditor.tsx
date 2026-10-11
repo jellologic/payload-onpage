@@ -5,40 +5,29 @@
  * (Payload REST, so access control applies) and pick one, or several for
  * hasMany. Polymorphic fields get a collection switch and store `{ relationTo, value }`.
  */
-import { relationId, relationTitle, type SearchHit } from '@payload-onpage/core'
+import {
+  asList,
+  relationId,
+  relationTitle,
+  type RelationField,
+  type SearchHit,
+} from '@payload-onpage/core'
 import { useCallback, useState } from 'react'
 import { useOnPage } from '../context.tsx'
 import type { FieldEditorProps } from '../types.ts'
-import { Dialog } from '../ui/Dialog.tsx'
+import { EditorPopover } from './kit.tsx'
 import { useDebouncedSearch } from './useDebouncedSearch.ts'
 
-export function RelationshipEditor({
-  docKey,
-  field,
-  value,
-  element,
-  commit,
-  close,
-  t,
-}: FieldEditorProps) {
+export function RelationshipEditor(props: FieldEditorProps<RelationField>) {
+  const { docKey, field, value, commit, close, t } = props
   const { session, snap } = useOnPage()
-  const targets = Array.isArray(field.relationTo)
-    ? field.relationTo
-    : field.relationTo
-      ? [field.relationTo]
-      : []
+  const targets = Array.isArray(field.relationTo) ? field.relationTo : [field.relationTo]
   const poly = Array.isArray(field.relationTo)
   const [collection, setCollection] = useState(targets[0] ?? '')
   const relations = snap.docs[docKey]?.schema?.relations ?? {}
   const titleField = relations[collection]?.titleField
   const many = !!field.hasMany
-  const current: unknown[] = many
-    ? Array.isArray(value)
-      ? value
-      : []
-    : value == null
-      ? []
-      : [value]
+  const current = asList(value, many)
   const ds = session.dataSource
   const search = useCallback(
     async (query: string) =>
@@ -75,15 +64,7 @@ export function RelationshipEditor({
   const remove = (i: number) => commit(many ? current.filter((_, j) => j !== i) : null)
 
   return (
-    <Dialog
-      variant="popover"
-      anchor={element}
-      title={field.label}
-      onClose={close}
-      t={t}
-      width={320}
-      testId="onpage-relationship"
-    >
+    <EditorPopover props={props} testId="onpage-relationship" width={320}>
       {current.map((v, i) => (
         <div className="po-rel-item" key={`${String(relationId(v))}-${i}`}>
           {relationTitle(v, titleField)}
@@ -91,7 +72,7 @@ export function RelationshipEditor({
             <button
               type="button"
               onClick={() => remove(i)}
-              aria-label={`${t('common.remove')} ${relationTitle(v, titleField)}`}
+              aria-label={t('common.removeItem', { item: relationTitle(v, titleField) })}
             >
               ✕
             </button>
@@ -148,6 +129,6 @@ export function RelationshipEditor({
           </div>
         </>
       )}
-    </Dialog>
+    </EditorPopover>
   )
 }

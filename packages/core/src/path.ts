@@ -5,6 +5,9 @@
 
 export type PathSegment = string | number
 
+/** "3" in "sections.3.title": a row index. */
+export const isIndexSegment = (segment: string): boolean => /^\d+$/.test(segment)
+
 /** Segments that would reach an object's prototype instead of its own data. */
 const UNSAFE_SEGMENTS: ReadonlySet<PathSegment> = new Set(['__proto__', 'constructor', 'prototype'])
 
@@ -14,7 +17,7 @@ export function parsePath(path: string | PathSegment[]): PathSegment[] {
     : path
         .split('.')
         .filter((s) => s !== '')
-        .map((s) => (/^\d+$/.test(s) ? Number(s) : s))
+        .map((s) => (isIndexSegment(s) ? Number(s) : s))
   if (segs.some((s) => UNSAFE_SEGMENTS.has(s)))
     throw new Error(`Unsupported path: ${segs.join('.')}`)
   return segs
@@ -80,6 +83,18 @@ export function splitItemPath(path: string): [string, number] | null {
   const last = segs[segs.length - 1]
   if (typeof last !== 'number') return null
   return [segs.slice(0, -1).join('.'), last]
+}
+
+/**
+ * The rows that enclose a path, outermost first: "sections.2.items.0.title" →
+ * ["sections.2", "sections.2.items.0"]. A path that is itself a row is not included.
+ */
+export function rowPrefixes(path: string): string[] {
+  const segs = path.split('.')
+  const out: string[] = []
+  for (let i = 1; i < segs.length - 1; i++)
+    if (isIndexSegment(segs[i] ?? '')) out.push(segs.slice(0, i + 1).join('.'))
+  return out
 }
 
 /** A 24-hex id, the shape Payload uses for array and block rows. */

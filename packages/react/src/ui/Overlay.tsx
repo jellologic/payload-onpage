@@ -26,7 +26,7 @@ import { useOnPage } from '../context.tsx'
 import { isOurs } from '../dom.ts'
 import { useLayoutTick } from '../layout.ts'
 import { targetsAt } from '../targets.ts'
-import { hasSettings } from './SettingsPanel.tsx'
+import { hasSettings } from '../settings.ts'
 
 interface Hover {
   field?: Target
