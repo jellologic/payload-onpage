@@ -1,0 +1,59 @@
+# Tour: on-page editing for Payload CMS
+
+A walk through what editors see when payload-onpage is installed on a Payload CMS + Next.js site. Every image here is captured from [`examples/basic`](../examples/basic) by `bun run docs:media`, so it shows the current release.
+
+## Edit text right on the page
+
+Click any heading or paragraph and type. The change autosaves as a Payload draft through Payload's REST API, so access control, hooks, validation and versions all apply. Nothing on this page was annotated by hand: the text maps itself to its Payload fields.
+
+![Clicking a heading on a Next.js page and typing a new headline; the change autosaves as a Payload draft](media/edit-text.gif)
+
+Hovering shows which field you're about to edit. The dock at the bottom shows the save status, undo and redo, preview, share and publish.
+
+![A page in edit mode: the hovered heading is outlined, and the dock shows "Editing draft" with Preview, Share and Publish](media/editing-hover.png)
+
+![Editing a headline inline: the text is edited in place, in the page's own typography](media/inline-edit.png)
+
+## Rearrange, add and configure sections
+
+Sections (Payload `blocks` fields) and list items (`array` fields) get a toolbar to move, duplicate or delete them. **+ Add section** opens the blocks you've defined. Minimum and maximum rows from your config are respected.
+
+![Moving a page section down and back up, then adding a new section from the block picker](media/sections.gif)
+
+![A selected section with its toolbar (move up, move down, duplicate, settings, delete) and "Add section" buttons above and below](media/section-toolbar.png)
+
+Settings that aren't text on the page, like a section's tone, a link URL or a toggle, are in the section's settings panel, generated from the block's fields:
+
+![The settings panel for a Hero section: a URL field and a Light/Dark choice](media/settings-panel.png)
+
+![The block picker listing the page's block types: Hero, Content, Features](media/block-picker.png)
+
+## Field editors for every kind of field
+
+Selects, dates, numbers, relationships, colors, images and rich text each get an editor that fits. Add your own with `defineEditor` ([guide](guides/custom-field-editor.md)).
+
+![A select field edited in place: a popover listing the field's options](media/select-editor.png)
+
+![Payload Lexical rich text edited inline, with a formatting toolbar for bold, italic, links, headings, lists and quotes](media/rich-text.png)
+
+## Preview the draft, on any device
+
+Switch to preview to see the page as visitors will, at phone, tablet or desktop width, then return to editing.
+
+![Previewing a draft page at phone and tablet widths, then returning to editing](media/preview.gif)
+
+## Share a draft with a link
+
+**Share** copies a signed, expiring link to the draft. Whoever opens it sees the draft of that one page, read-only. The link never gives them Next.js's draft-mode secret.
+
+![A shared preview link opened by someone without an account: the draft page with a "Shared preview" toolbar](media/shared-preview.png)
+
+## Start from the Payload admin
+
+Every enabled collection and global gets **Edit on page** and **Copy preview link** next to Payload's own document controls.
+
+![The Payload admin document view with "Edit on page" and "Copy preview link" buttons beside "Publish changes"](media/admin-controls.png)
+
+---
+
+Ready to add it to your site? See **[Getting started](getting-started.md)**.

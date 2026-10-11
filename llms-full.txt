@@ -15,9 +15,23 @@ Generated from the repository docs by scripts/llms-full.mjs. Source: https://git
 - **Any collection or global**, and several documents on one page with one undo history.
 - **Built-in field editors:** text, rich text (Lexical), images, select, date, number, relationship, color. Replace any of them, or add your own.
 - **Ports and adapters:** data source, media library, locator, renderer, session and field editors are all swappable.
-- **Fast:** visitors load about 0.3 KB, and the editor (about 27 KB gz) loads only for editors.
+- **Fast:** visitors load about 0.3 KB, and the editor (about 29 KB gz) loads only for editors.
 - **Accessible:** keyboard editing, managed focus and WCAG AA contrast, checked with axe in CI.
 - **Secure by design:** Payload's own access checks, CSRF-safe endpoints, a stale-write guard, and share links that never expose Next's draft secret.
+
+![Editing a Payload CMS page in place: click the heading on the Next.js page, type, and the change autosaves as a draft](docs/media/edit-text.gif)
+
+## See it
+
+| Rearrange and add sections                                                                              | Preview on any device                                                                     |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| ![Moving a section and adding one from the block picker](docs/media/sections.gif)                       | ![Previewing the draft at phone and tablet widths](docs/media/preview.gif)                |
+| **Section settings from your block fields**                                                             | **Rich text (Payload Lexical), inline**                                                   |
+| ![The settings panel for a section: a URL field and a Light/Dark choice](docs/media/settings-panel.png) | ![Inline Lexical rich-text editing with a formatting toolbar](docs/media/rich-text.png)   |
+| **Share a read-only draft link**                                                                        | **Start from the Payload admin**                                                          |
+| ![A shared preview link showing the draft with a Shared preview toolbar](docs/media/shared-preview.png) | ![Edit on page and Copy preview link in the Payload admin](docs/media/admin-controls.png) |
+
+More in the **[tour](docs/tour.md)**.
 
 ## Try it
 
@@ -66,6 +80,7 @@ The full walkthrough, with checks after every step and a prompt for coding agent
 
 |                                            |                                                                                                                                                                                                                                                                                                             |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Tour](docs/tour.md)                       | What editors see, in screenshots and clips                                                                                                                                                                                                                                                                  |
 | [Getting started](docs/getting-started.md) | Installation, step by step                                                                                                                                                                                                                                                                                  |
 | [Concepts](docs/README.md)                 | [Architecture](docs/concepts/architecture.md) · [Auto-mapping](docs/concepts/auto-mapping.md) · [Modes](docs/concepts/modes.md) · [Security](docs/concepts/security.md)                                                                                                                                     |
 | [Guides](docs/README.md)                   | [Annotations](docs/guides/annotations.md) · [Client mode](docs/guides/client-mode.md) · [Custom field editor](docs/guides/custom-field-editor.md) · [Custom data source](docs/guides/custom-data-source.md) · [Localization](docs/guides/localization.md) · [Caching & PPR](docs/guides/caching-and-ppr.md) |
@@ -131,6 +146,10 @@ export default buildConfig({
 Collections must have **drafts** enabled (`versions: { drafts: true }`), so edits save as drafts until published. The page URL comes from the `url` option, then the collection's `admin.preview`, then `/<slug>`.
 
 **Check:** open a document in the admin. **Edit on page** and **Copy preview link** appear beside the document controls.
+
+Every enabled collection and global then gets **Edit on page** and **Copy preview link** in the admin:
+
+![Edit on page and Copy preview link beside Payload's document controls](media/admin-controls.png)
 
 ## 3. Mount the editor
 
@@ -325,6 +344,12 @@ onpage({
 - Share links never give the browser Next's draft secret. The proxy injects draft mode for the shared path only, until the sealed grant expires. See [security](security.md).
 - **Exit** clears everything (`POST /api/onpage/exit`).
 
+![Previewing a draft at phone and tablet widths, then returning to editing](../media/preview.gif)
+
+A share link shows one page's draft, read-only, to anyone with the link:
+
+![A shared preview: the draft page with a "Shared preview" toolbar](../media/shared-preview.png)
+
 ## Rendering
 
 |                   | Refresh mode (default)                                                                       | Client mode                                                               |
@@ -394,6 +419,8 @@ See [SECURITY.md](../../SECURITY.md).
 <!-- docs/guides/annotations.md -->
 
 # Annotations
+
+![A selected section with its toolbar: move, duplicate, settings, delete, and Add section above and below](../media/section-toolbar.png)
 
 Auto-mapping covers most text. Annotations add precision where markers can't reach:
 
@@ -484,6 +511,8 @@ The editor opens every document it finds on the page:
 <!-- docs/guides/custom-field-editor.md -->
 
 # Custom field editor
+
+![A select field edited in place with a popover of its options](../media/select-editor.png)
 
 A field editor is a React component, registered by id with `defineEditor`. You declare which field types it accepts. Its props are then typed for those fields: a `number` editor gets a `NumberField` with `min`/`max`, and a select editor gets the `options`. The registry never hands an editor any other kind of field.
 

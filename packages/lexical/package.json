@@ -15,12 +15,25 @@
   "keywords": [
     "payload",
     "payloadcms",
+    "payload-cms",
     "payload-plugin",
     "nextjs",
+    "next.js",
+    "app-router",
     "visual-editing",
-    "live-preview",
+    "visual-editor",
     "inline-editing",
-    "cms"
+    "front-end-editing",
+    "live-preview",
+    "draft-preview",
+    "preview-links",
+    "page-builder",
+    "wysiwyg",
+    "headless-cms",
+    "cms",
+    "react",
+    "lexical",
+    "rich-text"
   ],
   "exports": {
     ".": {

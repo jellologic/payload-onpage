@@ -12,6 +12,7 @@ Guidance for coding agents working **on this repository**. To add payload-onpage
 | `bun run e2e`                       | Build, then Playwright against `examples/basic` on :3101 with a fresh SQLite DB. Stop any dev server for the example first. |
 | `bun run build`                     | `tsc -b` → `packages/*/dist`                                                                                                |
 | `bun run dev:example`               | Example site on :3100                                                                                                       |
+| `bun run docs:media`                | Regenerate docs screenshots and GIFs (`docs/media/`) from examples/basic; needs ffmpeg                                      |
 | `bunx changeset`                    | Describe a user-facing change (required for releases)                                                                       |
 
 ## Layout

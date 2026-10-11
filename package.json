@@ -23,6 +23,7 @@
     "e2e": "bun run build && playwright test -c e2e/playwright.config.ts",
     "docs:api": "typedoc",
     "docs:llms": "node scripts/llms-full.mjs",
+    "docs:media": "bun run build && node scripts/docs-media.mjs",
     "version-packages": "changeset version && bun install --lockfile-only"
   },
   "devDependencies": {
