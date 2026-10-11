@@ -56,6 +56,30 @@ describe('PayloadLinkNode', () => {
   })
 })
 
+describe('PayloadLinkNode ids', () => {
+  it('gives a link from an older Payload version an id, since we export version 3', () => {
+    const ed = editor()
+    ed.update(
+      () => {
+        const old = PayloadLinkNode.importJSON({
+          type: 'link',
+          version: 2,
+          fields: { url: '/a', linkType: 'custom' },
+          children: [],
+          direction: null,
+          format: '',
+          indent: 0,
+        })
+        const json = old.exportJSON()
+        expect(json.version).toBe(3)
+        expect(json.id).toMatch(/^[0-9a-f]{24}$/)
+        $getRoot().clear()
+      },
+      { discrete: true },
+    )
+  })
+})
+
 describe('OpaqueNode', () => {
   it('keeps Payload nodes byte-for-byte and describes them', () => {
     const upload = { type: 'upload', value: { filename: 'a.png' }, relationTo: 'media' }

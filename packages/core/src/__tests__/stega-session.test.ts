@@ -19,6 +19,9 @@ describe('docref', () => {
     })
     expect(parseRefKey('g:header')).toEqual({ kind: 'global', slug: 'header' })
     expect(parseRefKey('x:nope')).toBeNull()
+    // Only canonical safe integers become numbers: "007" and huge ids stay text.
+    expect(parseRefKey('c:codes:007')).toEqual({ kind: 'collection', slug: 'codes', id: '007' })
+    expect(parseRefKey('c:big:9007199254740993')).toMatchObject({ id: '9007199254740993' })
     expect(parseRefKey('c:posts:')).toBeNull()
   })
 })

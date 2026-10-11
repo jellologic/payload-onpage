@@ -5,6 +5,7 @@
  * close, Tab stays inside (modal), Escape closes. `variant="popover"` is
  * anchored next to an element and closes on an outside click.
  */
+import { useEvent } from '../useEvent.ts'
 import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { focusableIn, popoverPosition } from '../dom.ts'
 import { useLayoutTick } from '../layout.ts'
@@ -62,11 +63,14 @@ export function Dialog({
     return () => ro.disconnect()
   }, [variant])
 
+  // Stable, so the listeners below aren't re-bound on every render (callers pass inline
+  // closures); a re-bind would also re-open the deferral gap where an outside click is lost.
+  const close = useEvent(onClose)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation()
-        onClose()
+        close()
         return
       }
       if (e.key !== 'Tab' || variant !== 'modal' || !box.current) return
@@ -83,7 +87,7 @@ export function Dialog({
       }
     }
     const onDown = (e: PointerEvent) => {
-      if (variant === 'popover' && box.current && !box.current.contains(e.target as Node)) onClose()
+      if (variant === 'popover' && box.current && !box.current.contains(e.target as Node)) close()
     }
     document.addEventListener('keydown', onKey, true)
     // Deferred, so the click that opened a popover doesn't close it.
@@ -93,7 +97,7 @@ export function Dialog({
       document.removeEventListener('keydown', onKey, true)
       document.removeEventListener('pointerdown', onDown, true)
     }
-  }, [onClose, variant])
+  }, [close, variant])
 
   const header = (
     <header className="po-dialog-head">

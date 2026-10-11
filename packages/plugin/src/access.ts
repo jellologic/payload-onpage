@@ -12,6 +12,7 @@ import {
   type SanitizedCollectionPermission,
   type SanitizedGlobalPermission,
 } from 'payload'
+import { entityConfig } from './http.ts'
 import type { OnPageOptions } from './options.ts'
 
 /** Signed in as an admin user (or allowed by the `access` option). */
@@ -24,22 +25,34 @@ export async function canUseOnPage(req: PayloadRequest, options: OnPageOptions):
 /** Payload's sanitized permissions for one document (or the collection, without an id). */
 export async function documentPermissions(
   req: PayloadRequest,
-  ref: DocRef | { kind: 'collection'; slug: string; id?: undefined },
+  ref: { kind: DocRef['kind']; slug: string; id?: string | number | undefined },
 ): Promise<SanitizedCollectionPermission | SanitizedGlobalPermission | null> {
   try {
     if (ref.kind === 'global') {
-      const globalConfig = req.payload.globals.config.find((g) => g.slug === ref.slug)
+      const globalConfig = entityConfig(req, 'global', ref.slug)
       return globalConfig ? await docAccessOperationGlobal({ globalConfig, req }) : null
     }
     const collection = req.payload.collections[ref.slug]
     if (!collection) return null
-    return await docAccessOperation({ collection, id: ref.id, req })
-  } catch {
+    return await docAccessOperation({
+      collection,
+      ...(ref.id !== undefined ? { id: ref.id } : {}),
+      req,
+    })
+  } catch (err) {
+    // An access function that throws denies, as in Payload, but shouldn't fail silently.
+    req.payload.logger.error({
+      err,
+      msg: `payload-onpage: access check failed for ${ref.kind} "${ref.slug}"`,
+    })
     return null
   }
 }
 
-/** May this user edit this document on the page? */
+/**
+ * May this user edit this document on the page? With an id, Payload evaluates a
+ * row-level rule (a `where`) against that document itself, so its answer is final.
+ */
 export async function canEditDocument(
   req: PayloadRequest,
   ref: DocRef,
@@ -48,18 +61,12 @@ export async function canEditDocument(
   if (!req.user) return false
   if (options.access) return Boolean(await options.access({ req, ref }))
   if (!(await canUseOnPage(req, options))) return false
-  const perms = await documentPermissions(req, ref)
-  const update = perms?.update as
-    true | { permission?: boolean; where?: Record<string, unknown> } | undefined
-  if (update === true) return true
-  if (!update?.permission) return false
-  // A row-level rule comes back as a query: check that this document matches it.
-  if (!update.where || ref.kind !== 'collection') return !update.where
-  const { totalDocs } = await req.payload.count({
-    collection: ref.slug as never,
-    where: { and: [{ id: { equals: ref.id } }, update.where] } as never,
-    overrideAccess: true,
-    req,
-  })
-  return totalDocs > 0
+  const update: unknown = (await documentPermissions(req, ref))?.update
+  return (
+    update === true ||
+    (typeof update === 'object' &&
+      update !== null &&
+      'permission' in update &&
+      update.permission === true)
+  )
 }

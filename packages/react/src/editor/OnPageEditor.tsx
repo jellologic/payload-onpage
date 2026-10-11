@@ -20,7 +20,7 @@ import {
   type Renderer,
   type SessionSnapshot,
 } from '@payload-onpage/core'
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { OnPageContext } from '../context.tsx'
 import { UI } from '../dom.ts'
@@ -110,6 +110,16 @@ export function OnPageEditor(props: OnPageEditorProps) {
     [renderer, clientDocs],
   )
 
+  // Pending "retire ghosts" timers, cleared on unmount.
+  const ghostTimers = useRef(new Set<ReturnType<typeof setTimeout>>())
+  useEffect(() => {
+    const timers = ghostTimers.current
+    return () => {
+      for (const id of timers) clearTimeout(id)
+      timers.clear()
+    }
+  }, [])
+
   /** Re-render documents that aren't client-rendered, then retire their ghosts. */
   const rerender = useCallback(
     async (refs: DocRef[], seq?: number) => {
@@ -123,9 +133,11 @@ export function OnPageEditor(props: OnPageEditorProps) {
       } finally {
         setRenders((n) => n - 1)
         // Give the new DOM a moment to land (and the locator to rescan) before uncovering it.
-        setTimeout(() => {
+        const id = setTimeout(() => {
+          ghostTimers.current.delete(id)
           for (const r of stale) ghostsRendered(refKey(r), seq ?? Number.MAX_SAFE_INTEGER)
         }, 250)
+        ghostTimers.current.add(id)
       }
     },
     [isLive, renderer, ghostsRendered],

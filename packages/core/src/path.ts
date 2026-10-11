@@ -5,12 +5,19 @@
 
 export type PathSegment = string | number
 
+/** Segments that would reach an object's prototype instead of its own data. */
+const UNSAFE_SEGMENTS: ReadonlySet<PathSegment> = new Set(['__proto__', 'constructor', 'prototype'])
+
 export function parsePath(path: string | PathSegment[]): PathSegment[] {
-  if (Array.isArray(path)) return path
-  return path
-    .split('.')
-    .filter((s) => s !== '')
-    .map((s) => (/^\d+$/.test(s) ? Number(s) : s))
+  const segs = Array.isArray(path)
+    ? path
+    : path
+        .split('.')
+        .filter((s) => s !== '')
+        .map((s) => (/^\d+$/.test(s) ? Number(s) : s))
+  if (segs.some((s) => UNSAFE_SEGMENTS.has(s)))
+    throw new Error(`Unsupported path: ${segs.join('.')}`)
+  return segs
 }
 
 type Container = Record<string | number, unknown>

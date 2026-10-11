@@ -1,5 +1,5 @@
 import type { DocRef, EncodeFilter, SessionAdapter } from '@payload-onpage/core'
-import type { PayloadRequest } from 'payload'
+import type { CollectionSlug, GlobalSlug, PayloadRequest } from 'payload'
 
 export interface OnPageDocOptions {
   /** Top-level fields editable on the page. Default: every top-level field the user may update. */
@@ -10,21 +10,29 @@ export interface OnPageDocOptions {
    */
   url?: (args: {
     doc: Record<string, unknown>
-    locale?: string
+    locale?: string | undefined
     req: PayloadRequest
   }) => string | null | Promise<string | null>
 }
 
+/**
+ * Collections or globals to enable: a list of slugs, or slugs mapped to options.
+ * Slugs are checked against your generated Payload types (`CollectionSlug` /
+ * `GlobalSlug`), so a typo is a compile error.
+ */
+export type OnPageTargets<Slug extends string> =
+  Slug[] | Partial<Record<Slug, OnPageDocOptions | true>>
+
 export interface OnPageOptions {
-  collections?: string[] | Record<string, OnPageDocOptions | true>
-  globals?: string[] | Record<string, OnPageDocOptions | true>
+  collections?: OnPageTargets<CollectionSlug>
+  globals?: OnPageTargets<GlobalSlug>
   /**
    * Who may use on-page editing (`ref` undefined) and edit a given document.
    * Default: users of the admin user collection, with the document's own
    * `update` access (evaluated by Payload, including row-level rules).
    */
   access?: (args: { req: PayloadRequest; ref?: DocRef }) => boolean | Promise<boolean>
-  /** Framework adapter that switches edit/preview mode (e.g. `nextSession()`). Required for the enter/exit/preview endpoints. */
+  /** Framework adapter that switches edit/preview mode (e.g. `nextSession()`). Required for the enter/mode/exit/preview endpoints. */
   session?: SessionAdapter
   /** Narrow which strings get auto-mapping markers. */
   encode?: EncodeFilter
@@ -46,20 +54,24 @@ export interface OnPageOptions {
   /** Auth cookie an editor's session is bound to. Default `${cookiePrefix}-token` ("payload-token"). */
   authCookie?: string
   /** Endpoint prefix under the API route. Default "/onpage". */
-  routePrefix?: string
+  routePrefix?: `/${string}`
   enabled?: boolean
 }
 
-export interface Entry {
-  kind: 'collection' | 'global'
-  slug: string
-  options: OnPageDocOptions
+/** One enabled collection or global, with its slug typed by kind. */
+export type Entry =
+  | { kind: 'collection'; slug: CollectionSlug; options: OnPageDocOptions }
+  | { kind: 'global'; slug: GlobalSlug; options: OnPageDocOptions }
+
+function entriesOf<Slug extends string>(input: OnPageTargets<Slug> | undefined) {
+  return Array.isArray(input)
+    ? input.map((slug) => ({ slug, options: {} }))
+    : (Object.entries(input ?? {}) as Array<[Slug, OnPageDocOptions | true | undefined]>)
+        .filter(([, o]) => o !== undefined)
+        .map(([slug, o]) => ({ slug, options: o === true || !o ? {} : o }))
 }
 
-export const normalizeEntries = (
-  input: OnPageOptions['collections'],
-  kind: Entry['kind'],
-): Entry[] =>
-  Array.isArray(input)
-    ? input.map((slug) => ({ kind, slug, options: {} }))
-    : Object.entries(input ?? {}).map(([slug, o]) => ({ kind, slug, options: o === true ? {} : o }))
+export const normalizeEntries = (options: OnPageOptions): Entry[] => [
+  ...entriesOf(options.collections).map((e) => ({ kind: 'collection' as const, ...e })),
+  ...entriesOf(options.globals).map((e) => ({ kind: 'global' as const, ...e })),
+]

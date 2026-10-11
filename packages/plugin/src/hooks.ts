@@ -5,23 +5,32 @@
  *  - beforeChange: stale-write guard (409) when the editor sends the version it last saw
  */
 import {
+  CONTEXT_KEY,
   encodeDocument,
   HEADER,
   refKey,
   stegaCleanDeep,
+  type DocRef,
   type EncodeFilter,
   type SchemaField,
 } from '@payload-onpage/core'
-import { APIError, type PayloadRequest } from 'payload'
+import { APIError, type PayloadRequest, type RequestContext } from 'payload'
+
+declare module 'payload' {
+  interface RequestContext {
+    /** Set by `onpageContext()`: this read should carry auto-mapping markers. */
+    [CONTEXT_KEY]?: boolean
+  }
+}
 
 /** True when a read asked for auto-mapping markers (see `onpageContext()`). */
-export const wantsMarkers = (context: unknown): boolean =>
-  !!(context && typeof context === 'object' && (context as Record<string, unknown>).onpage === true)
+export const wantsMarkers = (context: RequestContext | undefined): boolean =>
+  context?.[CONTEXT_KEY] === true
 
 export const stripMarkers = ({ data }: { data?: unknown }) => (data ? stegaCleanDeep(data) : data)
 
 export function encodeOnRead(opts: {
-  kind: 'collection' | 'global'
+  kind: DocRef['kind']
   slug: string
   fields: () => SchemaField[]
   only?: string[]
@@ -34,7 +43,7 @@ export function encodeOnRead(opts: {
   }: {
     doc: Record<string, unknown>
     req: PayloadRequest
-    context: unknown
+    context: RequestContext
   }) => {
     if (!wantsMarkers(context) || req.locale === 'all' || !doc) return doc
     const ref =

@@ -14,6 +14,7 @@ import { setAt } from './path.ts'
 import type { DataSource, Doc } from './ports.ts'
 import type { DocumentSchema } from './schema.ts'
 import { stegaCleanDeep } from './stega.ts'
+import { errorText } from './util.ts'
 
 export interface DocumentState {
   key: string
@@ -58,7 +59,6 @@ export interface PublishResult {
 
 const HISTORY_LIMIT = 200
 const IDLE: SaveState = { status: 'idle', seq: 0 }
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export class EditorSession {
   readonly dataSource: DataSource

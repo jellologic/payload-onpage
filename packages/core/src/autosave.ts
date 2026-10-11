@@ -6,6 +6,7 @@
  * failures (validation, permissions) stop immediately with the server's message.
  */
 import type { SaveResult } from './ports.ts'
+import { errorText } from './util.ts'
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'conflict'
 
@@ -96,7 +97,7 @@ export class AutosaveQueue {
       try {
         result = await this.opts.send(patch)
       } catch (err) {
-        result = { ok: false, status: 0, message: err instanceof Error ? err.message : String(err) }
+        result = { ok: false, status: 0, message: errorText(err) }
       }
       this.inFlight = null
       if (result.ok) {

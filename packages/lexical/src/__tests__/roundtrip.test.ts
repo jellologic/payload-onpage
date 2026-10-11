@@ -10,6 +10,7 @@ import { $getRoot, $isElementNode, createEditor, type ElementNode } from 'lexica
 import { RICH_TEXT_NODES } from '../nodeList.ts'
 import {
   fromEditorState,
+  hasOpaque,
   plainText,
   toEditorState,
   EMPTY_STATE,
@@ -133,5 +134,33 @@ describe('rich text round trip', () => {
     expect(out.root.children[0].value).toBe(42)
     expect(out.root.children[1].children[0].fields.doc).toEqual({ relationTo: 'posts', value: 7 })
     expect(state.root.children[0].value).toEqual({ id: 42, url: '/a.jpg' })
+  })
+})
+
+describe('conversion edge cases', () => {
+  it('never mutates the input or shares the empty paragraph between documents', () => {
+    const input = { root: { type: 'root', version: 1, children: [] } }
+    const snapshot = structuredClone(input)
+    const a = toEditorState(input)
+    const b = toEditorState({ root: { type: 'root', version: 1, children: [] } })
+    expect(input).toEqual(snapshot)
+    expect(a.root.children).not.toBe(b.root.children)
+    expect(a.root.children).not.toBe(EMPTY_STATE.root.children)
+  })
+  it('treats only placeholder nodes as content, not empty editable blocks', () => {
+    const blank = {
+      root: {
+        type: 'root',
+        version: 1,
+        children: [
+          { type: 'heading', tag: 'h2', version: 1, children: [{ type: 'tab', version: 1 }] },
+        ],
+      },
+    }
+    expect(hasOpaque(blank)).toBe(false)
+    const withUpload = {
+      root: { type: 'root', version: 1, children: [{ type: 'upload', version: 3, value: 1 }] },
+    }
+    expect(hasOpaque(withUpload)).toBe(true)
   })
 })

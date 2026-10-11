@@ -1,5 +1,6 @@
 'use client'
 
+import { errorText } from '@payload-onpage/core'
 import { useEffect, useState } from 'react'
 
 /**
@@ -29,7 +30,7 @@ export function useDebouncedSearch<T>(
           setHasMore(res.hasMore)
           setError(null)
         })
-        .catch((e: unknown) => live && setError(e instanceof Error ? e.message : String(e)))
+        .catch((e: unknown) => live && setError(errorText(e)))
         .finally(() => live && setBusy(false))
     }, 250)
     return () => {

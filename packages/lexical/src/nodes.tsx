@@ -12,6 +12,7 @@
  *    so editing a paragraph never loses an image or embed.
  */
 import React from 'react'
+import { newRowId } from '@payload-onpage/core'
 import {
   DecoratorNode,
   ElementNode,
@@ -78,7 +79,9 @@ export class PayloadLinkNode extends ElementNode {
   }
 
   static override importJSON(json: SerializedPayloadLinkNode): PayloadLinkNode {
-    return $createPayloadLinkNode(json.fields ?? {}, json.id).updateFromJSON(json)
+    // We always export version 3, which Payload expects to carry an id; it only
+    // mints one itself when importing version 2. Give older links one here.
+    return $createPayloadLinkNode(json.fields ?? {}, json.id || newRowId()).updateFromJSON(json)
   }
 
   override exportJSON(): SerializedPayloadLinkNode {

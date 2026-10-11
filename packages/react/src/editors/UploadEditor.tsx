@@ -5,7 +5,7 @@
  * new file, through the MediaLibrary port. The chosen document goes into state
  * populated, so a client-rendered page shows it at once; saving sends its id.
  */
-import { relationId, type MediaItem } from '@payload-onpage/core'
+import { relationId, type MediaItem, errorText } from '@payload-onpage/core'
 import { useCallback, useRef, useState } from 'react'
 import { useOnPage } from '../context.tsx'
 import type { FieldEditorProps } from '../types.ts'
@@ -39,7 +39,7 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
     try {
       choose(await media.upload(file, { relationTo }))
     } catch (e) {
-      setUploadError((e as Error).message)
+      setUploadError(errorText(e))
     } finally {
       setUploading(false)
     }

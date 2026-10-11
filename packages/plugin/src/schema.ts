@@ -58,7 +58,12 @@ export interface SerializeContext {
   defaults?: { req: PayloadRequest; pending: Promise<void>[] }
 }
 
-const label = (value: unknown, fallback: string, ctx: SerializeContext): string => {
+/** A config label (string, translations or function) in the request's language, else `fallback`. */
+export const label = (
+  value: unknown,
+  fallback: string,
+  ctx: Pick<SerializeContext, 'i18n'>,
+): string => {
   if (value == null || value === false) return fallback
   if (typeof value === 'string') return value || fallback
   if (!ctx.i18n) return fallback

@@ -44,7 +44,7 @@ import {
   UNDO_COMMAND,
   type LexicalEditor,
 } from 'lexical'
-import { eachLexicalNode, newRowId, safeLinkUrl } from '@payload-onpage/core'
+import { newRowId, safeLinkUrl } from '@payload-onpage/core'
 import {
   HIDDEN,
   caretAt,
@@ -56,7 +56,13 @@ import {
 } from '@payload-onpage/react/editor-kit'
 import { $createPayloadLinkNode, $isPayloadLinkNode, type PayloadLinkNode } from './nodes.tsx'
 import { RICH_TEXT_NODES } from './nodeList.ts'
-import { fromEditorState, plainText, toEditorState, type RichTextState } from './convert.ts'
+import {
+  fromEditorState,
+  hasOpaque,
+  plainText,
+  toEditorState,
+  type RichTextState,
+} from './convert.ts'
 
 export { RICH_TEXT_NODES }
 
@@ -523,20 +529,4 @@ export function InlineRichText({
       </LexicalComposer>
     </div>
   )
-}
-
-/** Does the value hold nodes the editor shows as placeholders (uploads, blocks…)? Then it isn't empty. */
-function hasOpaque(state: RichTextState): boolean {
-  let found = false
-  eachLexicalNode(state, (n) => {
-    if (
-      n.type !== 'root' &&
-      n.type !== 'paragraph' &&
-      n.type !== 'text' &&
-      n.type !== 'linebreak' &&
-      !n.children
-    )
-      found = true
-  })
-  return found
 }

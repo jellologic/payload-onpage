@@ -13,19 +13,19 @@
  *
  * Already have one? `NextResponse.next({ request: { headers: await withOnPage(request, { secret }) } })`
  */
-import { COOKIE, HEADER, SEAL_PURPOSE, samePath, unseal } from '@payload-onpage/core'
+import {
+  COOKIE,
+  HEADER,
+  SEAL_PURPOSE,
+  isLivePreviewGrant,
+  samePath,
+  unseal,
+} from '@payload-onpage/core'
 import { NextResponse, type NextRequest } from 'next/server.js'
 
 export interface OnPageProxyOptions {
   /** Same secret as the plugin (default: Payload's `secret`, i.e. PAYLOAD_SECRET). */
   secret: string | undefined
-}
-
-interface PreviewGrant {
-  path: string
-  ref: string
-  exp: number
-  draft: string
 }
 
 const withoutCookies = (header: string | null, names: string[]) =>
@@ -45,15 +45,8 @@ export async function withOnPage(
   headers.set(HEADER.path, path)
   const sealed = request.cookies.get(COOKIE.preview)?.value
   if (!sealed || !opts.secret) return headers
-  const grant = await unseal<PreviewGrant>(sealed, opts.secret, SEAL_PURPOSE.previewCookie)
-  if (
-    !grant ||
-    typeof grant.draft !== 'string' ||
-    grant.exp * 1000 <= Date.now() ||
-    !samePath(path, grant.path)
-  ) {
-    return headers
-  }
+  const grant = await unseal(sealed, opts.secret, SEAL_PURPOSE.previewCookie)
+  if (!isLivePreviewGrant(grant) || !samePath(path, grant.path)) return headers
   const cookie = withoutCookies(headers.get('cookie'), [COOKIE.nextDraft, COOKIE.mode])
   cookie.push(`${COOKIE.nextDraft}=${grant.draft}`, `${COOKIE.mode}=view`)
   headers.set('cookie', cookie.join('; '))

@@ -201,8 +201,9 @@ describe('enter / mode / exit', () => {
   })
   it('refuses users of other auth collections', async () => {
     expect((await call('POST', enterPath(ids.editorPage), { as: 'customer' })).status).toBe(403)
+    // Signed in but not allowed → 403; not signed in at all → 401.
     expect((await call('POST', '/onpage/mode?mode=edit&path=/', { as: 'customer' })).status).toBe(
-      401,
+      403,
     )
     expect((await call('POST', '/onpage/mode?mode=edit&path=/')).status).toBe(401)
     expect(calls).toEqual([])

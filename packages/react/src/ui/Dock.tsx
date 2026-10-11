@@ -5,6 +5,7 @@
  * recovery: reload after a conflict, retry after an error), undo/redo, locale,
  * share link, preview, discard, admin, exit and publish.
  */
+import { errorText } from '@payload-onpage/core'
 import type { DocumentState } from '@payload-onpage/core'
 import { useEffect, useState } from 'react'
 import { useOnPage } from '../context.tsx'
@@ -70,7 +71,7 @@ export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null 
       if (res.ok) notify(res.published.length ? 'notify.published' : 'notify.nothingToPublish')
       else notify('notify.publishFailed', { message: res.message ?? '' }, true)
     } catch (e) {
-      notify('notify.publishFailed', { message: (e as Error).message }, true)
+      notify('notify.publishFailed', { message: errorText(e) }, true)
     }
   }
   const discard = async () => {
@@ -81,7 +82,7 @@ export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null 
       await session.discard({ keys: docKeys })
       notify('notify.discarded')
     } catch (e) {
-      notify((e as Error).message, undefined, true)
+      notify(errorText(e), undefined, true)
     }
   }
   const reload = async (d: DocumentState) => {
@@ -89,7 +90,7 @@ export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null 
       await session.reload(d.key)
       await rerender([d.ref])
     } catch (e) {
-      notify((e as Error).message, undefined, true)
+      notify(errorText(e), undefined, true)
     }
   }
   const createLink = session.dataSource.createPreviewLink?.bind(session.dataSource)
@@ -100,7 +101,7 @@ export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null 
       await navigator.clipboard.writeText(url)
       notify('notify.linkCopied', { date: new Date(expiresAt).toLocaleString() })
     } catch (e) {
-      notify('notify.linkFailed', { message: (e as Error).message }, true)
+      notify('notify.linkFailed', { message: errorText(e) }, true)
     }
   }
 

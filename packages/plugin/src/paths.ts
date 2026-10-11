@@ -1,6 +1,6 @@
 /** Where a document lives on the site. */
 import { safePath, type DocRef } from '@payload-onpage/core'
-import type { PayloadRequest } from 'payload'
+import type { PayloadRequest, TypedLocale } from 'payload'
 import { originOf } from './http.ts'
 import type { Entry } from './options.ts'
 
@@ -13,36 +13,23 @@ export async function resolvePath(
   req: PayloadRequest,
   ref: DocRef,
   entry: Entry,
-  locale?: string,
+  locale?: TypedLocale,
 ): Promise<string | null> {
-  const localeArg = locale ? { locale: locale as never } : {}
-  const doc =
-    ref.kind === 'global'
-      ? await req.payload
-          .findGlobal({
-            slug: ref.slug as never,
-            draft: true,
-            depth: 0,
-            overrideAccess: true,
-            ...localeArg,
-          })
-          .catch(() => null)
-      : await req.payload
-          .findByID({
-            collection: ref.slug as never,
-            id: ref.id,
-            draft: true,
-            depth: 0,
-            overrideAccess: true,
-            ...localeArg,
-          })
-          .catch(() => null)
+  const read = { draft: true, depth: 0, overrideAccess: true, ...(locale ? { locale } : {}) }
+  const doc: Record<string, unknown> | null =
+    entry.kind === 'global'
+      ? await req.payload.findGlobal({ slug: entry.slug, ...read }).catch(() => null)
+      : ref.kind === 'collection'
+        ? await req.payload
+            .findByID({ collection: entry.slug, id: ref.id, ...read })
+            .catch(() => null)
+        : null
   if (!doc) return null
 
   let url: string | null | undefined
-  if (entry.options.url) url = await entry.options.url({ doc, locale, req })
-  else if (ref.kind === 'collection') {
-    const preview = req.payload.collections[ref.slug]?.config.admin?.preview
+  if (entry.options.url) url = await entry.options.url({ doc, locale: locale ?? undefined, req })
+  else if (entry.kind === 'collection') {
+    const preview = req.payload.collections[entry.slug]?.config.admin?.preview
     if (preview) url = await preview(doc, { locale: locale ?? '', req, token: null })
     if (!url && typeof doc.slug === 'string') url = `/${doc.slug.replace(/^\/+/, '')}`
   } else url = '/'

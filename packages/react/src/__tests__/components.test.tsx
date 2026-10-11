@@ -67,6 +67,27 @@ describe('Dialog', () => {
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(onClose).toHaveBeenCalled()
   })
+  it('keeps its document listeners across re-renders with a new onClose, and calls the latest one', () => {
+    const add = vi.spyOn(document, 'addEventListener')
+    const first = vi.fn()
+    const latest = vi.fn()
+    const { rerender } = render(
+      <Dialog title="x" onClose={first} t={t}>
+        <input aria-label="a" />
+      </Dialog>,
+    )
+    const bound = add.mock.calls.filter(([type]) => type === 'keydown').length
+    rerender(
+      <Dialog title="x" onClose={latest} t={t}>
+        <input aria-label="a" />
+      </Dialog>,
+    )
+    expect(add.mock.calls.filter(([type]) => type === 'keydown').length).toBe(bound)
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(latest).toHaveBeenCalled()
+    expect(first).not.toHaveBeenCalled()
+    add.mockRestore()
+  })
   it('restores focus to where it was', () => {
     const before = document.createElement('button')
     document.body.appendChild(before)

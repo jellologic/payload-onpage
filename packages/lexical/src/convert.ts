@@ -54,9 +54,12 @@ export function isRichTextState(value: unknown): value is RichTextState {
 export function toEditorState(value: unknown): RichTextState {
   const state = isRichTextState(value) ? value : EMPTY_STATE
   const root = wrap(state.root)
-  // Lexical needs at least one block child to place a caret.
-  if (!root.children?.length) root.children = EMPTY_STATE.root.children
-  return { root }
+  // Lexical needs at least one block child to place a caret. Build a new root:
+  // wrap() returns the input itself when there's nothing to wrap, and the empty
+  // children must never be shared between documents.
+  return root.children?.length
+    ? { root }
+    : { root: { ...root, children: structuredClone(EMPTY_STATE.root.children) } }
 }
 
 export function fromEditorState(state: RichTextState): RichTextState {
@@ -70,4 +73,13 @@ export function plainText(state: RichTextState): string {
     if (typeof n.text === 'string') parts.push(n.text)
   })
   return parts.join('').trim()
+}
+
+/** Does the value hold nodes the editor shows as placeholders (uploads, blocks…)? Then it isn't empty. */
+export function hasOpaque(state: RichTextState): boolean {
+  let found = false
+  eachLexicalNode(state, (n) => {
+    if (!EDITABLE_NODE_TYPES.has(n.type)) found = true
+  })
+  return found
 }

@@ -115,7 +115,10 @@ export interface Renderer {
   live: boolean
 }
 
-export type OnPageMode = 'edit' | 'view'
+export const ONPAGE_MODES = ['edit', 'view'] as const
+export type OnPageMode = (typeof ONPAGE_MODES)[number]
+export const isOnPageMode = (value: unknown): value is OnPageMode =>
+  (ONPAGE_MODES as readonly unknown[]).includes(value)
 
 /**
  * Server side: turns a browser's edit/preview access on and off. Framework
