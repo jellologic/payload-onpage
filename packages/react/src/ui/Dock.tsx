@@ -12,6 +12,7 @@ import { useOnPage } from '../context.tsx'
 import { relativeTime, type Translate } from '../messages.ts'
 import { PostButton } from './PostButton.tsx'
 import { ToolbarButton } from './ToolbarButton.tsx'
+import { RedoIcon, UndoIcon } from '../icons.tsx'
 import type { Flash } from '../types.ts'
 
 const title = (d: DocumentState) => d.schema?.labels.singular ?? d.ref.slug
@@ -183,7 +184,7 @@ export function Dock() {
         <ToolbarButton
           label={t('dock.undo')}
           hint={`${t('dock.undo')} (⌘Z)`}
-          icon="↶"
+          icon={<UndoIcon />}
           disabled={!snap.canUndo}
           onClick={() => session.undo()}
           testId="onpage-undo"
@@ -191,7 +192,7 @@ export function Dock() {
         <ToolbarButton
           label={t('dock.redo')}
           hint={`${t('dock.redo')} (⇧⌘Z)`}
-          icon="↷"
+          icon={<RedoIcon />}
           disabled={!snap.canRedo}
           onClick={() => session.redo()}
           testId="onpage-redo"

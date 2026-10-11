@@ -52,14 +52,15 @@ export const PO_CSS = `
 .po-blocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
 .po-blocks button{all:unset;padding:14px;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;font:600 13px system-ui,sans-serif}
 .po-blocks button:hover,.po-blocks button:focus-visible{border-color:#4f7cff;background:#f5f8ff}
-.po-dock{position:fixed;left:50%;width:max-content;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;background:#0f172a;color:#fff;border-radius:12px;box-shadow:0 12px 40px #0f172a55;pointer-events:auto;max-width:calc(100vw - 24px);flex-wrap:wrap}
+.po-btn svg{display:block}
+.po-dock{position:fixed;left:50%;width:max-content;bottom:var(--po-dock-bottom,16px);transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;background:#0f172a;color:#fff;border-radius:12px;box-shadow:0 12px 40px #0f172a55;pointer-events:auto;max-width:calc(100vw - 24px);flex-wrap:wrap}
 .po-dock .po-status{padding:0 10px;font-size:12px;opacity:.85;white-space:nowrap}
 .po-dock .po-status.is-bad{color:#fca5a5;opacity:1}
 .po-dock .po-sep{width:1px;height:20px;background:#ffffff26;margin:0 4px}
 .po-dock .po-primary{background:#3b63e0}
 .po-dock .po-primary:hover{background:#2f5bd9}
 .po-chip-locale{padding:2px 7px;border-radius:999px;background:#ffffff1f;font-size:11px;font-weight:700;text-transform:uppercase}
-.po-notice{position:fixed;left:50%;width:max-content;bottom:72px;transform:translateX(-50%);max-width:min(560px,calc(100vw - 24px));padding:8px 12px;border-radius:10px;background:#fffbeb;color:#78350f;border:1px solid #fcd34d;font-size:12px;pointer-events:auto}
+.po-notice{position:fixed;left:50%;width:max-content;bottom:calc(var(--po-dock-bottom,16px) + 56px);transform:translateX(-50%);max-width:min(560px,calc(100vw - 24px));padding:8px 12px;border-radius:10px;background:#fffbeb;color:#78350f;border:1px solid #fcd34d;font-size:12px;pointer-events:auto}
 .po-doc-layer{position:absolute;top:0;left:0;width:0;height:0;overflow:visible;z-index:${PO_Z};pointer-events:none;font:13px/1.35 system-ui,-apple-system,"Segoe UI",sans-serif}
 .po-inline{position:absolute;pointer-events:auto;outline:2px solid #4f7cff;outline-offset:2px;border-radius:2px;background:transparent;white-space:pre-wrap;word-break:break-word;caret-color:currentColor;cursor:text}
 .po-inline:focus{outline-color:#4f7cff}
@@ -82,7 +83,7 @@ export const PO_CSS = `
 .po-opaque{display:inline-flex;align-items:center;gap:6px;margin:6px 0;padding:6px 10px;border:1px dashed #94a3b8;border-radius:8px;background:#f8fafc;color:#475569;font:12px system-ui,sans-serif;user-select:none}
 html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 [data-onpage-hidden="true"]{visibility:hidden!important}
-.po-preview{position:fixed;left:50%;width:max-content;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;background:#0f172a;color:#fff;border-radius:12px;box-shadow:0 12px 40px #0f172a55;pointer-events:auto;max-width:calc(100vw - 24px);flex-wrap:wrap}
+.po-preview{position:fixed;left:50%;width:max-content;bottom:var(--po-dock-bottom,16px);transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;background:#0f172a;color:#fff;border-radius:12px;box-shadow:0 12px 40px #0f172a55;pointer-events:auto;max-width:calc(100vw - 24px);flex-wrap:wrap}
 .po-preview .po-status{padding:0 8px;font-size:12px;opacity:.85}
 .po-rel-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;background:#f1f5f9;font-size:12px;margin:0 0 4px}
 .po-rel-item button{all:unset;cursor:pointer;margin-left:auto;padding:0 4px;color:#64748b}

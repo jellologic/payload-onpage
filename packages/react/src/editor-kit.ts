@@ -25,6 +25,7 @@ export {
 } from './dom.ts'
 export { useTrackElement, useLayoutTick, notifyLayout } from './layout.ts'
 export { useEvent } from './useEvent.ts'
+export { RedoIcon, UndoIcon } from './icons.tsx'
 export { escapeHtml, sanitizeHtml } from './sanitize.ts'
 export type { EditorRegistry, FieldEditorDef, FieldEditorProps, GhostInput } from './types.ts'
 export type { FieldOf } from '@payload-onpage/core'

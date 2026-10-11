@@ -10,6 +10,7 @@ import { useEffect, useId, useRef, useState, type CSSProperties, type ReactNode 
 import { focusableIn, popoverPosition } from '../dom.ts'
 import { useLayoutTick } from '../layout.ts'
 import type { Translate } from '../messages.ts'
+import { CloseIcon } from '../icons.tsx'
 
 export interface DialogProps {
   title: string
@@ -111,7 +112,7 @@ export function Dialog({
         onClick={onClose}
         aria-label={t('common.close')}
       >
-        ✕
+        <CloseIcon />
       </button>
     </header>
   )

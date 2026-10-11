@@ -25,6 +25,7 @@ import { isOurs } from '../dom.ts'
 import { belowList, GEOMETRY, inViewport, outlineBox, toolbarPosition } from '../geometry.ts'
 import { useLayoutTick } from '../layout.ts'
 import { ToolbarButton } from './ToolbarButton.tsx'
+import { ArrowDownIcon, ArrowUpIcon, CloseIcon, DuplicateIcon, SettingsIcon } from '../icons.tsx'
 import { targetsAt } from '../targets.ts'
 import { insertRow, rowOps } from '../rowOps.ts'
 import { hasSettings } from '../settings.ts'
@@ -121,21 +122,21 @@ function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item
       <span className="po-btn po-bar-label">{label}</span>
       <ToolbarButton
         label={t('row.moveUp')}
-        icon="↑"
+        icon={<ArrowUpIcon />}
         disabled={!ops.canMove(-1)}
         onClick={() => move(-1)}
         testId={`onpage-${variant}-up`}
       />
       <ToolbarButton
         label={t('row.moveDown')}
-        icon="↓"
+        icon={<ArrowDownIcon />}
         disabled={!ops.canMove(1)}
         onClick={() => move(1)}
         testId={`onpage-${variant}-down`}
       />
       <ToolbarButton
         label={t('row.duplicate')}
-        icon="⧉"
+        icon={<DuplicateIcon />}
         disabled={!ops.canDuplicate}
         onClick={duplicate}
         testId={`onpage-${variant}-duplicate`}
@@ -143,14 +144,14 @@ function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item
       {hasSettings(info.rowFields, path, key, targets) && (
         <ToolbarButton
           label={t('row.settings')}
-          icon="⚙"
+          icon={<SettingsIcon />}
           onClick={() => setPanel({ kind: 'settings', key, path, title: label })}
           testId={`onpage-${variant}-settings`}
         />
       )}
       <ToolbarButton
         label={t('row.delete')}
-        icon="✕"
+        icon={<CloseIcon />}
         danger
         disabled={!ops.canRemove}
         onClick={remove}
