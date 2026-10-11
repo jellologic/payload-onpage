@@ -4,6 +4,8 @@
 
 **On-page editing and draft previews for Payload CMS, on Next.js (App Router) and TanStack Start.** Editors click the text, images and sections they see on the live page and change them in place. Edits autosave as Payload drafts through Payload's own REST API, so access control, hooks, validation, drafts and versions behave exactly as in the admin. Anyone can preview a draft from a signed, expiring link that opens one page only.
 
+*The visual, WYSIWYG inline editor for Payload CMS: live draft preview, click-to-edit text and sections, and signed share links — a front-end editing layer that writes back through Payload's own API.*
+
 - **Drop-in:** four edits to an existing site, and no component changes. Text maps to its fields automatically.
 - **Any collection or global**, and several documents on one page with one undo history.
 - **Built-in field editors:** text, rich text (Lexical), images, select, date, number, relationship, color. Replace any of them, or add your own.
