@@ -7,15 +7,13 @@
  * later save retires it. Failed saves and a TTL retire ghosts too.
  */
 import type { SessionSnapshot } from '@payload-onpage/core'
+import type { GhostInput } from '../types.ts'
 import { useCallback, useEffect, useState } from 'react'
 
-export interface Ghost {
+export interface Ghost extends GhostInput {
   id: string
   key: string
   path: string
-  html: string
-  className?: string
-  style?: Partial<CSSStyleDeclaration>
   /** Save sequence of the document when the ghost was made. */
   afterSeq: number
   until: number

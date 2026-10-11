@@ -5,11 +5,11 @@
  * page in a framed viewport. Signed-in editors can switch back to editing;
  * people on a shared link can leave to the published page.
  */
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useEditorStyles, useIsClient } from '../useIsClient.ts'
 import { createPortal } from 'react-dom'
 import { UI } from '../dom.ts'
 import { createTranslate, type Messages } from '../messages.ts'
-import { injectStyles } from '../styles.ts'
 import { PostButton } from './PostButton.tsx'
 
 export interface PreviewToolbarProps {
@@ -34,19 +34,11 @@ export const inPreviewFrame = (): boolean =>
   typeof window !== 'undefined' &&
   (window.self !== window.top || new URLSearchParams(window.location.search).has(FRAME_PARAM))
 
-const noop = () => () => {}
-const useMounted = () =>
-  useSyncExternalStore(
-    noop,
-    () => true,
-    () => false,
-  )
-
 export function PreviewToolbar({ exitHref, editHref, shared, messages }: PreviewToolbarProps) {
   const [device, setDevice] = useState<(typeof DEVICES)[number] | null>(null)
-  const mounted = useMounted()
+  const mounted = useIsClient()
   const t = useMemo(() => createTranslate(messages), [messages])
-  useEffect(() => injectStyles(), [])
+  useEditorStyles()
   useEffect(() => {
     if (!device) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setDevice(null)

@@ -12,6 +12,7 @@
  * invisible markers (turn off with `autoMap={false}`).
  */
 import { useEvent } from './useEvent.ts'
+import { toRef } from './annotations.ts'
 import { encodeDocument, refKey, type DocRef } from '@payload-onpage/core'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import { editable, editableOff, type Editable } from './annotations.ts'
@@ -33,9 +34,9 @@ export function OnPageClient<T extends { id?: string | number } | null | undefin
   const ref = useMemo<DocRef | null>(
     () =>
       globalSlug
-        ? { kind: 'global', slug: globalSlug }
-        : collection && id != null
-          ? { kind: 'collection', slug: collection, id }
+        ? toRef({ global: globalSlug })
+        : collection
+          ? toRef({ collection, doc: { id } })
           : null,
     [globalSlug, collection, id],
   )

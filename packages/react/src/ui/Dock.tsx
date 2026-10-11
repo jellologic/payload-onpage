@@ -11,6 +11,7 @@ import { useEffect, useState } from 'react'
 import { useOnPage } from '../context.tsx'
 import { relativeTime } from '../messages.ts'
 import { PostButton } from './PostButton.tsx'
+import { ToolbarButton } from './ToolbarButton.tsx'
 
 const title = (d: DocumentState) => d.schema?.labels.singular ?? d.ref.slug
 
@@ -158,28 +159,22 @@ export function Dock({ flash }: { flash: { text: string; bad?: boolean } | null 
         )}
         {session.locale && <span className="po-chip-locale">{session.locale}</span>}
         <span className="po-sep" />
-        <button
-          type="button"
-          className="po-btn"
-          onClick={() => session.undo()}
+        <ToolbarButton
+          label={t('dock.undo')}
+          hint={`${t('dock.undo')} (⌘Z)`}
+          icon="↶"
           disabled={!snap.canUndo}
-          aria-label={t('dock.undo')}
-          title={`${t('dock.undo')} (⌘Z)`}
-          data-testid="onpage-undo"
-        >
-          ↶
-        </button>
-        <button
-          type="button"
-          className="po-btn"
-          onClick={() => session.redo()}
+          onClick={() => session.undo()}
+          testId="onpage-undo"
+        />
+        <ToolbarButton
+          label={t('dock.redo')}
+          hint={`${t('dock.redo')} (⇧⌘Z)`}
+          icon="↷"
           disabled={!snap.canRedo}
-          aria-label={t('dock.redo')}
-          title={`${t('dock.redo')} (⇧⌘Z)`}
-          data-testid="onpage-redo"
-        >
-          ↷
-        </button>
+          onClick={() => session.redo()}
+          testId="onpage-redo"
+        />
         <span className="po-sep" />
         {links.mode && (
           <PostButton

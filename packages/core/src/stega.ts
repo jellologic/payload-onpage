@@ -26,18 +26,16 @@ export interface Marker {
 const DIGITS = ['\u200b', '\u200c', '\u200d', '\u2060'] as const
 const START = '\u2063\u2062'
 const END = '\u2064'
-const KIND_CODE: Record<MarkerKind, string> = {
+const KIND_CODE = {
   text: 't',
   textarea: 'a',
   richtext: 'r',
   media: 'm',
-}
-const CODE_KIND: Record<string, MarkerKind> = {
-  t: 'text',
-  a: 'textarea',
-  r: 'richtext',
-  m: 'media',
-}
+} as const satisfies Record<MarkerKind, string>
+/** Derived from KIND_CODE, so the two can't disagree. */
+const CODE_KIND = new Map<string, MarkerKind>(
+  (Object.entries(KIND_CODE) as Array<[MarkerKind, string]>).map(([kind, code]) => [code, kind]),
+)
 
 const DIGIT_VALUE = new Map<string, number>(DIGITS.map((c, i) => [c, i]))
 // The codec's characters are single invisible code points (not combining sequences).
@@ -76,10 +74,13 @@ function decodeBody(body: string): Marker | null {
     return null
   }
   const [ref, path, code, ...extra] = text.split('|')
-  const kind = CODE_KIND[code]
+  const kind = code === undefined ? undefined : CODE_KIND.get(code)
   if (!ref || !path || !kind || extra.length) return null
   return { ref, path, kind }
 }
+
+/** Does this string carry a marker? (A cheap test before decoding, e.g. while scanning a page.) */
+export const hasStegaMarker = (value: string): boolean => value.includes(START)
 
 /** Append a marker to a string (an already-marked string is re-marked, not doubled). */
 export function stegaEncode(value: string, marker: Marker): string {

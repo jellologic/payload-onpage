@@ -94,20 +94,7 @@ export function placeCaret(el: HTMLElement, point?: { x: number; y: number }): v
   sel.addRange(range)
 }
 
-/** Position a fixed popover below (or above) an element, kept inside the viewport. */
-export function popoverPosition(
-  el: Element | null,
-  size = { width: 300, height: 320 },
-): { top: number; left: number } {
-  const vw = window.innerWidth
-  const vh = window.innerHeight
-  if (!el) return { top: 80, left: Math.max(8, vw / 2 - size.width / 2) }
-  const r = el.getBoundingClientRect()
-  const below = r.bottom + 8
-  const top = below + size.height < vh ? below : Math.max(8, r.top - 8 - size.height)
-  const left = Math.min(Math.max(8, r.left), vw - size.width - 8)
-  return { top, left }
-}
+export { popoverPosition } from './geometry.ts'
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'

@@ -6,34 +6,31 @@
  * from the target elements whenever the layout changes.
  */
 import {
-  cloneRow,
   fieldAtPath,
   getAt,
-  insertItem,
   isEditablePath,
-  moveItem,
+  isListField,
   newArrayRow,
   refKey,
-  removeItem,
   resolveRow,
-  updateArray,
-  type Doc,
+  rowPrefixes,
   type RowInfo,
   type Target,
 } from '@payload-onpage/core'
 import { useEffect, useState } from 'react'
 import { useOnPage } from '../context.tsx'
 import { isOurs } from '../dom.ts'
+import { belowList, GEOMETRY, inViewport, outlineBox, toolbarPosition } from '../geometry.ts'
 import { useLayoutTick } from '../layout.ts'
+import { ToolbarButton } from './ToolbarButton.tsx'
 import { targetsAt } from '../targets.ts'
+import { insertRow, rowOps } from '../rowOps.ts'
 import { hasSettings } from '../settings.ts'
 
 interface Hover {
   field?: Target
   rows: Target[] // innermost first
 }
-
-const VIEW_PAD = 8
 
 function useHover(): Hover {
   const { targets } = useOnPage()
@@ -70,14 +67,14 @@ function Outline({
   if (r.width === 0 && r.height === 0) return null
   return (
     <>
-      <div
-        className={`po-outline${variant ? ` is-${variant}` : ''}`}
-        style={{ top: r.top - 2, left: r.left - 2, width: r.width + 4, height: r.height + 4 }}
-      />
+      <div className={`po-outline${variant ? ` is-${variant}` : ''}`} style={outlineBox(r)} />
       {label && (
         <div
           className={`po-chip${variant === 'item' ? ' is-item' : ''}`}
-          style={{ top: Math.max(r.top - 2, 22), left: r.left - 2 }}
+          style={{
+            top: Math.max(r.top - GEOMETRY.outline, GEOMETRY.chipMinTop),
+            left: r.left - GEOMETRY.outline,
+          }}
         >
           {label}
         </div>
@@ -96,94 +93,67 @@ function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item
   const { session, setSelected, setPanel, selected, targets, t } = useOnPage()
   const { key, info, el } = row
   const r = el.getBoundingClientRect()
-  if (r.bottom < 40 || r.top > window.innerHeight - 40) return null
-  const top = Math.min(Math.max(r.top + VIEW_PAD, 60), r.bottom - 40)
-  const right = Math.max(window.innerWidth - r.right + VIEW_PAD, VIEW_PAD)
-  const { listPath, index, length, rowFields, path } = info
+  if (!inViewport(r, GEOMETRY.toolbar)) return null
+  const { path } = info
   const label = targets.find(key, path, ['item'])?.label || info.label
-  const apply = (fn: (d: Doc) => Doc) => session.apply(key, fn)
-  const max = info.listField.maxRows
-  const min = info.listField.minRows ?? 0
-
+  const ops = rowOps(session, key, info)
   const move = (dir: -1 | 1) => {
-    apply((d) => updateArray(d, listPath, (a) => moveItem(a, index, index + dir)))
-    setSelected({ key, path: `${listPath}.${index + dir}` })
+    const next = ops.move(dir)
+    if (next) setSelected(next)
   }
   const duplicate = () => {
-    apply((d) =>
-      updateArray(d, listPath, (a) => insertItem(a, index + 1, cloneRow(a[index], rowFields))),
-    )
-    setSelected({ key, path: `${listPath}.${index + 1}` })
+    const next = ops.duplicate()
+    if (next) setSelected(next)
   }
   const remove = () => {
-    apply((d) => updateArray(d, listPath, (a) => removeItem(a, index)))
-    if (selected?.key === key && selected.path.startsWith(path)) setSelected(null)
+    if (ops.remove() && selected?.key === key && selected.path.startsWith(path)) setSelected(null)
   }
   return (
     <div
       className={`po-bar${variant === 'item' ? ' is-item' : ''}`}
-      style={{ top, right }}
+      style={toolbarPosition(r)}
       role="toolbar"
       aria-label={t('row.toolbar', { label })}
       data-testid={`onpage-${variant}-toolbar`}
     >
       <span className="po-btn po-bar-label">{label}</span>
-      <button
-        type="button"
-        className="po-btn"
-        disabled={index === 0}
+      <ToolbarButton
+        label={t('row.moveUp')}
+        icon="↑"
+        disabled={!ops.canMove(-1)}
         onClick={() => move(-1)}
-        aria-label={t('row.moveUp')}
-        title={t('row.moveUp')}
-        data-testid={`onpage-${variant}-up`}
-      >
-        ↑
-      </button>
-      <button
-        type="button"
-        className="po-btn"
-        disabled={index >= length - 1}
+        testId={`onpage-${variant}-up`}
+      />
+      <ToolbarButton
+        label={t('row.moveDown')}
+        icon="↓"
+        disabled={!ops.canMove(1)}
         onClick={() => move(1)}
-        aria-label={t('row.moveDown')}
-        title={t('row.moveDown')}
-        data-testid={`onpage-${variant}-down`}
-      >
-        ↓
-      </button>
-      <button
-        type="button"
-        className="po-btn"
-        disabled={max !== undefined && length >= max}
+        testId={`onpage-${variant}-down`}
+      />
+      <ToolbarButton
+        label={t('row.duplicate')}
+        icon="⧉"
+        disabled={!ops.canDuplicate}
         onClick={duplicate}
-        aria-label={t('row.duplicate')}
-        title={t('row.duplicate')}
-        data-testid={`onpage-${variant}-duplicate`}
-      >
-        ⧉
-      </button>
-      {hasSettings(rowFields, path, key, targets) && (
-        <button
-          type="button"
-          className="po-btn"
+        testId={`onpage-${variant}-duplicate`}
+      />
+      {hasSettings(info.rowFields, path, key, targets) && (
+        <ToolbarButton
+          label={t('row.settings')}
+          icon="⚙"
           onClick={() => setPanel({ kind: 'settings', key, path, title: label })}
-          aria-label={t('row.settings')}
-          title={t('row.settings')}
-          data-testid={`onpage-${variant}-settings`}
-        >
-          ⚙
-        </button>
+          testId={`onpage-${variant}-settings`}
+        />
       )}
-      <button
-        type="button"
-        className="po-btn is-danger"
-        disabled={length <= min}
+      <ToolbarButton
+        label={t('row.delete')}
+        icon="✕"
+        danger
+        disabled={!ops.canRemove}
         onClick={remove}
-        aria-label={t('row.delete')}
-        title={t('row.delete')}
-        data-testid={`onpage-${variant}-delete`}
-      >
-        ✕
-      </button>
+        testId={`onpage-${variant}-delete`}
+      />
     </div>
   )
 }
@@ -201,7 +171,7 @@ function InsertPoints({ row }: { row: ActiveRow }) {
           onClick={() =>
             setPanel({ kind: 'blocks', key: row.key, listPath: row.info.listPath, index })
           }
-          aria-label={`${t('row.addSection')} (${edge})`}
+          aria-label={t(edge === 'above' ? 'row.addSectionAbove' : 'row.addSectionBelow')}
           data-testid={`onpage-insert-${edge}`}
         >
           + {t('row.addSection')}
@@ -222,8 +192,9 @@ function AddItem({ list }: { list: Target }) {
   const state = snap.docs[key]
   if (!state?.schema || !state.doc || !isEditablePath(state.schema, list.path)) return null
   const field = fieldAtPath(state.schema.fields, state.doc, list.path)?.field
-  if (!field || (field.type !== 'array' && field.type !== 'blocks')) return null
-  const length = (getAt<unknown[]>(state.doc, list.path) ?? []).length
+  if (!field || !isListField(field)) return null
+  const rows = getAt(state.doc, list.path)
+  const length = Array.isArray(rows) ? rows.length : 0
   const r = list.el.getBoundingClientRect()
   if (field.type === 'blocks') {
     // Sections get "+ Add section" above/below each one; this covers an empty list.
@@ -231,7 +202,10 @@ function AddItem({ list }: { list: Target }) {
     return (
       <div
         className="po-add"
-        style={{ top: r.top + Math.min(r.height / 2, 160), left: r.left + r.width / 2 }}
+        style={{
+          top: r.top + Math.min(r.height / 2, GEOMETRY.emptyListOffset),
+          left: r.left + r.width / 2,
+        }}
       >
         <button
           type="button"
@@ -246,13 +220,10 @@ function AddItem({ list }: { list: Target }) {
   }
   if (field.maxRows !== undefined && length >= field.maxRows) return null
   // Below the list, or pinned to the bottom of the viewport while the list runs past it.
-  if (r.bottom < 0 || r.top > window.innerHeight - 40) return null
-  const y = Math.min(r.bottom + 14, window.innerHeight - 84)
+  if (!inViewport(r) || r.top > window.innerHeight - GEOMETRY.toolbar) return null
+  const y = belowList(r)
   const item = list.label || field.labels?.singular || field.label
-  const add = () => {
-    session.apply(key, (d) => updateArray(d, list.path, (a) => [...a, newArrayRow(field)]))
-    setSelected({ key, path: `${list.path}.${length}` })
-  }
+  const add = () => setSelected(insertRow(session, key, list.path, length, newArrayRow(field)))
   return (
     <div className="po-add is-item" style={{ top: y, left: r.left + r.width / 2 }}>
       <button type="button" className="po-btn" onClick={add} data-testid="onpage-add-item">
@@ -284,13 +255,13 @@ export function Overlay() {
   // Its section: the outermost enclosing row of a blocks field (may be itself).
   let section: ActiveRow | null = null
   if (active) {
-    const segs = active.info.path.split('.')
-    for (let i = 1; i < segs.length && !section; i++) {
-      if (!/^\d+$/.test(segs[i])) continue
-      const path = segs.slice(0, i + 1).join('.')
+    for (const path of [...rowPrefixes(active.info.path), active.info.path]) {
       const candidate =
         path === active.info.path ? active : rowFor(targets.find(active.key, path, ['item']))
-      if (candidate?.info.isBlock) section = candidate
+      if (candidate?.info.isBlock) {
+        section = candidate
+        break
+      }
     }
   }
   const item = active && section?.info.path !== active.info.path ? active : null

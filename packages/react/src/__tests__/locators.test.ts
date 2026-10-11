@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Window } from 'happy-dom'
-import { stegaEncode } from '@payload-onpage/core'
-import { annotations, composite, rowPrefixes, stega } from '../locators.ts'
+import { rowPrefixes, stegaEncode } from '@payload-onpage/core'
+import { annotations, composite, stega } from '../locators.ts'
 import { editable, editableOff, ATTR } from '../annotations.ts'
 
 const REF = 'c:pages:5'

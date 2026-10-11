@@ -1,6 +1,7 @@
 'use client'
 
-import { fieldAtPath, insertItem, newBlockRow, updateArray } from '@payload-onpage/core'
+import { fieldAtPath, newBlockRow } from '@payload-onpage/core'
+import { insertRow } from '../rowOps.ts'
 import { useOnPage } from '../context.tsx'
 import { Dialog } from './Dialog.tsx'
 
@@ -12,16 +13,14 @@ export function BlockPicker() {
   if (!state?.schema || !state.doc) return null
   const { key, listPath, index } = panel
   const field = fieldAtPath(state.schema.fields, state.doc, listPath)?.field
-  const blocks = field?.type === 'blocks' ? (field.blocks ?? []) : []
+  const blocks = field?.type === 'blocks' ? field.blocks : []
 
   const choose = (slug: string) => {
     const block = blocks.find((b) => b.slug === slug)
     if (!block) return
-    session.apply(key, (d) =>
-      updateArray(d, listPath, (a) => insertItem(a, index, newBlockRow(block))),
-    )
+    const next = insertRow(session, key, listPath, index, newBlockRow(block))
     setPanel(null)
-    setSelected({ key, path: `${listPath}.${index}` })
+    setSelected(next)
   }
 
   return (

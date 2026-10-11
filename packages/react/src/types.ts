@@ -138,11 +138,5 @@ export interface OnPageContextValue {
     vars?: Record<string, string | number>,
     bad?: boolean,
   ) => void
-  addGhost: (g: {
-    key: string
-    path: string
-    html: string
-    className?: string
-    style?: Partial<CSSStyleDeclaration>
-  }) => void
+  addGhost: (g: GhostInput & { key: string; path: string }) => void
 }

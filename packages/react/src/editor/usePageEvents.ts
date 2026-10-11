@@ -8,7 +8,8 @@
  *  - a warning before leaving with unsaved changes
  */
 import { useEvent } from '../useEvent.ts'
-import { moveItem, refKey, removeItem, resolveRow, updateArray } from '@payload-onpage/core'
+import { refKey, resolveRow } from '@payload-onpage/core'
+import { rowOps } from '../rowOps.ts'
 import { useEffect } from 'react'
 import { isOurs, isTyping } from '../dom.ts'
 import { isFieldTarget, isRowTarget, targetsAt } from '../targets.ts'
@@ -43,22 +44,20 @@ export function usePageEvents(ctx: OnPageContextValue | null, root: () => Parent
     }
   })
 
+  /** ⌥↑/⌥↓ move the selected row, ⌥⌫ deletes it. True when the key was ours (even if the row can't move). */
   const moveSelected = (dir: -1 | 1 | 'delete') => {
     if (!ctx?.selected) return false
     const { key, path } = ctx.selected
     const state = ctx.snap.docs[key]
     const info = state?.schema && state.doc ? resolveRow(state.schema, state.doc, path) : null
     if (!info) return false
+    const ops = rowOps(ctx.session, key, info)
     if (dir === 'delete') {
-      if (info.length <= (info.listField.minRows ?? 0)) return true
-      ctx.session.apply(key, (d) => updateArray(d, info.listPath, (a) => removeItem(a, info.index)))
-      ctx.setSelected(null)
-      return true
+      if (ops.remove()) ctx.setSelected(null)
+    } else {
+      const next = ops.move(dir)
+      if (next) ctx.setSelected(next)
     }
-    const to = info.index + dir
-    if (to < 0 || to >= info.length) return true
-    ctx.session.apply(key, (d) => updateArray(d, info.listPath, (a) => moveItem(a, info.index, to)))
-    ctx.setSelected({ key, path: `${info.listPath}.${to}` })
     return true
   }
 

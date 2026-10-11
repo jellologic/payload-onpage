@@ -15,17 +15,16 @@ const reg: EditorRegistry = {
   select: { mode: 'popover', component: C },
   color: { mode: 'popover', component: C },
 }
-const f = (type: SchemaField['type'], extra: Record<string, unknown> = {}): SchemaField =>
-  ({
-    name: 'x',
-    type,
-    label: 'X',
-    options: [],
-    relationTo: 'media',
-    fields: [],
-    blocks: [],
-    ...extra,
-  })
+const f = (type: SchemaField['type'], extra: Record<string, unknown> = {}): SchemaField => ({
+  name: 'x',
+  type,
+  label: 'X',
+  options: [],
+  relationTo: 'media',
+  fields: [],
+  blocks: [],
+  ...extra,
+})
 
 describe('resolveEditor', () => {
   it("prefers the field's own editor choice", () => {

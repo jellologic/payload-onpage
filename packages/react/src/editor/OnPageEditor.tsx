@@ -31,7 +31,7 @@ import { annotations, composite, stega } from '../locators.ts'
 import { createTranslate, type Messages } from '../messages.ts'
 import { mergeEditors, resolveEditor } from '../registry.ts'
 import { clientState } from '../renderers.ts'
-import { injectStyles } from '../styles.ts'
+import { useEditorStyles, useIsClient } from '../useIsClient.ts'
 import { useTargets } from '../targets.ts'
 import type {
   EditingState,
@@ -293,14 +293,10 @@ export function OnPageEditor(props: OnPageEditorProps) {
     hub.set(ctx)
   }, [ctx])
   useEffect(() => () => hub.set(null), [])
-  useEffect(() => injectStyles(), [])
+  useEditorStyles()
   usePageEvents(ctx, root)
 
-  const mounted = useSyncExternalStore(
-    noopSubscribe,
-    () => true,
-    () => false,
-  )
+  const mounted = useIsClient()
   if (!mounted || !ctx) return null
 
   return (

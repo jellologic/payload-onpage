@@ -8,7 +8,9 @@
  *   composite()    merge several; earlier locators win for the same element+path
  */
 import {
+  hasStegaMarker,
   parseRefKey,
+  rowPrefixes,
   targetKey,
   stegaDecode,
   type DocRef,
@@ -61,15 +63,6 @@ function commonAncestor(els: Element[]): Element | null {
   return anc
 }
 
-/** "layout.2.items.0.title" → ["layout.2", "layout.2.items.0"] (row paths, outermost first). */
-export function rowPrefixes(path: string): string[] {
-  const segs = path.split('.')
-  const out: string[] = []
-  for (let i = 1; i < segs.length; i++)
-    if (/^\d+$/.test(segs[i]) && i < segs.length - 1) out.push(segs.slice(0, i + 1).join('.'))
-  return out
-}
-
 export function stega(opts: { inferRows?: boolean } = {}): Locator {
   const inferRows = opts.inferRows ?? true
   return {
@@ -92,7 +85,7 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
       const walker = doc.createTreeWalker(root, 4 /* NodeFilter.SHOW_TEXT */)
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         const text = n.nodeValue
-        if (!text || !text.includes('\u2063\u2062')) continue
+        if (!text || !hasStegaMarker(text)) continue
         const parent = n.parentElement
         if (!parent || SKIP_TAGS.has(parent.tagName) || parent.closest(`[${UI}]`)) continue
         for (const m of stegaDecode(text)) {

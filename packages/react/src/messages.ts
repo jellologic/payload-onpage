@@ -45,6 +45,8 @@ export const defaultMessages = {
   'row.settings': 'Settings',
   'row.delete': 'Delete (undo with ⌘Z)',
   'row.addSection': 'Add section',
+  'row.addSectionAbove': 'Add section above',
+  'row.addSectionBelow': 'Add section below',
   'row.addFirstSection': 'Add a section',
   'row.addItem': 'Add {item}',
   'row.toolbar': '{label} actions',

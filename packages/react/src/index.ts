@@ -35,7 +35,7 @@ export {
   UploadEditor,
 } from './editors/index.ts'
 export { resolveEditor, mergeEditors } from './registry.ts'
-export { annotations, stega, composite, rowPrefixes } from './locators.ts'
+export { annotations, stega, composite } from './locators.ts'
 export {
   editable,
   editableOff,
