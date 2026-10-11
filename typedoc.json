@@ -12,7 +12,10 @@
     "packages/lexical/src/index.ts",
     "packages/next/src/index.tsx",
     "packages/next/src/client.tsx",
-    "packages/next/src/proxy.ts"
+    "packages/next/src/proxy.ts",
+    "packages/tanstack-start/src/index.tsx",
+    "packages/tanstack-start/src/client.tsx",
+    "packages/tanstack-start/src/session.server.ts"
   ],
   "tsconfig": "tsconfig.test.json",
   "out": "docs/api",

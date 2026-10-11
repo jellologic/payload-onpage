@@ -34,14 +34,16 @@ export const redirectTo = (req: PayloadRequest, path: unknown, status: 303 | 307
 
 /**
  * CSRF guard for state-changing endpoints: a POST from this site (Origin, or
- * Sec-Fetch-Site when Origin is absent). Returns an error response or null.
+ * Sec-Fetch-Site when Origin is absent). `none` is refused: no legitimate
+ * browser flow POSTs to these endpoints without site metadata. Returns an
+ * error response or null.
  */
 export function rejectCrossSite(req: PayloadRequest): Response | null {
   if (req.method?.toUpperCase() !== 'POST') return text('Method not allowed', 405)
   const origin = req.headers.get('origin')
   if (origin) return origin === originOf(req) ? null : text('Cross-site request refused', 403)
   const site = req.headers.get('sec-fetch-site')
-  return site === 'same-origin' || site === 'none' ? null : text('Cross-site request refused', 403)
+  return site === 'same-origin' ? null : text('Cross-site request refused', 403)
 }
 
 /** A collection's or global's sanitized config. */

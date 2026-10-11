@@ -1,0 +1,41 @@
+/**
+ * Client side of the TanStack Start adapter. `OnPageMount` is tiny: the editor
+ * itself is loaded only when someone is editing or previewing.
+ */
+import { lazy, Suspense } from 'react'
+import type { DataSource, Locator, MediaLibrary, OnPageMode } from '@payload-onpage/core'
+import type { FieldEditorDef, Messages } from '@payload-onpage/react'
+
+export interface OnPageMountProps {
+  mode: OnPageMode
+  /** Opened from a shared preview link (no editing). */
+  shared?: boolean | undefined
+  /** Payload API route. Default "/api". */
+  apiRoute?: string | undefined
+  /** Plugin endpoint prefix. Default "/onpage". */
+  prefix?: `/${string}` | undefined
+  /** Payload admin route. Default "/admin". */
+  adminRoute?: string | undefined
+  /** Locale to edit. Default: <html lang>. */
+  locale?: string | undefined
+  editors?: Record<string, FieldEditorDef | null> | undefined
+  locator?: Locator | undefined
+  media?: MediaLibrary | undefined
+  dataSource?: DataSource | undefined
+  /** Override editor UI strings (see `defaultMessages` in @payload-onpage/react). */
+  messages?: Messages | undefined
+}
+
+const Editor = lazy(() => import('./editor.tsx').then((m) => ({ default: m.TanstackEditor })))
+const Preview = lazy(() => import('./editor.tsx').then((m) => ({ default: m.TanstackPreview })))
+
+export function OnPageMount(props: OnPageMountProps) {
+  return (
+    <Suspense fallback={null}>
+      {props.mode === 'edit' ? <Editor {...props} /> : <Preview {...props} />}
+    </Suspense>
+  )
+}
+
+export { OnPageClient } from '@payload-onpage/react/client'
+export { useTanstackRefresh } from './refresh.ts'

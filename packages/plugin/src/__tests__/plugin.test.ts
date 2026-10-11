@@ -276,9 +276,8 @@ describe('onpage() plugin', () => {
   })
 
   it('is idempotent and can be disabled', () => {
-    const twice: any = onpage({ collections: ['pages'], session })(
-      onpage({ collections: ['pages'], session })({ ...config }) as any,
-    )
+    const once: any = onpage({ collections: ['pages'], session })({ ...config })
+    const twice: any = onpage({ collections: ['pages'], session })(once)
     expect(twice.endpoints.filter((e: any) => e.path === '/onpage/enter')).toHaveLength(1)
     expect(twice.collections[0]!.hooks.afterRead).toHaveLength(2)
     expect(() => onpage({ collections: ['nope'], session })(config)).toThrow(
@@ -289,6 +288,13 @@ describe('onpage() plugin', () => {
 
   it('fails at config time, not on the first request, without a session adapter', () => {
     expect(() => onpage({ collections: ['pages'] })(config)).toThrow(InvalidConfiguration)
+  })
+
+  it('rejects an empty secret at config time', () => {
+    expect(() => onpage({ collections: ['pages'], session, secret: '' })(config)).toThrow(
+      /must not be empty/,
+    )
+    expect(() => onpage({ collections: ['pages'], session })(config)).not.toThrow()
   })
 
   it("merges its translations under the site's, which win", () => {

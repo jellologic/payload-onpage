@@ -83,6 +83,12 @@ export const Pages: CollectionConfig = {
     { name: 'slug', type: 'text', required: true, unique: true, index: true },
     { name: 'publishedAt', type: 'date' },
     { name: 'author', type: 'relationship', relationTo: 'users' },
+    // Admin-only field, never rendered: proves field-level access in e2e.
+    {
+      name: 'internalNote',
+      type: 'textarea',
+      access: { update: ({ req }) => req.user?.role === 'admin' },
+    },
     // A custom field editor, picked per field:
     {
       name: 'accent',

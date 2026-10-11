@@ -35,6 +35,9 @@ function postInNewTab(action: string) {
   form.method = 'post'
   form.action = action
   form.target = '_blank'
+  // The opened tab is same-origin: without noopener it would keep a handle on
+  // the admin document via window.opener.
+  form.rel = 'noopener'
   document.body.appendChild(form)
   form.submit()
   form.remove()

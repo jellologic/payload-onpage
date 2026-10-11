@@ -32,7 +32,7 @@ jobs:
           node scripts/llms-full.mjs --check
           bun run docs:api
       - name: publint
-        run: for p in core plugin react lexical next; do (cd packages/$p && bunx publint --strict); done
+        run: for p in core plugin react lexical next tanstack-start; do (cd packages/$p && bunx publint --strict); done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -82,18 +82,36 @@ jobs:
         run: bun run build
 
   e2e:
-    name: End-to-end (Playwright + axe)
+    name: End-to-end (${{ matrix.example }}, Playwright + axe)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        example: ['basic', 'tanstack']
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bunx playwright install --with-deps chromium
-      - run: bun run e2e
+      - run: bun run build
+      - run: bunx playwright test -c e2e/playwright.config.ts
         env:
           CI: '1'
+          ONPAGE_EXAMPLE: ${{ matrix.example }}
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.example }}
           path: e2e/playwright-report
+
+  tanstack-build:
+    name: TanStack example builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - name: Build examples/tanstack
+        working-directory: examples/tanstack
+        run: bun run build

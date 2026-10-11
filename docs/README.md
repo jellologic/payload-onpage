@@ -1,13 +1,14 @@
 # payload-onpage documentation
 
-On-page editing and draft previews for **Payload CMS 3 + Next.js (App Router)**.
+On-page editing and draft previews for **Payload CMS**, on **Next.js (App Router)** and **TanStack Start**.
 
-| Start here                            |                                                                     |
-| ------------------------------------- | ------------------------------------------------------------------- |
-| [Tour](tour.md)                       | What editors see, in screenshots and short clips                    |
-| [Getting started](getting-started.md) | Install and wire it into an existing site (three steps + the proxy) |
-| [Compatibility](compatibility.md)     | Supported Payload, Next.js, React and Node versions                 |
-| [Troubleshooting](troubleshooting.md) | The usual suspects, with fixes                                      |
+| Start here                                                         |                                                                        |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| [Tour](tour.md)                                                    | What editors see, in screenshots and short clips                       |
+| [Getting started](getting-started.md)                              | Install and wire it into a Next.js site (three steps + the proxy)      |
+| [Getting started with TanStack Start](getting-started-tanstack.md) | Install and wire it into a TanStack Start site (three steps, no proxy) |
+| [Compatibility](compatibility.md)                                  | Supported Payload, Next.js, TanStack Start, React and Node versions    |
+| [Troubleshooting](troubleshooting.md)                              | The usual suspects, with fixes                                         |
 
 **Concepts**
 

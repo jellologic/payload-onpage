@@ -2,6 +2,8 @@
 
 Add on-page editing and shareable draft previews to an existing **Payload 3 + Next.js App Router** site. Nothing changes for visitors: no extra markup, about 0.3 KB of JavaScript.
 
+> On Payload 4 + TanStack Start? Follow [Getting started with TanStack Start](getting-started-tanstack.md) instead.
+
 > **For coding agents:** follow these steps in order. Each names the file to edit and ends with a check. The canonical working setup is [`examples/basic`](../examples/basic); its file paths are cited below.
 
 ## 1. Install

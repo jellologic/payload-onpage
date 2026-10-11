@@ -36,10 +36,12 @@ const value = {
   },
 }
 
-function setup() {
+function setup(style?: { fontSize?: string; lineHeight?: string }) {
   const el = document.createElement('p')
   el.className = 'prose'
   el.textContent = 'Hello'
+  if (style?.fontSize) el.style.fontSize = style.fontSize
+  if (style?.lineHeight) el.style.lineHeight = style.lineHeight
   document.body.appendChild(el)
   const commit = vi.fn()
   const close = vi.fn()
@@ -73,6 +75,12 @@ describe('lexical editor', () => {
       expect(document.querySelector('.po-rt-surface')?.className).toContain('prose'),
     )
     expect(el.getAttribute('data-onpage-hidden')).toBe('true')
+  })
+  it('copies the element typography onto the surface', async () => {
+    setup({ fontSize: '20px', lineHeight: '32px' })
+    const surface = await waitFor(() => document.querySelector<HTMLElement>('.po-rt-surface')!)
+    expect(surface.style.fontSize).toBe('20px')
+    expect(surface.style.lineHeight).toBe('32px')
   })
   it('Done without changes closes without saving', async () => {
     const { commit, close } = setup()

@@ -1,6 +1,6 @@
 {
   "name": "@payload-onpage/lexical",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "payload-onpage rich-text field editor: inline Lexical editing compatible with Payload's Lexical JSON.",
   "license": "MIT",
   "type": "module",
@@ -70,12 +70,12 @@
     "@payload-onpage/react": "workspace:*"
   },
   "peerDependencies": {
-    "@lexical/list": "~0.50.0",
-    "@lexical/react": "~0.50.0",
-    "@lexical/rich-text": "~0.50.0",
-    "@lexical/selection": "~0.50.0",
-    "@lexical/utils": "~0.50.0",
-    "lexical": "~0.50.0",
+    "@lexical/list": "~0.50.0 || ~0.52.0",
+    "@lexical/react": "~0.50.0 || ~0.52.0",
+    "@lexical/rich-text": "~0.50.0 || ~0.52.0",
+    "@lexical/selection": "~0.50.0 || ~0.52.0",
+    "@lexical/utils": "~0.50.0 || ~0.52.0",
+    "lexical": "~0.50.0 || ~0.52.0",
     "react": "^19.0.0"
   },
   "engines": {

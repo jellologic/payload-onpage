@@ -38,7 +38,7 @@ import {
   type TypedLocale,
 } from 'payload'
 import { getAutosaveInterval, hasAutosaveEnabled, hasDraftsEnabled, toWords } from 'payload/shared'
-import { canEditDocument, canUseOnPage, documentPermissions } from './access.ts'
+import { canEditDocument, canUseOnPage, documentPermissions, isUpdateDenied } from './access.ts'
 import {
   apiURL,
   entityConfig,
@@ -59,6 +59,7 @@ export interface EndpointContext {
   options: OnPageOptions & { session: SessionAdapter }
   prefix: `/${string}`
   entry: (kind: DocRef['kind'], slug: string) => Entry | undefined
+  entries: Entry[]
 }
 
 const DAY = 24 * 3600
@@ -80,6 +81,14 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
   const { options, prefix } = ctx
   const { session } = options
 
+  /** True when the user may update at least one enabled document (row-level rules count). */
+  const canEditAnything = async (req: PayloadRequest): Promise<boolean> => {
+    const checks = await Promise.all(
+      ctx.entries.map((e) => documentPermissions(req, { kind: e.kind, slug: e.slug })),
+    )
+    return checks.some((perms) => !isUpdateDenied(perms))
+  }
+
   const schema: Endpoint = {
     path: `${prefix}${ROUTES.schema}/:kind/:slug`,
     method: 'get',
@@ -92,6 +101,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
       if (!(await canUseOnPage(req, options))) throw new Forbidden(req.t)
 
       const perms = await documentPermissions(req, { kind, slug })
+      if (isUpdateDenied(perms)) throw new Forbidden(req.t)
       const pending: Promise<void>[] = []
       const all = serializeFields(cfg.fields, {
         i18n: req.i18n,
@@ -149,11 +159,14 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     handler: async (req) => {
       const refused = rejectCrossSite(req)
       if (refused) return refused
+      // Authenticate before parsing the ref, so anonymous callers can't probe
+      // which slugs are enabled by the status code.
+      if (!req.user) return text('Sign in to the admin first', 401)
+      if (!(await canUseOnPage(req, options))) return text('You cannot use on-page editing', 403)
       const q = req.searchParams
       const ref = readRef(req, { kind: q.get('kind'), slug: q.get('slug'), id: q.get('id') })
       const entry = ref && ctx.entry(ref.kind, ref.slug)
       if (!ref || !entry) return text('Unknown document', 400)
-      if (!req.user) return text('Sign in to the admin first', 401)
       if (!(await canEditDocument(req, ref, options)))
         return text('You cannot edit this document', 403)
       const locale = req.locale && req.locale !== 'all' ? req.locale : undefined
@@ -176,6 +189,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
       if (refused) return refused
       if (!req.user) return text('Sign in to the admin first', 401)
       if (!(await canUseOnPage(req, options))) return text('You cannot use on-page editing', 403)
+      if (!(await canEditAnything(req))) return text('You cannot edit any document', 403)
       const q = req.searchParams
       const next = q.get('mode')
       await session.enable(isOnPageMode(next) ? next : 'edit', {
@@ -206,6 +220,9 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
       if (!req.headers.get('content-type')?.includes('application/json'))
         throw new APIError('Expected a JSON body', 415)
       await addDataAndFileToRequest(req) // parses JSON, or throws a 400
+      // Authenticate before parsing the ref, so anonymous callers can't probe
+      // which slugs are enabled by the status code.
+      if (!(await canUseOnPage(req, options))) throw new Forbidden(req.t)
       const body: Record<string, unknown> = req.data ?? {}
       const ref = readRef(req, body)
       const entry = ref && ctx.entry(ref.kind, ref.slug)

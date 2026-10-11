@@ -4,6 +4,7 @@
 .DS_Store
 .env
 .next
+.output
 coverage
 dist
 docs/api

@@ -120,8 +120,12 @@ export function stegaCleanDeep<T>(value: T): T {
     return (value as unknown[]).map((v) => stegaCleanDeep(v)) as unknown as T
   if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
     const out: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(value as Record<string, unknown>))
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      // `__proto__` would invoke the prototype setter instead of creating an
+      // own property; keep the copy a clean plain object.
+      if (k === '__proto__') continue
       out[k] = stegaCleanDeep(v)
+    }
     return out as T
   }
   return value

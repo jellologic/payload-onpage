@@ -1,0 +1,83 @@
+{
+  "name": "@payload-onpage/tanstack-start",
+  "version": "0.3.3",
+  "description": "payload-onpage for TanStack Start: cookie session adapter, <OnPage />, onpageContext() and refresh rendering.",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jellologic/payload-onpage.git",
+    "directory": "packages/tanstack-start"
+  },
+  "homepage": "https://github.com/jellologic/payload-onpage#readme",
+  "bugs": "https://github.com/jellologic/payload-onpage/issues",
+  "keywords": [
+    "payload",
+    "payloadcms",
+    "payload-cms",
+    "payload-plugin",
+    "tanstack",
+    "tanstack-start",
+    "visual-editing",
+    "visual-editor",
+    "inline-editing",
+    "front-end-editing",
+    "live-preview",
+    "draft-preview",
+    "preview-links",
+    "page-builder",
+    "wysiwyg",
+    "headless-cms",
+    "cms",
+    "react"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./client": {
+      "types": "./dist/client.d.ts",
+      "default": "./dist/client.js"
+    },
+    "./session": {
+      "types": "./dist/session.server.d.ts",
+      "default": "./dist/session.server.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "!dist/.tsbuildinfo",
+    "src",
+    "!src/**/__tests__",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "test": "bun test src",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@payload-onpage/core": "workspace:*",
+    "@payload-onpage/react": "workspace:*",
+    "@payload-onpage/lexical": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tanstack/react-start": "^1.168.60",
+    "@tanstack/react-router": "^1.120.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "engines": {
+    "node": ">=20.9.0"
+  }
+}

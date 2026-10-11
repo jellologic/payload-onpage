@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 const files = [
   'README.md',
   'docs/getting-started.md',
+  'docs/getting-started-tanstack.md',
   'docs/concepts/architecture.md',
   'docs/concepts/auto-mapping.md',
   'docs/concepts/modes.md',

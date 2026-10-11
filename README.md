@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/jellologic/payload-onpage/actions/workflows/ci.yml/badge.svg)](https://github.com/jellologic/payload-onpage/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**On-page editing and draft previews for Payload CMS 3 + Next.js (App Router).** Editors click the text, images and sections they see on the live page and change them in place. Edits autosave as Payload drafts through Payload's own REST API, so access control, hooks, validation, drafts and versions behave exactly as in the admin. Anyone can preview a draft from a signed, expiring link that opens one page only.
+**On-page editing and draft previews for Payload CMS, on Next.js (App Router) and TanStack Start.** Editors click the text, images and sections they see on the live page and change them in place. Edits autosave as Payload drafts through Payload's own REST API, so access control, hooks, validation, drafts and versions behave exactly as in the admin. Anyone can preview a draft from a signed, expiring link that opens one page only.
 
 - **Drop-in:** four edits to an existing site, and no component changes. Text maps to its fields automatically.
 - **Any collection or global**, and several documents on one page with one undo history.
@@ -67,7 +67,7 @@ const page = await payload.find({ collection: 'pages', where, draft, ...(await o
 export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })
 ```
 
-The full walkthrough, with checks after every step and a prompt for coding agents, is in **[Getting started](docs/getting-started.md)**.
+The full walkthrough, with checks after every step and a prompt for coding agents, is in **[Getting started](docs/getting-started.md)** (Next.js) or **[Getting started with TanStack Start](docs/getting-started-tanstack.md)**. Version requirements per framework are in **[Compatibility](docs/compatibility.md)**.
 
 ## Documentation
 
@@ -82,13 +82,14 @@ The full walkthrough, with checks after every step and a prompt for coding agent
 
 ## Packages
 
-| Package                                       |                                                                  |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| [`@payload-onpage/plugin`](packages/plugin)   | Payload plugin: endpoints, access, schema, hooks, admin controls |
-| [`@payload-onpage/next`](packages/next)       | Next.js adapter: `<OnPage />`, session, refresh renderer, proxy  |
-| [`@payload-onpage/react`](packages/react)     | Editor UI, field editors, annotations, client mode               |
-| [`@payload-onpage/core`](packages/core)       | Framework-free logic and the port interfaces                     |
-| [`@payload-onpage/lexical`](packages/lexical) | Inline rich-text editing for Payload's Lexical JSON              |
+| Package                                                     |                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [`@payload-onpage/plugin`](packages/plugin)                 | Payload plugin: endpoints, access, schema, hooks, admin controls           |
+| [`@payload-onpage/next`](packages/next)                     | Next.js adapter: `<OnPage />`, session, refresh renderer, proxy            |
+| [`@payload-onpage/tanstack-start`](packages/tanstack-start) | TanStack Start adapter: `<OnPage />`, session, refresh renderer (no proxy) |
+| [`@payload-onpage/react`](packages/react)                   | Editor UI, field editors, annotations, client mode                         |
+| [`@payload-onpage/core`](packages/core)                     | Framework-free logic and the port interfaces                               |
+| [`@payload-onpage/lexical`](packages/lexical)               | Inline rich-text editing for Payload's Lexical JSON                        |
 
 ## Contributing
 

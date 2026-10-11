@@ -22,7 +22,10 @@
       "@payload-onpage/next": ["./packages/next/src/index.tsx"],
       "@payload-onpage/next/client": ["./packages/next/src/client.tsx"],
       "@payload-onpage/next/session": ["./packages/next/src/session.ts"],
-      "@payload-onpage/next/proxy": ["./packages/next/src/proxy.ts"]
+      "@payload-onpage/next/proxy": ["./packages/next/src/proxy.ts"],
+      "@payload-onpage/tanstack-start": ["./packages/tanstack-start/src/index.tsx"],
+      "@payload-onpage/tanstack-start/client": ["./packages/tanstack-start/src/client.tsx"],
+      "@payload-onpage/tanstack-start/session": ["./packages/tanstack-start/src/session.server.ts"]
     }
   },
   "include": ["packages/*/src", "e2e", "vitest.config.ts", "vitest.setup.ts"]

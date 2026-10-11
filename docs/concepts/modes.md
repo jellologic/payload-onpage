@@ -6,8 +6,8 @@
 | **Preview**    | Signed-in editors    | Draft without tools, plus device widths                  | The dock's **Preview**                                    |
 | **Share link** | Anyone with the link | Draft of **one page**, read-only, until the link expires | A preview link (`/api/onpage/preview?token=…`)            |
 
-- Edit and preview turn on Next draft mode site-wide for that editor. The mode cookie is bound to their auth cookie, so signing out or switching user ends it. It lasts 12 hours by default (`nextSession({ maxAge })`).
-- Share links never give the browser Next's draft secret. The proxy injects draft mode for the shared path only, until the sealed grant expires. See [security](security.md).
+- Edit and preview turn on draft reads site-wide for that editor (Next draft mode on Next.js; the session's mode cookie on Start). The mode cookie is bound to their auth cookie, so signing out or switching user ends it. It lasts 12 hours by default (`nextSession({ maxAge })` / `tanstackSession({ maxAge })`).
+- Share links never give the browser a draft credential. The grant opens the shared path only — via the proxy on Next.js, via per-read verification on Start — until it expires. See [security](security.md).
 - **Exit** clears everything (`POST /api/onpage/exit`).
 
 ![Previewing a draft at phone and tablet widths, then returning to editing](../media/preview.gif)

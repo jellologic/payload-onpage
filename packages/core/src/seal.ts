@@ -13,7 +13,6 @@ const keys = new Map<string, Promise<CryptoKey>>()
 export const SEAL_PURPOSE = {
   previewLink: 'payload-onpage:preview-link:v1',
   previewCookie: 'payload-onpage:preview-cookie:v1',
-  editBinding: 'payload-onpage:edit-binding:v1',
 } as const
 
 function key(secret: string, purpose: string): Promise<CryptoKey> {
@@ -102,9 +101,8 @@ export async function sha256(input: string): Promise<string> {
 }
 
 /**
- * The sealed `onpage_preview` cookie a share link sets: which page it opens,
- * until when, and Next's draft secret to inject for that page only. Written by
- * the plugin, read by the Next proxy.
+ * The sealed `onpage_preview` cookie a share link sets: which page it opens
+ * and until when. Written by the plugin, read by the framework adapter.
  */
 export interface PreviewGrant {
   /** The page's pathname. */
@@ -113,7 +111,7 @@ export interface PreviewGrant {
   ref: string
   /** Expiry, seconds since the epoch. */
   exp: number
-  /** Next's draft-mode secret. */
+  /** The draft credential for that page (adapter-specific: Next's draft-mode secret on Next.js, a constant marker where reads verify the grant directly). */
   draft: string
 }
 

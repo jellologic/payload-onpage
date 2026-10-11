@@ -150,5 +150,12 @@ describe('http helpers', () => {
         headers: new Headers({ 'sec-fetch-site': 'cross-site' }),
       })?.status,
     ).toBe(403)
+    expect(
+      rejectCrossSite({
+        ...r,
+        headers: new Headers({ 'sec-fetch-site': 'none' }),
+      })?.status,
+    ).toBe(403)
+    expect(rejectCrossSite({ ...r, headers: new Headers() })?.status).toBe(403)
   })
 })

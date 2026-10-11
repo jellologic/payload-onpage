@@ -1,18 +1,19 @@
 # payload-onpage
 
-> On-page editing and draft previews for Payload CMS 3 + Next.js (App Router). Editors click text, images and sections on the live page and edit them in place. Changes autosave as Payload drafts through Payload's REST API, so access control, hooks, validation, drafts and versions apply. Signed, expiring, page-scoped share links preview drafts for anyone. Visitors pay about 0.3 KB.
+> On-page editing and draft previews for Payload CMS on Next.js (App Router) and TanStack Start. Editors click text, images and sections on the live page and edit them in place. Changes autosave as Payload drafts through Payload's REST API, so access control, hooks, validation, drafts and versions apply. Signed, expiring, page-scoped share links preview drafts for anyone. Visitors pay about 0.3 KB.
 
-Packages: `@payload-onpage/plugin` (Payload plugin), `@payload-onpage/next` (Next adapter: `<OnPage />`, `onpageContext()`, `isDraftEnabled()`, proxy), `@payload-onpage/react` (editor UI, annotations, client mode), `@payload-onpage/core` (framework-free ports and logic), `@payload-onpage/lexical` (rich text).
+Packages: `@payload-onpage/plugin` (Payload plugin), `@payload-onpage/next` (Next adapter: `<OnPage />`, `onpageContext()`, `isDraftEnabled()`, proxy), `@payload-onpage/tanstack-start` (Start adapter: `<OnPage />`, `onpageContext()`, `isDraftEnabled()`, no proxy), `@payload-onpage/react` (editor UI, annotations, client mode), `@payload-onpage/core` (framework-free ports and logic), `@payload-onpage/lexical` (rich text).
 
-Integration in four edits:
-1. `onpage({ collections, globals, session: nextSession() })` in payload.config.ts
+Integration in four edits (Next.js; Start differs only in the adapter import and has no proxy step):
+1. `onpage({ collections, globals, session: nextSession() })` in payload.config.ts (`tanstackSession({ secret })` on Start)
 2. `<Suspense><OnPage /></Suspense>` in the frontend root layout
 3. `...(await onpageContext())` in draft reads that feed pages, plus `isDraftEnabled()` for draft checks
-4. `proxy.ts`: `export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })`
+4. `proxy.ts`: `export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })` (Next.js only)
 
 ## Docs
 
-- [Getting started](https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started.md): install and wire into an existing site, with checks and an agent prompt
+- [Getting started](https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started.md): install and wire into a Next.js site, with checks and an agent prompt
+- [Getting started with TanStack Start](https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started-tanstack.md): install and wire into a Start site, with checks and an agent prompt
 - [Architecture](https://github.com/jellologic/payload-onpage/blob/main/docs/concepts/architecture.md): packages, ports, request flow
 - [Auto-mapping](https://github.com/jellologic/payload-onpage/blob/main/docs/concepts/auto-mapping.md): invisible field markers and their caveats
 - [Modes](https://github.com/jellologic/payload-onpage/blob/main/docs/concepts/modes.md): edit, preview, share links; refresh vs client rendering
@@ -31,7 +32,8 @@ Integration in four edits:
 
 ## Examples
 
-- [examples/basic](https://github.com/jellologic/payload-onpage/tree/main/examples/basic): the reference integration (SQLite, seeds itself)
+- [examples/basic](https://github.com/jellologic/payload-onpage/tree/main/examples/basic): the reference Next.js integration (SQLite, seeds itself)
+- [examples/tanstack](https://github.com/jellologic/payload-onpage/tree/main/examples/tanstack): the TanStack Start integration (Payload 4 beta)
 
 ## Optional
 

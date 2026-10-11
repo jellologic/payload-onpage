@@ -1,6 +1,9 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 
+/** Which example this run targets (mirrors playwright.config.ts): `basic` (Next.js) or `tanstack`. */
+const isTanstack = process.env.ONPAGE_EXAMPLE === 'tanstack'
+
 const clean = (s: string | null) => (s ?? '').replace(/[\u200b-\u200d\u2060-\u2064]/g, '')
 
 /** Sign in (the example auto-logs in on /admin) and open a page in edit mode via the admin button. */
@@ -10,9 +13,25 @@ async function editPage(
 ): Promise<Page> {
   const admin = await context.newPage()
   await admin.goto(collectionPath)
-  const button = admin.getByTestId('onpage-edit-on-page')
+  const button = admin.getByTestId('onpage-edit-on-page').first()
   await button.waitFor()
-  const [page] = await Promise.all([context.waitForEvent('page'), button.click()])
+  // The admin hydrates after first paint; a pre-hydration click is a silent
+  // no-op, so retry until the edit tab opens.
+  let page: Page | null = null
+  for (let attempt = 0; attempt < 10 && !page; attempt++) {
+    const [opened] = await Promise.all([
+      context
+        .waitForEvent('page', { timeout: 3000 })
+        .then((p) => p)
+        .catch(() => null),
+      button.click().then(
+        () => true,
+        () => false,
+      ),
+    ])
+    page = opened
+  }
+  if (!page) throw new Error('edit tab did not open')
   await page.waitForLoadState('load')
   await admin.close()
   await expect(page.getByTestId('onpage-status')).toHaveText(/Editing draft|Draft saved/)
@@ -84,6 +103,39 @@ test('value editors: select, date, relationship, color', async ({ context }) => 
   await expect
     .poll(() => page.locator('main').evaluate((el) => el.style.getPropertyValue('--accent')))
     .toBe('#0ea5e9')
+})
+
+test('schema hides fields the user may not update', async ({ browser }) => {
+  const schemaAs = async (email: string | null) => {
+    // A fresh context per user (no shared cookie jar). Header auth resolves
+    // the user deterministically; the anonymous case disables dev autoLogin,
+    // which would otherwise authenticate the request as the seeded admin.
+    const ctx = await browser.newContext()
+    try {
+      const headers: Record<string, string> = { DisableAutologin: 'true' }
+      if (email) {
+        const login = await ctx.request.post('/api/users/login', {
+          data: { email, password: 'test' },
+        })
+        expect(login.ok()).toBe(true)
+        headers.authorization = `JWT ${((await login.json()) as { token: string }).token}`
+      }
+      const res = await ctx.request.get('/api/onpage/schema/collection/pages', { headers })
+      const editable = res.ok() ? ((await res.json()) as { editable: string[] }).editable : []
+      return { status: res.status(), editable }
+    } finally {
+      await ctx.close()
+    }
+  }
+  const admin = await schemaAs('dev@example.com')
+  expect(admin.status).toBe(200)
+  expect(admin.editable).toContain('title')
+  expect(admin.editable).toContain('internalNote')
+  const editor = await schemaAs('editor@example.com')
+  expect(editor.status).toBe(200)
+  expect(editor.editable).toContain('title')
+  expect(editor.editable).not.toContain('internalNote')
+  expect((await schemaAs(null)).status).toBe(403)
 })
 
 test('rich text', async ({ context }) => {
@@ -173,10 +225,21 @@ test('share links: draft on the shared page only, no draft credential in the bro
   await expect(viewer.getByTestId('onpage-preview-toolbar')).toContainText('Shared preview')
   await expect(viewer.locator('h1').first()).toContainText('E2E ') // the draft
   const cookies = await anon.cookies()
-  expect(cookies.map((c) => c.name)).toEqual(['onpage_preview'])
+  // TanStack Start also sets a non-credential hint so the mount can skip its
+  // state fetch for visitors; it grants nothing by itself.
+  expect(cookies.map((c) => c.name).sort()).toEqual(
+    isTanstack ? ['onpage_hint', 'onpage_preview'] : ['onpage_preview'],
+  )
 
   // Another page stays published, even with a forged draft cookie.
-  await anon.addCookies([{ name: '__prerender_bypass', value: 'forged', url: viewer.url() }])
+  await anon.addCookies(
+    isTanstack
+      ? [
+          { name: 'onpage', value: 'forged', url: viewer.url() },
+          { name: 'onpage_preview', value: 'forged', url: viewer.url() },
+        ]
+      : [{ name: '__prerender_bypass', value: 'forged', url: viewer.url() }],
+  )
   await viewer.goto('/about')
   await expect(viewer.getByTestId('onpage-preview-toolbar')).toHaveCount(0)
 

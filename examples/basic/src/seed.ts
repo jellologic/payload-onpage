@@ -26,7 +26,11 @@ export async function seed(payload: Payload) {
 
   const user = await payload.create({
     collection: 'users',
-    data: { email: 'dev@example.com', password: 'test', name: 'Dev Editor' },
+    data: { email: 'dev@example.com', password: 'test', name: 'Dev Editor', role: 'admin' },
+  })
+  await payload.create({
+    collection: 'users',
+    data: { email: 'editor@example.com', password: 'test', name: 'Edith Editor', role: 'editor' },
   })
   const hero = await payload.create({
     collection: 'media',

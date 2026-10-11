@@ -7,5 +7,5 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["payload-onpage-example-basic"]
+  "ignore": ["payload-onpage-example-basic", "payload-onpage-example-tanstack"]
 }

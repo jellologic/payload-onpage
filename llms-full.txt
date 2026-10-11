@@ -9,7 +9,7 @@ Generated from the repository docs by scripts/llms-full.mjs. Source: https://git
 
 [![CI](https://github.com/jellologic/payload-onpage/actions/workflows/ci.yml/badge.svg)](https://github.com/jellologic/payload-onpage/actions/workflows/ci.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**On-page editing and draft previews for Payload CMS 3 + Next.js (App Router).** Editors click the text, images and sections they see on the live page and change them in place. Edits autosave as Payload drafts through Payload's own REST API, so access control, hooks, validation, drafts and versions behave exactly as in the admin. Anyone can preview a draft from a signed, expiring link that opens one page only.
+**On-page editing and draft previews for Payload CMS, on Next.js (App Router) and TanStack Start.** Editors click the text, images and sections they see on the live page and change them in place. Edits autosave as Payload drafts through Payload's own REST API, so access control, hooks, validation, drafts and versions behave exactly as in the admin. Anyone can preview a draft from a signed, expiring link that opens one page only.
 
 - **Drop-in:** four edits to an existing site, and no component changes. Text maps to its fields automatically.
 - **Any collection or global**, and several documents on one page with one undo history.
@@ -74,7 +74,7 @@ const page = await payload.find({ collection: 'pages', where, draft, ...(await o
 export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })
 ```
 
-The full walkthrough, with checks after every step and a prompt for coding agents, is in **[Getting started](docs/getting-started.md)**.
+The full walkthrough, with checks after every step and a prompt for coding agents, is in **[Getting started](docs/getting-started.md)** (Next.js) or **[Getting started with TanStack Start](docs/getting-started-tanstack.md)**. Version requirements per framework are in **[Compatibility](docs/compatibility.md)**.
 
 ## Documentation
 
@@ -89,13 +89,14 @@ The full walkthrough, with checks after every step and a prompt for coding agent
 
 ## Packages
 
-| Package                                       |                                                                  |
-| --------------------------------------------- | ---------------------------------------------------------------- |
-| [`@payload-onpage/plugin`](packages/plugin)   | Payload plugin: endpoints, access, schema, hooks, admin controls |
-| [`@payload-onpage/next`](packages/next)       | Next.js adapter: `<OnPage />`, session, refresh renderer, proxy  |
-| [`@payload-onpage/react`](packages/react)     | Editor UI, field editors, annotations, client mode               |
-| [`@payload-onpage/core`](packages/core)       | Framework-free logic and the port interfaces                     |
-| [`@payload-onpage/lexical`](packages/lexical) | Inline rich-text editing for Payload's Lexical JSON              |
+| Package                                                     |                                                                            |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| [`@payload-onpage/plugin`](packages/plugin)                 | Payload plugin: endpoints, access, schema, hooks, admin controls           |
+| [`@payload-onpage/next`](packages/next)                     | Next.js adapter: `<OnPage />`, session, refresh renderer, proxy            |
+| [`@payload-onpage/tanstack-start`](packages/tanstack-start) | TanStack Start adapter: `<OnPage />`, session, refresh renderer (no proxy) |
+| [`@payload-onpage/react`](packages/react)                   | Editor UI, field editors, annotations, client mode                         |
+| [`@payload-onpage/core`](packages/core)                     | Framework-free logic and the port interfaces                               |
+| [`@payload-onpage/lexical`](packages/lexical)               | Inline rich-text editing for Payload's Lexical JSON                        |
 
 ## Contributing
 
@@ -111,6 +112,8 @@ MIT
 # Getting started
 
 Add on-page editing and shareable draft previews to an existing **Payload 3 + Next.js App Router** site. Nothing changes for visitors: no extra markup, about 0.3 KB of JavaScript.
+
+> On Payload 4 + TanStack Start? Follow [Getting started with TanStack Start](getting-started-tanstack.md) instead.
 
 > **For coding agents:** follow these steps in order. Each names the file to edit and ends with a check. The canonical working setup is [`examples/basic`](../examples/basic); its file paths are cited below.
 
@@ -234,19 +237,127 @@ curl -s https://your-site.test/ | grep -c 'data-onpage'   # → 0
 > Add payload-onpage to this Payload + Next.js site following https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started.md. Enable it for the collections that render pages (with drafts on) and for any globals shown on every page. Mount `<OnPage />` in the frontend root layout inside Suspense, spread `onpageContext()` into every draft read that feeds a page, switch draft checks to `isDraftEnabled()`, and add the proxy (merge into an existing middleware if there is one). Then verify: the admin shows "Edit on page"; clicking it lets you edit text; `curl` of a public page contains no `data-onpage`.
 
 
+<!-- docs/getting-started-tanstack.md -->
+
+# Getting started with TanStack Start
+
+Add on-page editing and shareable draft previews to an existing **Payload 4 + TanStack Start** site. Nothing changes for visitors: no extra markup, about 0.3 KB of JavaScript.
+
+> **For coding agents:** follow these steps in order. Each names the file to edit and ends with a check. The canonical working setup is [`examples/tanstack`](../examples/tanstack); its file paths are cited below.
+>
+> **Payload 4 is in beta.** Pin the versions in [compatibility](compatibility.md) until Payload 4 goes stable. On Payload 3 + Next.js, follow [Getting started](getting-started.md) instead — the editor UI is identical; only the adapter differs.
+
+## 1. Install
+
+```bash
+npm i @payload-onpage/plugin @payload-onpage/tanstack-start @payload-onpage/react @payload-onpage/core @payload-onpage/lexical
+```
+
+Lexical is a peer dependency. Sites using `@payloadcms/richtext-lexical` already have it, at the same version.
+
+## 2. Register the plugin
+
+`payload.config.ts` ([example](../examples/tanstack/src/payload.config.ts)):
+
+```ts
+import { onpage } from '@payload-onpage/plugin'
+import { tanstackSession } from '@payload-onpage/tanstack-start/session' // the /session entry has no client code
+
+export default buildConfig({
+  // …
+  serverURL: process.env.SERVER_URL, // required in production (redirects, preview links, Secure cookies)
+  plugins: [
+    onpage({
+      collections: ['pages'], // or { pages: { fields: ['title', 'layout'], url: ({ doc }) => `/${doc.slug}` } }
+      globals: ['header'],
+      session: tanstackSession({ secret: process.env.PAYLOAD_SECRET }),
+    }),
+  ],
+})
+```
+
+Collections must have **drafts** enabled (`versions: { drafts: true }`), so edits save as drafts until published. The page URL comes from the `url` option, then the collection's `admin.preview`, then `/<slug>`.
+
+Unlike Next, the secret goes on the session, not on a proxy: Start request middleware cannot rewrite the request, so reads verify the sealed preview grant directly (unseal + path + expiry) instead of injecting a draft cookie. Without the secret, shared preview links fail closed and show published content.
+
+**Check:** open a document in the admin. **Edit on page** and **Copy preview link** appear beside the document controls.
+
+## 3. Mount the editor
+
+The frontend layout route ([example](../examples/tanstack/src/app/_frontend.tsx)):
+
+```tsx
+import { OnPage } from '@payload-onpage/tanstack-start'
+
+function FrontendLayout() {
+  return (
+    <>
+      {/* … */}
+      <OnPage />
+    </>
+  )
+}
+```
+
+`<OnPage />` renders nothing unless an editor turned on edit or preview mode. Visitors issue no extra requests: without a hint cookie the mount does nothing at all.
+
+## 4. Read drafts with markers
+
+Wherever a server function or loader reads Payload ([example](../examples/tanstack/src/functions/frontend.functions.ts)):
+
+```ts
+import { isDraftEnabled, onpageContext } from '@payload-onpage/tanstack-start/session'
+
+const draft = await isDraftEnabled()
+const { docs } = await payload.find({
+  collection: 'pages',
+  where: { slug: { equals: slug } },
+  draft,
+  ...(await onpageContext()), // in edit mode: invisible field markers (auto-mapping)
+})
+```
+
+Use `isDraftEnabled()` for draft checks: it also ends draft access for editors who signed out, and it honors preview-link grants on the shared page only.
+
+**Check:** click **Edit on page**. The page opens with a dock at the bottom; click any heading or paragraph to edit it.
+
+## 5. Preview links need no proxy
+
+There is no middleware step. **Share** in the dock copies a signed, expiring link; whoever opens it sees the draft of that one page, read-only. The grant is a sealed cookie the browser can't mint or move to another path, and page reads re-verify it on every request.
+
+**Check:** copy a preview link in the admin and open it in a private window. The draft shows with a "Shared preview" bar; other pages show published content.
+
+## 6. Verify nothing leaks to visitors
+
+```bash
+curl -s https://your-site.test/ | grep -c 'data-onpage'   # → 0
+```
+
+## Next
+
+- Make images, rows and non-text fields clickable: [annotations](guides/annotations.md).
+- Instant updates while typing: [client mode](guides/client-mode.md).
+- Production hardening: [security](concepts/security.md).
+
+## Prompt for your coding agent
+
+> Add payload-onpage to this Payload 4 + TanStack Start site following https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started-tanstack.md. Enable it for the collections that render pages (with drafts on) and for any globals shown on every page. Mount `<OnPage />` in the frontend layout route, spread `onpageContext()` into every draft read that feeds a page, switch draft checks to `isDraftEnabled()`, and pass the Payload secret to `tanstackSession()` (there is no proxy step on Start). Then verify: the admin shows "Edit on page"; clicking it lets you edit text; `curl` of a public page contains no `data-onpage`.
+
+
 <!-- docs/concepts/architecture.md -->
 
 # Architecture
 
 ## Packages
 
-| Package                   | Runs on        | Depends on           | Responsibility                                                                                                                                           |
-| ------------------------- | -------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@payload-onpage/core`    | anywhere       | nothing              | Document refs, paths, field ops, the editor session, autosave, markers, sealing, **port interfaces**. `core/payload`: the default Payload REST adapters. |
-| `@payload-onpage/plugin`  | Payload server | core, payload        | Endpoints, access, schema, marker hooks, stale-write guard, admin controls.                                                                              |
-| `@payload-onpage/react`   | browser        | core, react          | Editor UI, field editors, locators, annotations, client mode. `react/editor-kit`: building blocks for custom editors.                                    |
-| `@payload-onpage/lexical` | browser        | core, react, lexical | Rich-text field editor (loaded lazily).                                                                                                                  |
-| `@payload-onpage/next`    | Next.js        | core, react, lexical | Session adapter, `<OnPage />`, `onpageContext()`, refresh renderer, proxy.                                                                               |
+| Package                          | Runs on        | Depends on           | Responsibility                                                                                                                                           |
+| -------------------------------- | -------------- | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@payload-onpage/core`           | anywhere       | nothing              | Document refs, paths, field ops, the editor session, autosave, markers, sealing, **port interfaces**. `core/payload`: the default Payload REST adapters. |
+| `@payload-onpage/plugin`         | Payload server | core, payload        | Endpoints, access, schema, marker hooks, stale-write guard, admin controls.                                                                              |
+| `@payload-onpage/react`          | browser        | core, react          | Editor UI, field editors, locators, annotations, client mode. `react/editor-kit`: building blocks for custom editors.                                    |
+| `@payload-onpage/lexical`        | browser        | core, react, lexical | Rich-text field editor (loaded lazily).                                                                                                                  |
+| `@payload-onpage/next`           | Next.js        | core, react, lexical | Session adapter, `<OnPage />`, `onpageContext()`, refresh renderer, proxy.                                                                               |
+| `@payload-onpage/tanstack-start` | TanStack Start | core, react, lexical | Session adapter, `<OnPage />`, `onpageContext()`, refresh renderer. No proxy: reads verify the sealed grant directly.                                    |
 
 Package boundaries are enforced by lint (`no-restricted-imports`): core imports no framework, react imports no Next or Payload, and so on.
 
@@ -340,8 +451,8 @@ onpage({
 | **Preview**    | Signed-in editors    | Draft without tools, plus device widths                  | The dock's **Preview**                                    |
 | **Share link** | Anyone with the link | Draft of **one page**, read-only, until the link expires | A preview link (`/api/onpage/preview?token=…`)            |
 
-- Edit and preview turn on Next draft mode site-wide for that editor. The mode cookie is bound to their auth cookie, so signing out or switching user ends it. It lasts 12 hours by default (`nextSession({ maxAge })`).
-- Share links never give the browser Next's draft secret. The proxy injects draft mode for the shared path only, until the sealed grant expires. See [security](security.md).
+- Edit and preview turn on draft reads site-wide for that editor (Next draft mode on Next.js; the session's mode cookie on Start). The mode cookie is bound to their auth cookie, so signing out or switching user ends it. It lasts 12 hours by default (`nextSession({ maxAge })` / `tanstackSession({ maxAge })`).
+- Share links never give the browser a draft credential. The grant opens the shared path only — via the proxy on Next.js, via per-read verification on Start — until it expires. See [security](security.md).
 - **Exit** clears everything (`POST /api/onpage/exit`).
 
 ![Previewing a draft at phone and tablet widths, then returning to editing](../media/preview.gif)
@@ -397,19 +508,23 @@ Fields the user can't update are left out of the editor schema (field-level acce
 
 - **Token:** AES-256-GCM, sealed with a key derived (HKDF) from `PAYLOAD_SECRET` or the `secret` option, holding `{ ref, path, locale, iat, exp, jti }`. It's opaque to the holder. Default lifetime is 1 day (`previewLinkTTL`).
 - **Bound:** the path is computed on the server. On open, the link must still match the document's page (a moved or deleted document invalidates it).
-- **Revocation:** `validatePreviewLink({ req, ref, path, issuedAt, id })` lets you deny by `jti` or issue time. Rotating the secret revokes every link.
-- **Opening a link** stores only a sealed grant cookie. The proxy unseals it per request and injects Next's draft cookie into the forwarded request on the shared path only. Copying cookies to other paths, or forging Next's draft cookie, gets nothing.
-- **The proxy is required** for share links. Without it, links fail closed: viewers see published content.
+- **Revocation:** `validatePreviewLink({ req, ref, path, issuedAt, id })` lets you deny by `jti` or issue time. Rotating the secret revokes every link. There is no built-in throttle on minting links — put token-minting and state-changing endpoints behind infrastructure rate limiting.
+- **Known limit:** the path check happens when the link opens. If a document moves to another path in the same instant a viewer opens an old link, the grant (which binds the path, not the document) could show the new occupant's draft. The window is milliseconds and needs an editor-timed move; binding page reads to the grant's document id was considered and rejected — reads don't know which document the page is rendering.
+- **Opening a link** stores only a sealed grant cookie. On Next.js, the proxy unseals it per request and injects Next's draft cookie into the forwarded request on the shared path only; on TanStack Start there is no proxy — page reads unseal the grant and check path + expiry themselves. Either way, copying cookies to other paths, or forging a draft credential, gets nothing.
+- **The proxy is required** for share links on Next.js. Without it, links fail closed: viewers see published content. (On Start, the session's `secret` plays the same role: without it, grants never validate.)
 
 ## Cookies
 
-| Cookie               | Holder                 | Flags                                                                                                   |
-| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------- |
-| `onpage`             | Editors                | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>` (bound to the session). |
-| `onpage_preview`     | Share-link viewers     | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                 |
-| `__prerender_bypass` | Editors only (Next.js) | Next's own. Never given to share-link viewers.                                                          |
+| Cookie               | Holder                   | Flags                                                                                                   |
+| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `onpage`             | Editors                  | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>` (bound to the session). |
+| `onpage_preview`     | Share-link viewers       | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                 |
+| `onpage_hint`        | Editors, viewers (Start) | Readable by the mount, trusted by nothing. Lets visitors skip the state lookup entirely.                |
+| `__prerender_bypass` | Editors only (Next.js)   | Next's own. Never given to share-link viewers.                                                          |
 
 Set `serverURL` in production. It's used for redirects, link URLs and the Secure flag; the plugin warns at startup when it's missing.
+
+Payload's dev `autoLogin` also authenticates API requests (as the seeded user) — convenient for the examples, never for production. Test anonymous behavior with `DisableAutologin: true` (see the schema e2e test).
 
 ## Reporting
 
@@ -779,37 +894,45 @@ Field and block labels come from your Payload config, translated with Payload's 
 
 # Troubleshooting
 
-| Symptom                                                                                    | Cause                                                                                                                    | Fix                                                                                                                                    |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
-| No **Edit on page** button in the admin                                                    | Plugin not registered, the collection isn't listed, or the user can't update the document                                | Check `onpage({ collections })`; the button hides without update permission. Regenerate the import map (`payload generate:importmap`). |
-| "Edit on page" opens the page but there's no dock                                          | `<OnPage />` not mounted, or not inside the frontend layout                                                              | Mount it in the frontend root layout ([getting started](getting-started.md#3-mount-the-editor)).                                       |
-| Dock shows "Nothing editable on this page"                                                 | Reads don't pass `onpageContext()`, and nothing is annotated                                                             | Spread `...(await onpageContext())` into the draft reads that feed the page.                                                           |
-| Text isn't clickable but other text is                                                     | The string is transformed before rendering (sliced, formatted, uppercased in JS), or it's a machine-named field          | Render the raw value, or annotate the element (`e.field(path)`). See [auto-mapping caveats](concepts/auto-mapping.md#caveats).         |
-| A comparison like `title === 'Home'` fails in edit mode                                    | Markers are appended to strings                                                                                          | Compare `stegaClean(title)`.                                                                                                           |
-| Share link shows published content                                                         | No proxy, a different secret in the proxy, or the matcher excludes the page                                              | Add `createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })` with the same secret as Payload; check `config.matcher`.               |
-| Redirects or links point to the wrong host                                                 | `serverURL` unset behind a proxy                                                                                         | Set `serverURL` in the Payload config.                                                                                                 |
-| "Changed by someone else"                                                                  | Another editor (or the admin) saved the document after you loaded it                                                     | **Reload latest** (your unsaved edits are dropped) or **Discard**.                                                                     |
-| Editing ends after signing out in another tab                                              | By design: edit mode is bound to the auth cookie                                                                         | Sign in again and press **Edit on page**.                                                                                              |
-| Two Lexical copies / rich-text errors                                                      | Lexical version differs from Payload's                                                                                   | Install the Lexical version Payload's `@payloadcms/richtext-lexical` uses (`~0.50.0` for Payload 3.90).                                |
-| The editor never appears; the console shows "useOnPage must be used inside <OnPageEditor>" | Two copies of `@payload-onpage/react` installed                                                                          | Dedupe (`npm ls @payload-onpage/react`). The hub is shared across copies, but contexts aren't.                                         |
-| 403 "Cross-site request refused" from enter/exit                                           | A link or form posts from another origin                                                                                 | Use the built-in buttons; enter/mode/exit accept same-origin POSTs only.                                                               |
-| Next 15 build: `Cannot find module 'libsql'` (SQLite adapter)                              | Next 15 treats `libsql` as an external server package; with nested installs (Bun, pnpm) it isn't resolvable from the app | Add `libsql` as a direct dependency of the app (the example does).                                                                     |
+| Symptom                                                                                    | Cause                                                                                                                    | Fix                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No **Edit on page** button in the admin                                                    | Plugin not registered, the collection isn't listed, or the user can't update the document                                | Check `onpage({ collections })`; the button hides without update permission. Regenerate the import map (`payload generate:importmap`).               |
+| "Edit on page" opens the page but there's no dock                                          | `<OnPage />` not mounted, or not inside the frontend layout                                                              | Mount it in the frontend root layout ([getting started](getting-started.md#3-mount-the-editor)).                                                     |
+| Dock shows "Nothing editable on this page"                                                 | Reads don't pass `onpageContext()`, and nothing is annotated                                                             | Spread `...(await onpageContext())` into the draft reads that feed the page.                                                                         |
+| The dock covers your site's own fixed bottom bar (cart, cookie banner)                     | The dock sits 16px from the bottom by default                                                                            | Raise it with the `--po-dock-bottom` CSS variable, e.g. `html:has(.cart-bar) { --po-dock-bottom: 88px }`. The preview toolbar and notices follow it. |
+| Text isn't clickable but other text is                                                     | The string is transformed before rendering (sliced, formatted, uppercased in JS), or it's a machine-named field          | Render the raw value, or annotate the element (`e.field(path)`). See [auto-mapping caveats](concepts/auto-mapping.md#caveats).                       |
+| A comparison like `title === 'Home'` fails in edit mode                                    | Markers are appended to strings                                                                                          | Compare `stegaClean(title)`.                                                                                                                         |
+| Share link shows published content                                                         | No proxy, a different secret in the proxy, or the matcher excludes the page                                              | Add `createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })` with the same secret as Payload; check `config.matcher`.                             |
+| Redirects or links point to the wrong host                                                 | `serverURL` unset behind a proxy                                                                                         | Set `serverURL` in the Payload config.                                                                                                               |
+| "Changed by someone else"                                                                  | Another editor (or the admin) saved the document after you loaded it                                                     | **Reload latest** (your unsaved edits are dropped) or **Discard**.                                                                                   |
+| Editing ends after signing out in another tab                                              | By design: edit mode is bound to the auth cookie                                                                         | Sign in again and press **Edit on page**.                                                                                                            |
+| Two Lexical copies / rich-text errors                                                      | Lexical version differs from Payload's                                                                                   | Install the Lexical version Payload's `@payloadcms/richtext-lexical` uses (`~0.50.0` for Payload 3.90).                                              |
+| The editor never appears; the console shows "useOnPage must be used inside <OnPageEditor>" | Two copies of `@payload-onpage/react` installed                                                                          | Dedupe (`npm ls @payload-onpage/react`). The hub is shared across copies, but contexts aren't.                                                       |
+| 403 "Cross-site request refused" from enter/exit                                           | A link or form posts from another origin                                                                                 | Use the built-in buttons; enter/mode/exit accept same-origin POSTs only.                                                                             |
+| Next 15 build: `Cannot find module 'libsql'` (SQLite adapter)                              | Next 15 treats `libsql` as an external server package; with nested installs (Bun, pnpm) it isn't resolvable from the app | Add `libsql` as a direct dependency of the app (the example does).                                                                                   |
 
 
 <!-- docs/compatibility.md -->
 
 # Compatibility
 
-|                      | Supported                                                           | Tested in CI                             |
-| -------------------- | ------------------------------------------------------------------- | ---------------------------------------- |
-| Payload              | `^3.90.2` (earlier 3.x releases have published security advisories) | 3.90                                     |
-| Next.js (App Router) | `^15.4.11 \|\| ^16.3.8` (patched releases within Payload's range)   | 15.4, 16.4                               |
-| React                | `^19.0.0`                                                           | 19.2, and the React bundled with Next 15 |
-| Node.js              | `>=20.9`                                                            | 20, 22, 24                               |
-| Lexical              | `~0.50.0` (matches Payload 3.90's `@payloadcms/richtext-lexical`)   | 0.50                                     |
-| Databases            | Any Payload adapter: the plugin uses Payload's API only             | SQLite (tests, example)                  |
+|                      | Supported                                                                                      | Tested in CI                             |
+| -------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Payload (Next.js)    | `^3.90.2` (earlier 3.x releases have published security advisories)                            | 3.90                                     |
+| Payload (Start)      | `4.0.0-beta.0` (beta: pin it; TanStack support needs Payload 4's `@payloadcms/tanstack-start`) | 4.0.0-beta.0                             |
+| Next.js (App Router) | `^15.4.11 \|\| ^16.3.8` (patched releases within Payload's range)                              | 15.4, 16.4                               |
+| TanStack Start       | `@tanstack/react-start` `1.168.60` + `@tanstack/react-router` `1.170.41` (beta-era pins)       | 1.168.60 / 1.170.41 (+ example build)    |
+| React                | `^19.0.0`                                                                                      | 19.2, and the React bundled with Next 15 |
+| Node.js              | `>=20.9`                                                                                       | 20, 22, 24                               |
+| Lexical (Next.js)    | `~0.50.0` (matches Payload 3.90's `@payloadcms/richtext-lexical`)                              | 0.50                                     |
+| Lexical (Start)      | `~0.52.0` (matches Payload 4 beta's `@payloadcms/richtext-lexical`)                            | 0.52                                     |
+| Databases            | Any Payload adapter: the plugin uses Payload's API only                                        | SQLite (tests, examples)                 |
+
+Both frameworks run the same e2e suite in CI (`basic` on Next.js, `tanstack` on Start).
 
 **Next 15 vs 16:** the proxy file is `middleware.ts` (export `middleware`) on 15 and `proxy.ts` (export `proxy`) on 16. Everything else is identical.
+
+**Start + Payload 3:** not supported. The Start adapter and its session read path target Payload 4.
 
 **Pages Router:** not supported. The session adapter and refresh renderer target the App Router. The ports allow other adapters.
 

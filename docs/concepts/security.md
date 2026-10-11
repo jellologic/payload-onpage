@@ -31,19 +31,23 @@ Fields the user can't update are left out of the editor schema (field-level acce
 
 - **Token:** AES-256-GCM, sealed with a key derived (HKDF) from `PAYLOAD_SECRET` or the `secret` option, holding `{ ref, path, locale, iat, exp, jti }`. It's opaque to the holder. Default lifetime is 1 day (`previewLinkTTL`).
 - **Bound:** the path is computed on the server. On open, the link must still match the document's page (a moved or deleted document invalidates it).
-- **Revocation:** `validatePreviewLink({ req, ref, path, issuedAt, id })` lets you deny by `jti` or issue time. Rotating the secret revokes every link.
-- **Opening a link** stores only a sealed grant cookie. The proxy unseals it per request and injects Next's draft cookie into the forwarded request on the shared path only. Copying cookies to other paths, or forging Next's draft cookie, gets nothing.
-- **The proxy is required** for share links. Without it, links fail closed: viewers see published content.
+- **Revocation:** `validatePreviewLink({ req, ref, path, issuedAt, id })` lets you deny by `jti` or issue time. Rotating the secret revokes every link. There is no built-in throttle on minting links — put token-minting and state-changing endpoints behind infrastructure rate limiting.
+- **Known limit:** the path check happens when the link opens. If a document moves to another path in the same instant a viewer opens an old link, the grant (which binds the path, not the document) could show the new occupant's draft. The window is milliseconds and needs an editor-timed move; binding page reads to the grant's document id was considered and rejected — reads don't know which document the page is rendering.
+- **Opening a link** stores only a sealed grant cookie. On Next.js, the proxy unseals it per request and injects Next's draft cookie into the forwarded request on the shared path only; on TanStack Start there is no proxy — page reads unseal the grant and check path + expiry themselves. Either way, copying cookies to other paths, or forging a draft credential, gets nothing.
+- **The proxy is required** for share links on Next.js. Without it, links fail closed: viewers see published content. (On Start, the session's `secret` plays the same role: without it, grants never validate.)
 
 ## Cookies
 
-| Cookie               | Holder                 | Flags                                                                                                   |
-| -------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------- |
-| `onpage`             | Editors                | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>` (bound to the session). |
-| `onpage_preview`     | Share-link viewers     | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                 |
-| `__prerender_bypass` | Editors only (Next.js) | Next's own. Never given to share-link viewers.                                                          |
+| Cookie               | Holder                   | Flags                                                                                                   |
+| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `onpage`             | Editors                  | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>` (bound to the session). |
+| `onpage_preview`     | Share-link viewers       | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                 |
+| `onpage_hint`        | Editors, viewers (Start) | Readable by the mount, trusted by nothing. Lets visitors skip the state lookup entirely.                |
+| `__prerender_bypass` | Editors only (Next.js)   | Next's own. Never given to share-link viewers.                                                          |
 
 Set `serverURL` in production. It's used for redirects, link URLs and the Secure flag; the plugin warns at startup when it's missing.
+
+Payload's dev `autoLogin` also authenticates API requests (as the seeded user) — convenient for the examples, never for production. Test anonymous behavior with `DisableAutologin: true` (see the schema e2e test).
 
 ## Reporting
 

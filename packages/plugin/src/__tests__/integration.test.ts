@@ -57,7 +57,12 @@ beforeAll(async () => {
         slug: 'users',
         auth: true,
         fields: [
-          { name: 'role', type: 'select', options: ['admin', 'editor'], defaultValue: 'editor' },
+          {
+            name: 'role',
+            type: 'select',
+            options: ['admin', 'editor', 'viewer'],
+            defaultValue: 'editor',
+          },
         ],
       },
       { slug: 'customers', auth: true, fields: [] },
@@ -71,7 +76,8 @@ beforeAll(async () => {
           update: ({ req }) =>
             isAdmin(req.user)
               ? true
-              : req.user?.collection === 'users'
+              : req.user?.collection === 'users' &&
+                  (req.user as { role?: string }).role === 'editor'
                 ? { author: { equals: req.user.id } }
                 : false,
           create: ({ req }) => !!req.user,
@@ -84,11 +90,36 @@ beforeAll(async () => {
           { name: 'price', type: 'number', access: { update: ({ req }) => isAdmin(req.user) } },
         ],
       },
+      {
+        slug: 'fragile',
+        access: {
+          read: () => true,
+          update: () => {
+            throw new Error('broken rule')
+          },
+        },
+        fields: [{ name: 'title', type: 'text' }],
+      },
+      {
+        slug: 'locked',
+        access: { read: () => true, update: () => false },
+        fields: [{ name: 'title', type: 'text' }],
+      },
     ],
     globals: [
-      { slug: 'header', access: { read: () => true }, fields: [{ name: 'tagline', type: 'text' }] },
+      {
+        slug: 'header',
+        access: {
+          read: () => true,
+          update: ({ req }) =>
+            req.user?.collection === 'users' && (req.user as { role?: string }).role !== 'viewer',
+        },
+        fields: [{ name: 'tagline', type: 'text' }],
+      },
     ],
-    plugins: [onpage({ collections: ['pages'], globals: ['header'], session })],
+    plugins: [
+      onpage({ collections: ['pages', 'fragile', 'locked'], globals: ['header'], session }),
+    ],
   })
   payload = await getPayload({ config })
   const admin = await payload.create({
@@ -98,6 +129,10 @@ beforeAll(async () => {
   const editor = await payload.create({
     collection: 'users',
     data: { email: 'editor@test.dev', password: 'correct-horse-battery', role: 'editor' },
+  })
+  await payload.create({
+    collection: 'users',
+    data: { email: 'viewer@test.dev', password: 'correct-horse-battery', role: 'viewer' },
   })
   await payload.create({
     collection: 'customers',
@@ -120,6 +155,7 @@ beforeAll(async () => {
   for (const [name, collection, email] of [
     ['admin', 'users', 'admin@test.dev'],
     ['editor', 'users', 'editor@test.dev'],
+    ['viewer', 'users', 'viewer@test.dev'],
     ['customer', 'customers', 'customer@test.dev'],
   ] as const) {
     const res = await payload.login({
@@ -134,7 +170,7 @@ beforeEach(() => {
   calls.length = 0
 })
 
-type As = 'admin' | 'editor' | 'customer' | null
+type As = 'admin' | 'editor' | 'viewer' | 'customer' | null
 function call(
   method: string,
   path: string,
@@ -178,6 +214,22 @@ describe('schema endpoint', () => {
     expect(admin.editable).toContain('price')
     expect((await call('GET', '/onpage/schema/global/header', { as: 'admin' })).status).toBe(200)
   })
+  it('denies the schema when update access is definitively false or throws', async () => {
+    // Row-level editors still get the schema (their rule needs a document to evaluate).
+    expect((await call('GET', '/onpage/schema/collection/pages', { as: 'editor' })).status).toBe(
+      200,
+    )
+    // Definitive denial: boolean false, and a rule that throws (fail closed, not unfiltered).
+    expect((await call('GET', '/onpage/schema/collection/pages', { as: 'viewer' })).status).toBe(
+      403,
+    )
+    expect((await call('GET', '/onpage/schema/collection/locked', { as: 'admin' })).status).toBe(
+      403,
+    )
+    expect((await call('GET', '/onpage/schema/collection/fragile', { as: 'admin' })).status).toBe(
+      403,
+    )
+  })
 })
 
 describe('enter / mode / exit', () => {
@@ -208,6 +260,25 @@ describe('enter / mode / exit', () => {
     )
     expect((await call('POST', '/onpage/mode?mode=edit&path=/')).status).toBe(401)
     expect(calls).toEqual([])
+  })
+  it('refuses mode to users who can edit nothing, keeps it for row-level editors', async () => {
+    expect((await call('POST', '/onpage/mode?mode=edit&path=/', { as: 'viewer' })).status).toBe(403)
+    expect(calls).toEqual([])
+    const editor = await call('POST', '/onpage/mode?mode=edit&path=/', { as: 'editor' })
+    expect(editor.status).toBe(303)
+    expect(calls).toEqual([
+      { fn: 'enable', args: { mode: 'edit', secure: false, bindTo: 'payload-token' } },
+    ])
+  })
+  it('answers anonymous callers uniformly, whatever the slug', async () => {
+    const bad = '/onpage/enter?kind=collection&slug=nope&id=1'
+    expect((await call('POST', bad)).status).toBe(401)
+    expect((await call('POST', bad, { as: 'customer' })).status).toBe(403)
+    expect((await call('POST', bad, { as: 'admin' })).status).toBe(400)
+    const body = { kind: 'collection', slug: 'nope', id: 1 }
+    expect((await call('POST', '/onpage/preview-link', { body })).status).toBe(403)
+    expect((await call('POST', '/onpage/preview-link', { as: 'customer', body })).status).toBe(403)
+    expect((await call('POST', '/onpage/preview-link', { as: 'admin', body })).status).toBe(400)
   })
   it('never redirects off-site', async () => {
     for (const bad of ['//evil.test', '/%09/evil.test', '/\t/evil.test', 'https://evil.test']) {
@@ -318,6 +389,14 @@ describe('writes', () => {
     expect(stale.status).toBe(409)
     // …and writes without the header (admin, API) are untouched.
     expect((await save(ids.adminPage, { body: 'api' })).status).toBe(200)
+  })
+
+  it('drops __proto__ keys from writes without breaking the save', async () => {
+    const res = await save(ids.adminPage, JSON.parse('{"body":"kept","__proto__":{"x":1}}'))
+    expect(res.status).toBe(200)
+    const stored = await payload.findByID({ collection: 'pages', id: ids.adminPage, draft: true })
+    expect(stored.body).toBe('kept')
+    expect(Object.getPrototypeOf(stored)).toBe(Object.prototype)
   })
 
   it('never stores markers, and only marks reads that ask for them', async () => {

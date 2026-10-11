@@ -1,6 +1,6 @@
 {
   "name": "@payload-onpage/plugin",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "payload-onpage for Payload CMS: on-page editing endpoints, auto-mapping, preview links and admin controls.",
   "license": "MIT",
   "type": "module",

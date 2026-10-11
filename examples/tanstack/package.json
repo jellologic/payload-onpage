@@ -1,0 +1,51 @@
+{
+  "name": "payload-onpage-example-tanstack",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 3102",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "payload": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload",
+    "generate:importmap": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload generate:importmap",
+    "generate:types": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload generate:types",
+    "reset": "rm -f payload.db* && rm -rf media"
+  },
+  "dependencies": {
+    "@lexical/list": "0.52.0",
+    "@lexical/react": "0.52.0",
+    "@lexical/rich-text": "0.52.0",
+    "@lexical/selection": "0.52.0",
+    "@lexical/utils": "0.52.0",
+    "@payload-onpage/core": "workspace:*",
+    "@payload-onpage/lexical": "workspace:*",
+    "@payload-onpage/plugin": "workspace:*",
+    "@payload-onpage/react": "workspace:*",
+    "@payload-onpage/tanstack-start": "workspace:*",
+    "lexical": "0.52.0",
+    "@payloadcms/db-sqlite": "4.0.0-beta.0",
+    "@payloadcms/richtext-lexical": "4.0.0-beta.0",
+    "@payloadcms/tanstack-start": "4.0.0-beta.0",
+    "@payloadcms/ui": "4.0.0-beta.0",
+    "@tanstack/react-router": "1.170.41",
+    "@tanstack/react-start": "1.168.60",
+    "file-type": "22.0.1",
+    "graphql": "^16.10.0",
+    "libsql": "0.4.7",
+    "payload": "4.0.0-beta.0",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "strtok3": "^10.3.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-rsc": "^0.5.26",
+    "cross-env": "^7.0.3",
+    "nitro": "3.0.260610-beta",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.0"
+  }
+}

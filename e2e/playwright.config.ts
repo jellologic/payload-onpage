@@ -1,9 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const PORT = 3101
-const DB_DIR = '/tmp/payload-onpage-e2e'
+/** Which example to run against: `basic` (Next.js) or `tanstack` (TanStack Start). */
+const EXAMPLE = process.env.ONPAGE_EXAMPLE === 'tanstack' ? 'tanstack' : 'basic'
+const PORT = EXAMPLE === 'tanstack' ? 3105 : 3101
+const DB_DIR = `/tmp/payload-onpage-e2e${EXAMPLE === 'tanstack' ? '-tanstack' : ''}`
+const SERVER =
+  EXAMPLE === 'tanstack' ? `bunx vite dev --port ${PORT}` : `bunx next dev --port ${PORT}`
 
-/** End-to-end tests against examples/basic with a fresh SQLite database. Run `bun run build` first. */
+/** End-to-end tests against examples/${EXAMPLE} with a fresh SQLite database. Run `bun run build` first. */
 export default defineConfig({
   testDir: '.',
   fullyParallel: false,
@@ -22,7 +26,7 @@ export default defineConfig({
     ...(process.env.CI ? {} : { channel: 'chrome' }),
   },
   webServer: {
-    command: `rm -rf ${DB_DIR} && mkdir -p ${DB_DIR} && cd ../examples/basic && bunx next dev --port ${PORT}`,
+    command: `rm -rf ${DB_DIR} && mkdir -p ${DB_DIR} && cd ../examples/${EXAMPLE} && ${SERVER}`,
     url: `http://localhost:${PORT}/`,
     timeout: 240_000,
     reuseExistingServer: false,

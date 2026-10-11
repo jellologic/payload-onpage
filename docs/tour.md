@@ -54,6 +54,16 @@ Every enabled collection and global gets **Edit on page** and **Copy preview lin
 
 ![The Payload admin document view with "Edit on page" and "Copy preview link" buttons beside "Publish changes"](media/admin-controls.png)
 
+## The same tour on TanStack Start
+
+Everything above works identically on TanStack Start (Payload 4): the editor UI, the dock, preview and share links are the same components behind a different framework adapter. Try it:
+
+```bash
+bun install && bun run dev:example-tanstack     # http://localhost:3102 — SQLite, seeds itself, signs you in
+```
+
+The demo is [`examples/tanstack`](../examples/tanstack); setup is in [Getting started with TanStack Start](getting-started-tanstack.md).
+
 ---
 
-Ready to add it to your site? See **[Getting started](getting-started.md)**.
+Ready to add it to your site? See **[Getting started](getting-started.md)** (Next.js) or **[Getting started with TanStack Start](getting-started-tanstack.md)**.

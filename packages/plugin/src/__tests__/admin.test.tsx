@@ -66,6 +66,7 @@ describe('OnPageAdminControls', () => {
     ) {
       expect(this.method).toBe('post')
       expect(this.target).toBe('_blank')
+      expect(this.rel).toBe('noopener')
       expect(this.action).toContain(
         '/api/onpage/enter?kind=collection&slug=pages&mode=edit&id=5&locale=en',
       )

@@ -24,6 +24,18 @@ export default defineConfig({
       { find: /^@payload-onpage\/next$/, replacement: src('next', 'index.tsx') },
       { find: /^@payload-onpage\/next\/client$/, replacement: src('next', 'client.tsx') },
       { find: /^@payload-onpage\/next\/(session|proxy)$/, replacement: src('next', '$1.ts') },
+      {
+        find: /^@payload-onpage\/tanstack-start$/,
+        replacement: src('tanstack-start', 'index.tsx'),
+      },
+      {
+        find: /^@payload-onpage\/tanstack-start\/client$/,
+        replacement: src('tanstack-start', 'client.tsx'),
+      },
+      {
+        find: /^@payload-onpage\/tanstack-start\/session$/,
+        replacement: src('tanstack-start', 'session.server.ts'),
+      },
     ],
   },
   test: {
@@ -49,6 +61,7 @@ export default defineConfig({
         'packages/react/src/**': { lines: 85 },
         'packages/next/src/**': { lines: 80 },
         'packages/lexical/src/**': { lines: 80 },
+        'packages/tanstack-start/src/**': { lines: 80 },
       },
     },
   },

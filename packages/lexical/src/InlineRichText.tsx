@@ -50,7 +50,9 @@ import { newRowId, safeLinkUrl, type ScalarField } from '@payload-onpage/core'
 import {
   HIDDEN,
   caretAt,
+  copyTypography,
   placeOver,
+  typographyOf,
   useEvent,
   useTrackElement,
   type FieldEditorProps,
@@ -449,7 +451,14 @@ export function InlineRichText({
     const el = element()
     if (el) {
       // Position before first paint, so the caret hit-test finds the surface.
-      if (box.current) placeOver(box.current, el)
+      if (box.current) {
+        placeOver(box.current, el)
+        // Inherit the element's typography (not the UI layer's 13px), so the
+        // surface lays out exactly over the original and the click point maps
+        // to the right block.
+        const surface = box.current.querySelector('.po-rt-surface')
+        if (surface instanceof HTMLElement) copyTypography(el, surface)
+      }
       el.setAttribute(HIDDEN, 'true')
     }
     return () => element()?.removeAttribute(HIDDEN)
@@ -473,7 +482,8 @@ export function InlineRichText({
         const next = fromEditorState(json)
         commit(plainText(next) || hasOpaque(next) ? next : null)
         const surface = editor.getRootElement()
-        if (!live && surface) ghost({ html: surface.innerHTML, className })
+        if (!live && surface)
+          ghost({ html: surface.innerHTML, className, style: typographyOf(surface) })
       }
     }
     close()

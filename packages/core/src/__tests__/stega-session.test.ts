@@ -82,6 +82,14 @@ describe('stega', () => {
     expect(out).toEqual({ a: 'x', n: 3, list: ['y', { b: 'z' }], when: d.when })
     expect(out.when).toBe(d.when)
   })
+
+  it('drops __proto__ keys instead of invoking the prototype setter', () => {
+    const d = JSON.parse('{"title":"Hi","__proto__":{"polluted":true}}')
+    const out = stegaCleanDeep(d)
+    expect(out).toEqual({ title: 'Hi' })
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype)
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+  })
 })
 
 // ── session ───────────────────────────────────────────────────────────────

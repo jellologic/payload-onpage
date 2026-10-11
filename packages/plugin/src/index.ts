@@ -15,7 +15,6 @@ import {
   type CollectionConfig,
   type Config,
   type GlobalConfig,
-  type Plugin,
 } from 'payload'
 import { deepMergeSimple } from 'payload/shared'
 import { createEndpoints } from './endpoints.ts'
@@ -26,13 +25,26 @@ import { translations } from './translations.ts'
 
 const APPLIED = 'payload-onpage'
 
-export function onpage(options: OnPageOptions): Plugin {
-  return (incoming: Config): Config => {
+/**
+ * What `onpage()` returns: a Payload plugin function, typed to accept any
+ * Payload major's config. Payload v3 and v4 configs differ structurally, but
+ * what `onpage()` reads and adds (collections, globals, endpoints, hooks,
+ * admin components, translations) is stable across both, and the function is
+ * opaque to callers — sites just list it in `plugins`.
+ */
+export type OnPagePlugin = <C>(config: C) => C
+
+export function onpage(options: OnPageOptions): OnPagePlugin {
+  const apply = (incoming: Config): Config => {
     if (options.enabled === false || incoming.custom?.[APPLIED]) return incoming
     const { session } = options
     if (!session)
       throw new InvalidConfiguration(
         'payload-onpage: pass `session` (e.g. nextSession() from @payload-onpage/next/session). The enter, mode, exit and preview endpoints need it.',
+      )
+    if (options.secret !== undefined && !options.secret)
+      throw new InvalidConfiguration(
+        "payload-onpage: `secret` must not be empty. Omit it to use Payload's `secret`.",
       )
     const prefix = options.routePrefix ?? DEFAULTS.routePrefix
     const entries = normalizeEntries(options)
@@ -158,6 +170,7 @@ export function onpage(options: OnPageOptions): Plugin {
           options: { ...options, session },
           prefix,
           entry: (kind, slug) => byKey.get(keyOf(kind, slug)),
+          entries,
         }),
       ],
       onInit: async (payload) => {
@@ -170,6 +183,7 @@ export function onpage(options: OnPageOptions): Plugin {
       },
     }
   }
+  return apply as OnPagePlugin
 }
 
 export type { OnPageDocOptions, OnPageOptions, OnPageTargets } from './options.ts'

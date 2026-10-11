@@ -50,6 +50,30 @@ export async function documentPermissions(
 }
 
 /**
+ * Collection/global-level update access that is not granted. Payload's
+ * sanitizer deletes denied operations, so denial usually manifests as a
+ * missing `update` key — not `false`. Only the positive shapes allow:
+ * boolean `true`, or `{ permission: true }` (including row-level rules that
+ * carry a `where` and need a document to evaluate). Anything else — missing,
+ * `false`, `{ permission: false }`, an unknown shape, or no permissions at
+ * all (an access check threw) — denies, so callers fail closed and per-document
+ * checks decide the rest.
+ */
+export function isUpdateDenied(
+  perms: SanitizedCollectionPermission | SanitizedGlobalPermission | null,
+): boolean {
+  if (!perms) return true
+  const update: unknown = perms.update
+  if (update === true) return false
+  return !(
+    typeof update === 'object' &&
+    update !== null &&
+    'permission' in update &&
+    update.permission === true
+  )
+}
+
+/**
  * May this user edit this document on the page? With an id, Payload evaluates a
  * row-level rule (a `where`) against that document itself, so its answer is final.
  */
