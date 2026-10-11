@@ -17,6 +17,7 @@ import { useOnPage } from '../context.tsx'
 import type { FieldEditorProps } from '../types.ts'
 import { EditorPopover } from './kit.tsx'
 import { useDebouncedSearch } from './useDebouncedSearch.ts'
+import { CloseIcon } from '../icons.tsx'
 
 export function RelationshipEditor(props: FieldEditorProps<RelationField>) {
   const { docKey, field, value, commit, close, t } = props
@@ -75,7 +76,7 @@ export function RelationshipEditor(props: FieldEditorProps<RelationField>) {
               onClick={() => remove(i)}
               aria-label={t('common.removeItem', { item: relationTitle(v, titleField) })}
             >
-              ✕
+              <CloseIcon />
             </button>
           )}
         </div>

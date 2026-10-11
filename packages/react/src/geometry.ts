@@ -17,8 +17,8 @@ export const GEOMETRY = {
   chipMinTop: 22,
   /** Gap between a list and its "+ Add" button. */
   addGap: 14,
-  /** Room left at the bottom for the dock. */
-  dock: 84,
+  /** Room the dock takes above its offset (its height plus a gap). */
+  dock: 68,
   /** "+ Add first section" sits at most this far down an empty list. */
   emptyListOffset: 160,
 } as const
@@ -43,8 +43,21 @@ export const toolbarPosition = (r: Rect) => ({
   right: Math.max(window.innerWidth - r.right + margin, margin),
 })
 
+/**
+ * How far the dock sits from the bottom: `--po-dock-bottom` (default 16px). A site
+ * with its own fixed bottom bar raises the dock by setting it, e.g.
+ * `html:has(.cart-bar) { --po-dock-bottom: 88px }`.
+ */
+export function dockOffset(): number {
+  const value = parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue('--po-dock-bottom'),
+  )
+  return Number.isFinite(value) ? value : 16
+}
+
 /** "+ Add" below a list, or pinned above the dock while the list runs past the viewport. */
-export const belowList = (r: Rect): number => Math.min(r.bottom + addGap, window.innerHeight - dock)
+export const belowList = (r: Rect): number =>
+  Math.min(r.bottom + addGap, window.innerHeight - dockOffset() - dock)
 
 /** A fixed popover below (or, without room, above) an element, kept inside the viewport. */
 export function popoverPosition(

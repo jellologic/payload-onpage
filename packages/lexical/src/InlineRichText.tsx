@@ -55,6 +55,8 @@ import {
   useTrackElement,
   type FieldEditorProps,
   type Translate,
+  RedoIcon,
+  UndoIcon,
 } from '@payload-onpage/react/editor-kit'
 import { $createPayloadLinkNode, $isPayloadLinkNode, type PayloadLinkNode } from './nodes.tsx'
 import { RICH_TEXT_NODES } from './nodeList.ts'
@@ -327,13 +329,13 @@ function Toolbar({ onDone, t }: { onDone: () => void; t: Translate }) {
         id="quote"
       />
       <ToolButton
-        label="↶"
+        label={<UndoIcon />}
         title={t('dock.undo')}
         onAction={() => editor.dispatchCommand(UNDO_COMMAND, undefined)}
         id="undo"
       />
       <ToolButton
-        label="↷"
+        label={<RedoIcon />}
         title={t('dock.redo')}
         onAction={() => editor.dispatchCommand(REDO_COMMAND, undefined)}
         id="redo"
