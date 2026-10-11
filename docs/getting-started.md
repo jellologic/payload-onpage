@@ -37,6 +37,10 @@ Collections must have **drafts** enabled (`versions: { drafts: true }`), so edit
 
 **Check:** open a document in the admin. **Edit on page** and **Copy preview link** appear beside the document controls.
 
+Every enabled collection and global then gets **Edit on page** and **Copy preview link** in the admin:
+
+![Edit on page and Copy preview link beside Payload's document controls](media/admin-controls.png)
+
 ## 3. Mount the editor
 
 The frontend root layout ([example](<../examples/basic/src/app/(frontend)/layout.tsx>)):

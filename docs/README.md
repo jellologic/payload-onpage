@@ -4,6 +4,7 @@ On-page editing and draft previews for **Payload CMS 3 + Next.js (App Router)**.
 
 | Start here                            |                                                                     |
 | ------------------------------------- | ------------------------------------------------------------------- |
+| [Tour](tour.md)                       | What editors see, in screenshots and short clips                    |
 | [Getting started](getting-started.md) | Install and wire it into an existing site (three steps + the proxy) |
 | [Compatibility](compatibility.md)     | Supported Payload, Next.js, React and Node versions                 |
 | [Troubleshooting](troubleshooting.md) | The usual suspects, with fixes                                      |

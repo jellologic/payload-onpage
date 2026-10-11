@@ -1,5 +1,7 @@
 # Annotations
 
+![A selected section with its toolbar: move, duplicate, settings, delete, and Add section above and below](../media/section-toolbar.png)
+
 Auto-mapping covers most text. Annotations add precision where markers can't reach:
 
 - rows and lists you want exact (and "+ Add" for empty lists)

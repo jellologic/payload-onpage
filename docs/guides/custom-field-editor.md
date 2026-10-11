@@ -1,5 +1,7 @@
 # Custom field editor
 
+![A select field edited in place with a popover of its options](../media/select-editor.png)
+
 A field editor is a React component, registered by id with `defineEditor`. You declare which field types it accepts. Its props are then typed for those fields: a `number` editor gets a `NumberField` with `min`/`max`, and a select editor gets the `options`. The registry never hands an editor any other kind of field.
 
 ```tsx

@@ -8,9 +8,23 @@
 - **Any collection or global**, and several documents on one page with one undo history.
 - **Built-in field editors:** text, rich text (Lexical), images, select, date, number, relationship, color. Replace any of them, or add your own.
 - **Ports and adapters:** data source, media library, locator, renderer, session and field editors are all swappable.
-- **Fast:** visitors load about 0.3 KB, and the editor (about 27 KB gz) loads only for editors.
+- **Fast:** visitors load about 0.3 KB, and the editor (about 29 KB gz) loads only for editors.
 - **Accessible:** keyboard editing, managed focus and WCAG AA contrast, checked with axe in CI.
 - **Secure by design:** Payload's own access checks, CSRF-safe endpoints, a stale-write guard, and share links that never expose Next's draft secret.
+
+![Editing a Payload CMS page in place: click the heading on the Next.js page, type, and the change autosaves as a draft](docs/media/edit-text.gif)
+
+## See it
+
+| Rearrange and add sections                                                                              | Preview on any device                                                                     |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| ![Moving a section and adding one from the block picker](docs/media/sections.gif)                       | ![Previewing the draft at phone and tablet widths](docs/media/preview.gif)                |
+| **Section settings from your block fields**                                                             | **Rich text (Payload Lexical), inline**                                                   |
+| ![The settings panel for a section: a URL field and a Light/Dark choice](docs/media/settings-panel.png) | ![Inline Lexical rich-text editing with a formatting toolbar](docs/media/rich-text.png)   |
+| **Share a read-only draft link**                                                                        | **Start from the Payload admin**                                                          |
+| ![A shared preview link showing the draft with a Shared preview toolbar](docs/media/shared-preview.png) | ![Edit on page and Copy preview link in the Payload admin](docs/media/admin-controls.png) |
+
+More in the **[tour](docs/tour.md)**.
 
 ## Try it
 
@@ -59,6 +73,7 @@ The full walkthrough, with checks after every step and a prompt for coding agent
 
 |                                            |                                                                                                                                                                                                                                                                                                             |
 | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [Tour](docs/tour.md)                       | What editors see, in screenshots and clips                                                                                                                                                                                                                                                                  |
 | [Getting started](docs/getting-started.md) | Installation, step by step                                                                                                                                                                                                                                                                                  |
 | [Concepts](docs/README.md)                 | [Architecture](docs/concepts/architecture.md) · [Auto-mapping](docs/concepts/auto-mapping.md) · [Modes](docs/concepts/modes.md) · [Security](docs/concepts/security.md)                                                                                                                                     |
 | [Guides](docs/README.md)                   | [Annotations](docs/guides/annotations.md) · [Client mode](docs/guides/client-mode.md) · [Custom field editor](docs/guides/custom-field-editor.md) · [Custom data source](docs/guides/custom-data-source.md) · [Localization](docs/guides/localization.md) · [Caching & PPR](docs/guides/caching-and-ppr.md) |

@@ -10,6 +10,12 @@
 - Share links never give the browser Next's draft secret. The proxy injects draft mode for the shared path only, until the sealed grant expires. See [security](security.md).
 - **Exit** clears everything (`POST /api/onpage/exit`).
 
+![Previewing a draft at phone and tablet widths, then returning to editing](../media/preview.gif)
+
+A share link shows one page's draft, read-only, to anyone with the link:
+
+![A shared preview: the draft page with a "Shared preview" toolbar](../media/shared-preview.png)
+
 ## Rendering
 
 |                   | Refresh mode (default)                                                                       | Client mode                                                               |

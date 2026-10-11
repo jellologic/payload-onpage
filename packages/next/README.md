@@ -2,6 +2,10 @@
 
 payload-onpage for the Next.js App Router: the session adapter (draft mode, editor binding, sealed preview grants), `<OnPage />`, `onpageContext()`, `isDraftEnabled()`, the `router.refresh()` renderer and the proxy for share links.
 
+![Editing a Payload CMS page in place: click the heading, type, and it autosaves as a draft](https://raw.githubusercontent.com/jellologic/payload-onpage/main/docs/media/edit-text.gif)
+
+![Previewing a draft at phone and tablet widths](https://raw.githubusercontent.com/jellologic/payload-onpage/main/docs/media/preview.gif)
+
 ```tsx
 // layout
 import { OnPage } from '@payload-onpage/next'
@@ -19,3 +23,5 @@ Entries: `.` (server: `OnPage`, session helpers), `./client` (`OnPageMount`, `On
 Part of [**payload-onpage**](https://github.com/jellologic/payload-onpage): on-page editing and draft previews for Payload CMS + Next.js. Start with the [getting started guide](https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started.md).
 
 MIT licensed.
+
+See the **[tour](https://github.com/jellologic/payload-onpage/blob/main/docs/tour.md)** and **[getting started](https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started.md)**.
