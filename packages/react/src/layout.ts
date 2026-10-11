@@ -71,8 +71,11 @@ export function useTrackElement(getElement: () => Element | null, fn: (el: Eleme
     run()
     const off = onLayoutChange(run)
     const el = getElement()
-    const ro = el ? new ResizeObserver(() => run()) : undefined
-    if (el) ro!.observe(el)
+    let ro: ResizeObserver | undefined
+    if (el) {
+      ro = new ResizeObserver(() => run())
+      ro.observe(el)
+    }
     return () => {
       off()
       ro?.disconnect()

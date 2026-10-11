@@ -9,6 +9,7 @@
  */
 import {
   hasStegaMarker,
+  isTargetKind,
   parseRefKey,
   rowPrefixes,
   targetKey,
@@ -31,12 +32,14 @@ export function annotations(): Locator {
         if (!ref) return
         const label = el.getAttribute(ATTR.label) ?? undefined
         const field = el.getAttribute(ATTR.field)
+        const kind = el.getAttribute(ATTR.kind)
         if (field)
           out.push({
             el,
             ref,
             path: field,
-            kind: (el.getAttribute(ATTR.kind) as TargetKind) || 'field',
+            // Page markup is input: an unknown kind is treated as a plain field.
+            kind: isTargetKind(kind) ? kind : 'field',
             label,
             source: 'annotation',
           })

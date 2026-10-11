@@ -25,13 +25,14 @@ export function parsePath(path: string | PathSegment[]): PathSegment[] {
 
 type Container = Record<string | number, unknown>
 
-export function getAt<T = unknown>(obj: unknown, path: string | PathSegment[]): T | undefined {
+/** The value at `path`, or undefined. Narrow the result where it's used (`Array.isArray`, `typeof`…). */
+export function getAt(obj: unknown, path: string | PathSegment[]): unknown {
   let cur: unknown = obj
   for (const seg of parsePath(path)) {
     if (cur == null || typeof cur !== 'object') return undefined
     cur = (cur as Container)[seg]
   }
-  return cur as T | undefined
+  return cur
 }
 
 /** Returns a copy of `obj` with `value` at `path`; untouched branches are shared. */
@@ -51,7 +52,7 @@ export function updateArray<T>(
   path: string | PathSegment[],
   fn: (arr: unknown[]) => unknown[],
 ): T {
-  const current = getAt<unknown[]>(obj, path)
+  const current = getAt(obj, path)
   return setAt(obj, path, fn(Array.isArray(current) ? current : []))
 }
 

@@ -12,7 +12,7 @@ import type {
   TargetKind,
   RefKey,
 } from '@payload-onpage/core'
-import type { MessageKey, Translate } from './messages.ts'
+import type { Translate } from './messages.ts'
 
 export interface EditingState {
   /** refKey of the document */
@@ -143,11 +143,7 @@ export interface OnPageContextValue {
   ) => boolean
   /** Re-render documents after an operation outside autosave (publish, reload). */
   rerender: (refs: DocRef[]) => Promise<void>
-  /** Show a short message in the dock. */
-  notify: (
-    key: MessageKey | (string & {}),
-    vars?: Record<string, string | number>,
-    bad?: boolean,
-  ) => void
+  /** Show a short message in the dock: translated text (`notify(t('notify.published'))`), or an error's text. */
+  notify: (text: string, bad?: boolean) => void
   addGhost: (g: GhostInput & { key: RefKey; path: string }) => void
 }

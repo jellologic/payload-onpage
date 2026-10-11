@@ -122,6 +122,12 @@ export class EditorSession {
     for (const fn of this.listeners) fn()
   }
 
+  /** After a publish: no unpublished edits, and the local copy says so. */
+  private markPublished(key: RefKey) {
+    const doc = this.docs.get(key)?.doc
+    this.patchState(key, { edited: false, doc: doc ? { ...doc, _status: 'published' } : null })
+  }
+
   private patchState(key: RefKey, patch: Partial<DocumentState>) {
     const cur = this.docs.get(key)
     if (!cur) return
@@ -234,7 +240,8 @@ export class EditorSession {
   private queueFor(key: RefKey): AutosaveQueue {
     let q = this.queues.get(key)
     if (q) return q
-    const state = this.docs.get(key)!
+    const state = this.docs.get(key)
+    if (!state) throw new Error(`payload-onpage: ${key} is not open in this session`)
     q = new AutosaveQueue({
       delay: this.autosaveDelay ?? state.schema?.autosaveInterval ?? 800,
       onState: (save) => {
@@ -384,11 +391,7 @@ export class EditorSession {
             published,
           }
         if (res.updatedAt) this.updatedAt.set(key, res.updatedAt)
-        const now = this.docs.get(key)!
-        this.patchState(key, {
-          edited: false,
-          doc: now.doc ? { ...now.doc, _status: 'published' } : now.doc,
-        })
+        this.markPublished(key)
         published.push(state.ref)
       }
       return { ok: true, published }
@@ -413,11 +416,7 @@ export class EditorSession {
         for (const k of state.schema.editable) next[k] = published[k]
         this.apply(key, () => next)
         await this.queues.get(key)?.flush()
-        const now = this.docs.get(key)!
-        this.patchState(key, {
-          edited: false,
-          doc: now.doc ? { ...now.doc, _status: 'published' } : now.doc,
-        })
+        this.markPublished(key)
       }
     })
   }

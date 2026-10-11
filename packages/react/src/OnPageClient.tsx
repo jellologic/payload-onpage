@@ -64,5 +64,7 @@ export function OnPageClient<T extends { id?: string | number } | null | undefin
     () => (enabled && ref ? editable(ref, { enabled: true }) : editableOff),
     [enabled, ref],
   )
+  // The session's copy started as this `doc` (same document, edited, held as plain JSON),
+  // so it is handed back as the page's own type.
   return <>{render(current as T, e)}</>
 }

@@ -9,12 +9,44 @@ import { errorText } from '@payload-onpage/core'
 import type { DocumentState } from '@payload-onpage/core'
 import { useEffect, useState } from 'react'
 import { useOnPage } from '../context.tsx'
-import { relativeTime } from '../messages.ts'
+import { relativeTime, type Translate } from '../messages.ts'
 import { PostButton } from './PostButton.tsx'
 import { ToolbarButton } from './ToolbarButton.tsx'
 import type { Flash } from '../types.ts'
 
 const title = (d: DocumentState) => d.schema?.labels.singular ?? d.ref.slug
+
+interface DockState {
+  docs: DocumentState[]
+  ready: DocumentState[]
+  failed: DocumentState | undefined
+  conflict: DocumentState | undefined
+  error: DocumentState | undefined
+  saving: boolean
+  rendering: boolean
+  lastSaved: number
+}
+
+/** What the dock says, most urgent first. */
+function dockStatus(s: DockState, t: Translate): Flash {
+  if (s.failed)
+    return {
+      text: t('dock.unavailable', { doc: title(s.failed), error: s.failed.error ?? '' }),
+      bad: true,
+    }
+  if (!s.docs.length) return { text: t('dock.nothing') }
+  if (!s.ready.length) return { text: t('dock.loading') }
+  if (s.conflict) return { text: t('dock.conflict', { doc: title(s.conflict) }), bad: true }
+  if (s.error)
+    return {
+      text: t('dock.saveFailed', { doc: title(s.error), message: s.error.save.message ?? '' }),
+      bad: true,
+    }
+  if (s.saving) return { text: t('dock.saving') }
+  if (s.rendering) return { text: t('dock.updating') }
+  if (s.lastSaved) return { text: t('dock.saved', { ago: relativeTime(s.lastSaved) }) }
+  return { text: t('dock.editing') }
+}
 
 function useTicker(ms: number) {
   const [, setN] = useState(0)
@@ -44,23 +76,11 @@ export function Dock({ flash }: { flash: Flash | null }) {
   const primary = docs[0]
   const busy = snap.busy
 
-  const status = failed
-    ? { text: t('dock.unavailable', { doc: title(failed), error: failed.error ?? '' }), bad: true }
-    : !docs.length
-      ? { text: t('dock.nothing') }
-      : !ready.length
-        ? { text: t('dock.loading') }
-        : conflict
-          ? { text: t('dock.conflict', { doc: title(conflict) }), bad: true }
-          : error
-            ? { text: `${title(error)}: ${error.save.message ?? ''}`, bad: true }
-            : saving
-              ? { text: t('dock.saving') }
-              : rendering
-                ? { text: t('dock.updating') }
-                : lastSaved
-                  ? { text: t('dock.saved', { ago: relativeTime(lastSaved) }) }
-                  : { text: t('dock.editing') }
+  const retryable = failed ?? error
+  const status = dockStatus(
+    { docs, ready, failed, conflict, error, saving, rendering, lastSaved },
+    t,
+  )
 
   const schema = ready[0]?.schema
   const nonDefaultLocale =
@@ -70,10 +90,10 @@ export function Dock({ flash }: { flash: Flash | null }) {
     try {
       const res = await session.publish({ keys: docKeys })
       if (res.published.length) await rerender(res.published)
-      if (res.ok) notify(res.published.length ? 'notify.published' : 'notify.nothingToPublish')
-      else notify('notify.publishFailed', { message: res.message ?? '' }, true)
+      if (res.ok) notify(t(res.published.length ? 'notify.published' : 'notify.nothingToPublish'))
+      else notify(t('notify.publishFailed', { message: res.message ?? '' }), true)
     } catch (e) {
-      notify('notify.publishFailed', { message: errorText(e) }, true)
+      notify(t('notify.publishFailed', { message: errorText(e) }), true)
     }
   }
   const discard = async () => {
@@ -82,9 +102,9 @@ export function Dock({ flash }: { flash: Flash | null }) {
     setConfirmDiscard(false)
     try {
       await session.discard({ keys: docKeys })
-      notify('notify.discarded')
+      notify(t('notify.discarded'))
     } catch (e) {
-      notify(errorText(e), undefined, true)
+      notify(errorText(e), true)
     }
   }
   const reload = async (d: DocumentState) => {
@@ -92,7 +112,7 @@ export function Dock({ flash }: { flash: Flash | null }) {
       await session.reload(d.key)
       await rerender([d.ref])
     } catch (e) {
-      notify(errorText(e), undefined, true)
+      notify(errorText(e), true)
     }
   }
   const createLink = session.dataSource.createPreviewLink?.bind(session.dataSource)
@@ -101,9 +121,9 @@ export function Dock({ flash }: { flash: Flash | null }) {
     try {
       const { url, expiresAt } = await createLink(primary.ref, { locale: session.locale })
       await navigator.clipboard.writeText(url)
-      notify('notify.linkCopied', { date: new Date(expiresAt).toLocaleString() })
+      notify(t('notify.linkCopied', { date: new Date(expiresAt).toLocaleString() }))
     } catch (e) {
-      notify('notify.linkFailed', { message: errorText(e) }, true)
+      notify(t('notify.linkFailed', { message: errorText(e) }), true)
     }
   }
 
@@ -139,11 +159,11 @@ export function Dock({ flash }: { flash: Flash | null }) {
             {t('dock.reload')}
           </button>
         )}
-        {(failed ?? error) && (
+        {retryable && (
           <button
             type="button"
             className="po-btn"
-            onClick={() => void session.retry((failed ?? error)!.key)}
+            onClick={() => void session.retry(retryable.key)}
             data-testid="onpage-retry"
           >
             {t('dock.retry')}

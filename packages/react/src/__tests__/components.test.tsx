@@ -49,9 +49,16 @@ function editorProps<F extends SchemaField = SchemaField, V = unknown>(
 }
 
 describe('messages', () => {
-  it('fills placeholders, keeps unknown keys, accepts overrides', () => {
+  it('fills placeholders, accepts overrides, and types keys and variables', () => {
     expect(t('dock.documents', { count: 3 })).toBe('3 documents')
+    // @ts-expect-error unknown keys don't compile (at runtime they fall back to the key)
     expect(t('Plain text')).toBe('Plain text')
+    // @ts-expect-error a message with placeholders needs its variables
+    t('dock.documents')
+    // @ts-expect-error and only those variables
+    t('dock.documents', { total: 3 })
+    // @ts-expect-error a message without placeholders takes none
+    t('dock.publish', { x: 1 })
     expect(createTranslate({ 'dock.publish': 'Publicar' })('dock.publish')).toBe('Publicar')
     expect(Object.keys(defaultMessages).length).toBeGreaterThan(50)
   })

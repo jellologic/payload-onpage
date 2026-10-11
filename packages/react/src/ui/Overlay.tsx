@@ -274,7 +274,8 @@ export function Overlay() {
     : undefined
   const emptyLists = lists.filter((l) => {
     const doc = snap.docs[refKey(l.ref)]?.doc
-    return doc && !(getAt<unknown[]>(doc, l.path) ?? []).length
+    const rows = doc ? getAt(doc, l.path) : undefined
+    return doc && !(Array.isArray(rows) && rows.length)
   })
   const hoverField = !editing ? hover.field : undefined
 

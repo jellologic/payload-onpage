@@ -11,7 +11,7 @@
  * Field editors are registered in @payload-onpage/react.
  */
 import type { DocRef } from './docref.ts'
-import type { MarkerKind } from './stega.ts'
+import { MARKER_KINDS } from './stega.ts'
 import type { DocumentSchema } from './schema.ts'
 
 export type Doc = Record<string, unknown>
@@ -102,7 +102,11 @@ export interface MediaLibrary {
  * the kinds auto-mapping markers carry; `field` = resolve from the schema), a
  * row of an array/blocks field (`item`), or the element holding a list (`list`).
  */
-export type TargetKind = MarkerKind | 'field' | 'item' | 'list'
+/** What a page element shows: a marker's kind, or an annotation's field / row item / list. */
+export const TARGET_KINDS = [...MARKER_KINDS, 'field', 'item', 'list'] as const
+export type TargetKind = (typeof TARGET_KINDS)[number]
+export const isTargetKind = (value: unknown): value is TargetKind =>
+  (TARGET_KINDS as readonly unknown[]).includes(value)
 
 export interface Target {
   el: Element
@@ -111,7 +115,8 @@ export interface Target {
   kind: TargetKind
   label?: Opt<string>
   /** Which locator produced it ("annotation" wins over inferred ones). */
-  source: string
+  /** Which locator found it. */
+  source: 'annotation' | 'stega' | (string & {})
 }
 
 export interface Locator {

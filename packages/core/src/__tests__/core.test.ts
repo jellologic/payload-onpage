@@ -34,7 +34,7 @@ describe('path', () => {
   it('gets and sets immutably, sharing untouched branches', () => {
     const doc: any = { a: { b: [{ c: 1 }, { c: 2 }] }, z: { keep: true } }
     const next = setAt(doc, 'a.b.1.c', 9)
-    expect(getAt<number>(next, 'a.b.1.c')).toBe(9)
+    expect(getAt(next, 'a.b.1.c')).toBe(9)
     expect(doc.a.b[1]!.c).toBe(2)
     expect(next.z).toBe(doc.z)
     expect(next.a.b[0]).toBe(doc.a.b[0])

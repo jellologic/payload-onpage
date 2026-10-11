@@ -194,8 +194,8 @@ export function OnPageEditor(props: OnPageEditorProps) {
   useEffect(() => notifyLayout(), [snap, targets])
 
   const notify = useCallback<OnPageContextValue['notify']>(
-    (key, vars, bad) => setFlash({ text: t(key, vars), bad }),
-    [t],
+    (text, bad) => setFlash({ text, bad }),
+    [],
   )
 
   const registerClientDoc = useCallback((key: RefKey) => {
@@ -218,8 +218,8 @@ export function OnPageEditor(props: OnPageEditorProps) {
       const state = session?.get(key)
       if (!isReady(state)) {
         if (state?.status === 'error')
-          notify('notify.cantEdit', { message: state.error ?? '' }, true)
-        else notify('notify.loading')
+          notify(t('notify.cantEdit', { message: state.error ?? '' }), true)
+        else notify(t('notify.loading'))
         return true
       }
       if (!isEditablePath(state.schema, path)) return false
@@ -240,7 +240,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
       })
       return true
     },
-    [session, editors, targets, notify],
+    [session, editors, targets, notify, t],
   )
 
   const ctx = useMemo<OnPageContextValue | null>(

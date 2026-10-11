@@ -16,7 +16,8 @@
  */
 import { isRefKey, type RefKey } from './docref.ts'
 
-export type MarkerKind = 'text' | 'textarea' | 'richtext' | 'media'
+export const MARKER_KINDS = ['text', 'textarea', 'richtext', 'media'] as const
+export type MarkerKind = (typeof MARKER_KINDS)[number]
 
 export interface Marker {
   ref: RefKey
