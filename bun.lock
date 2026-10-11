@@ -78,11 +78,11 @@
     },
     "packages/core": {
       "name": "@payload-onpage/core",
-      "version": "0.2.0",
+      "version": "0.2.1",
     },
     "packages/lexical": {
       "name": "@payload-onpage/lexical",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@payload-onpage/core": "workspace:*",
         "@payload-onpage/react": "workspace:*",
@@ -99,7 +99,7 @@
     },
     "packages/next": {
       "name": "@payload-onpage/next",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@payload-onpage/core": "workspace:*",
         "@payload-onpage/lexical": "workspace:*",
@@ -113,7 +113,7 @@
     },
     "packages/plugin": {
       "name": "@payload-onpage/plugin",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@payload-onpage/core": "workspace:*",
       },
@@ -126,7 +126,7 @@
     },
     "packages/react": {
       "name": "@payload-onpage/react",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@payload-onpage/core": "workspace:*",
       },

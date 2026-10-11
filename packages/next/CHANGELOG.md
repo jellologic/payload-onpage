@@ -1,5 +1,15 @@
 # @payload-onpage/next
 
+## 0.2.1
+
+### Patch Changes
+
+- [#5](https://github.com/jellologic/payload-onpage/pull/5) [`c620bb6`](https://github.com/jellologic/payload-onpage/commit/c620bb6bae277c2d8ff089f0e2b91f337ca5af92) Thanks [@jellologic](https://github.com/jellologic)! - Fix 0.2.0's internal dependencies: its packages depended on each other at 0.1.0, so installs mixed 0.2.0 and 0.1.0 code. 0.2.1 pins every `@payload-onpage/*` dependency to the same version.
+- Updated dependencies [[`c620bb6`](https://github.com/jellologic/payload-onpage/commit/c620bb6bae277c2d8ff089f0e2b91f337ca5af92)]:
+  - @payload-onpage/core@0.2.1
+  - @payload-onpage/react@0.2.1
+  - @payload-onpage/lexical@0.2.1
+
 ## 0.2.0
 
 ### Minor Changes
