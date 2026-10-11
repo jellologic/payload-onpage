@@ -21,7 +21,7 @@ jobs:
       - id: changesets
         uses: changesets/action@v1
         with:
-          version: bunx changeset version
+          version: bun run version-packages # also refreshes bun.lock, which bun pm pack reads
           title: Version packages
           commit: 'chore: version packages'
         env:
