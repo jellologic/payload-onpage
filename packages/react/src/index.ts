@@ -14,13 +14,16 @@ export {
   FRAME_PARAM,
   type PreviewToolbarProps,
 } from './ui/PreviewToolbar.tsx'
-export { useOnPage, useOnPageOptional } from './context.tsx'
+export { useOnPage, useOnPageApi, useOnPageOptional, useSessionSnapshot } from './context.tsx'
 export type {
   EditorRegistry,
   FieldEditorDef,
   FieldEditorProps,
   Links,
+  OnPageApi,
   OnPageContextValue,
+  OnPageState,
+  PanelKind,
   TargetIndex,
 } from './types.ts'
 export {
@@ -35,7 +38,7 @@ export {
   UploadEditor,
 } from './editors/index.ts'
 export { resolveEditor, mergeEditors } from './registry.ts'
-export { annotations, stega, composite, rowPrefixes } from './locators.ts'
+export { annotations, stega, composite } from './locators.ts'
 export {
   editable,
   editableOff,

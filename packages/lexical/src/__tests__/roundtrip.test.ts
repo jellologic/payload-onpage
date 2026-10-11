@@ -8,13 +8,7 @@
 import { describe, expect, it } from 'vitest'
 import { $getRoot, $isElementNode, createEditor, type ElementNode } from 'lexical'
 import { RICH_TEXT_NODES } from '../nodeList.ts'
-import {
-  fromEditorState,
-  plainText,
-  toEditorState,
-  EMPTY_STATE,
-  type RichTextState,
-} from '../convert.ts'
+import { fromEditorState, hasOpaque, plainText, toEditorState, EMPTY_STATE } from '../convert.ts'
 import { $createPayloadLinkNode, $isPayloadLinkNode } from '../nodes.tsx'
 import { normalizeRichText } from '@payload-onpage/core'
 import fixtures from './fixtures.json'
@@ -29,7 +23,7 @@ const roundTrip = (state: unknown) => {
   editor.setEditorState(editor.parseEditorState(JSON.stringify(toEditorState(state))))
   return {
     editor,
-    out: fromEditorState(editor.getEditorState().toJSON() as unknown as RichTextState),
+    out: fromEditorState(editor.getEditorState().toJSON()),
   }
 }
 
@@ -67,7 +61,7 @@ describe('rich text round trip', () => {
   it('keeps Payload link fields and ids', () => {
     const state = (fixtures as any).withLink
     const before = collect(state.root, 'link')
-    expect(before[0].fields.linkType).toBeDefined()
+    expect(before[0]!.fields.linkType).toBeDefined()
     expect(collect(roundTrip(state).out.root, 'link')).toEqual(before)
   })
 
@@ -86,7 +80,7 @@ describe('rich text round trip', () => {
       },
       { discrete: true },
     )
-    const json = fromEditorState(editor.getEditorState().toJSON() as unknown as RichTextState)
+    const json = fromEditorState(editor.getEditorState().toJSON())
     const link = collect(json.root, 'link')[0]
     expect(link).toMatchObject({
       type: 'link',
@@ -130,8 +124,36 @@ describe('rich text round trip', () => {
       },
     }
     const out: any = normalizeRichText(state)
-    expect(out.root.children[0].value).toBe(42)
-    expect(out.root.children[1].children[0].fields.doc).toEqual({ relationTo: 'posts', value: 7 })
-    expect(state.root.children[0].value).toEqual({ id: 42, url: '/a.jpg' })
+    expect(out.root.children[0]!.value).toBe(42)
+    expect(out.root.children[1]!.children[0]!.fields.doc).toEqual({ relationTo: 'posts', value: 7 })
+    expect(state.root.children[0]!.value).toEqual({ id: 42, url: '/a.jpg' })
+  })
+})
+
+describe('conversion edge cases', () => {
+  it('never mutates the input or shares the empty paragraph between documents', () => {
+    const input = { root: { type: 'root', version: 1, children: [] } }
+    const snapshot = structuredClone(input)
+    const a = toEditorState(input)
+    const b = toEditorState({ root: { type: 'root', version: 1, children: [] } })
+    expect(input).toEqual(snapshot)
+    expect(a.root.children).not.toBe(b.root.children)
+    expect(a.root.children).not.toBe(EMPTY_STATE.root.children)
+  })
+  it('treats only placeholder nodes as content, not empty editable blocks', () => {
+    const blank = {
+      root: {
+        type: 'root',
+        version: 1,
+        children: [
+          { type: 'heading', tag: 'h2', version: 1, children: [{ type: 'tab', version: 1 }] },
+        ],
+      },
+    }
+    expect(hasOpaque(blank)).toBe(false)
+    const withUpload = {
+      root: { type: 'root', version: 1, children: [{ type: 'upload', version: 3, value: 1 }] },
+    }
+    expect(hasOpaque(withUpload)).toBe(true)
   })
 })

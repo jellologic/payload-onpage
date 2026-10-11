@@ -9,12 +9,20 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "strict": true,
+    // Catch the mistakes strict mode lets through: an index that may be out of
+    // range, an optional property set to undefined, dead code and paths.
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "verbatimModuleSyntax": false,
+    // Type-only imports stay type-only: nothing server-side leaks into client bundles by accident.
+    "verbatimModuleSyntax": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,

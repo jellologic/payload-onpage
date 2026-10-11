@@ -7,38 +7,33 @@
  * through the DataSource; the Renderer shows them (server refresh by default,
  * instant for documents rendered with <OnPageClient>).
  */
-import { useEvent } from '../useEvent.ts'
 import {
-  EditorSession,
-  fieldAtPath,
-  isEditablePath,
   refKey,
   type DataSource,
   type DocRef,
   type Locator,
   type MediaLibrary,
+  type RefKey,
   type Renderer,
-  type SessionSnapshot,
 } from '@payload-onpage/core'
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { OnPageContext } from '../context.tsx'
+import { OnPageProvider, useSessionSnapshot } from '../context.tsx'
 import { UI } from '../dom.ts'
 import { defaultEditors } from '../editors/index.ts'
 import { hub } from '../hub.ts'
 import { notifyLayout } from '../layout.ts'
 import { annotations, composite, stega } from '../locators.ts'
 import { createTranslate, type Messages } from '../messages.ts'
-import { mergeEditors, resolveEditor } from '../registry.ts'
+import { mergeEditors } from '../registry.ts'
 import { clientState } from '../renderers.ts'
-import { injectStyles } from '../styles.ts'
 import { useTargets } from '../targets.ts'
 import type {
   EditingState,
-  EditorRegistry,
   FieldEditorDef,
   Links,
-  OnPageContextValue,
+  OnPageApi,
+  OnPageState,
   Panel,
   Selection,
 } from '../types.ts'
@@ -46,43 +41,46 @@ import { BlockPicker } from '../ui/BlockPicker.tsx'
 import { Dock } from '../ui/Dock.tsx'
 import { Overlay } from '../ui/Overlay.tsx'
 import { SettingsPanel } from '../ui/SettingsPanel.tsx'
+import { useEditorStyles, useIsClient } from '../useIsClient.ts'
+import { useEvent } from '../useEvent.ts'
+import { resolveEditTarget } from './editTarget.ts'
 import { FieldHost } from './FieldHost.tsx'
 import { Ghosts } from './Ghosts.tsx'
-import { usePageEvents } from './usePageEvents.ts'
+import { useClientDocs } from './useClientDocs.ts'
+import { useEditorSession } from './useEditorSession.ts'
+import { useFlash } from './useFlash.ts'
 import { useGhosts } from './useGhosts.ts'
+import { usePageEvents } from './usePageEvents.ts'
 
 export interface OnPageEditorProps {
   dataSource: DataSource
   /** Image search/upload (e.g. `payloadUploads()`). Without it, upload fields can't be changed. */
-  media?: MediaLibrary
+  media?: MediaLibrary | undefined
   /** How elements map to fields. Default: composite(annotations(), stega()). */
-  locator?: Locator
+  locator?: Locator | undefined
   /** How saved changes reach the page. Default: clientState() (no server refresh). */
-  renderer?: Renderer
+  renderer?: Renderer | undefined
   /** Extra or replacement field editors by id; `null` removes a default. */
-  editors?: Record<string, FieldEditorDef | null>
+  editors?: Record<string, FieldEditorDef | null> | undefined
   links: Links
   /** Content locale to edit. */
-  locale?: string
+  locale?: string | undefined
   /** Autosave debounce, ms. Default: 250 with a refreshing renderer; else the collection's autosave interval, else 800. */
-  autosaveDelay?: number
+  autosaveDelay?: number | undefined
   /** Where to look for editable content. Default: document.body. */
-  root?: () => ParentNode | null
+  root?: (() => ParentNode | null) | undefined
   /** Override any UI string (see `defaultMessages`). */
-  messages?: Messages
+  messages?: Messages | undefined
 }
 
-const EMPTY_SNAP: SessionSnapshot = { docs: {}, canUndo: false, canRedo: false, busy: false }
-const noopSubscribe = () => () => {}
+/** How long a re-rendered page gets to land (and the locator to rescan) before ghosts are retired. */
+const SETTLE_MS = 250
 
 export function OnPageEditor(props: OnPageEditorProps) {
-  const { dataSource, locale, autosaveDelay, links, media } = props
+  const { dataSource, locale, links, media } = props
   const renderer = useMemo(() => props.renderer ?? clientState(), [props.renderer])
   const locator = useMemo(() => props.locator ?? composite(annotations(), stega()), [props.locator])
-  const editors: EditorRegistry = useMemo(
-    () => mergeEditors(defaultEditors, props.editors),
-    [props.editors],
-  )
+  const editors = useMemo(() => mergeEditors(defaultEditors, props.editors), [props.editors])
   const t = useMemo(() => createTranslate(props.messages), [props.messages])
   const rootProp = props.root
   const root = useCallback(
@@ -94,161 +92,112 @@ export function OnPageEditor(props: OnPageEditorProps) {
   const [editing, setEditing] = useState<EditingState | null>(null)
   const [selected, setSelected] = useState<Selection | null>(null)
   const [renders, setRenders] = useState(0)
-  const [flash, setFlash] = useState<{ text: string; bad?: boolean } | null>(null)
-  const [clientDocs, setClientDocs] = useState<ReadonlySet<string>>(() => new Set())
-  const [session, setSession] = useState<EditorSession | null>(null)
-  const snap = useSyncExternalStore(
-    session?.subscribe ?? noopSubscribe,
-    session?.getSnapshot ?? (() => EMPTY_SNAP),
-    () => EMPTY_SNAP,
-  )
-  const targets = useTargets(locator, root)
-  const { ghosts, add: addGhostEntry, rendered: ghostsRendered } = useGhosts(session ? snap : null)
-
+  const [flash, notify] = useFlash()
+  const [clientDocs, registerClientDoc] = useClientDocs()
   const isLive = useCallback(
-    (key: string) => renderer.live || clientDocs.has(key),
+    (key: RefKey) => renderer.live || clientDocs.has(key),
     [renderer, clientDocs],
   )
 
-  /** Re-render documents that aren't client-rendered, then retire their ghosts. */
-  const rerender = useCallback(
-    async (refs: DocRef[], seq?: number) => {
-      const stale = refs.filter((r) => !isLive(refKey(r)))
-      if (!stale.length) return
-      setRenders((n) => n + 1)
-      try {
-        await renderer.afterSave({ refs: stale })
-      } catch (e) {
-        console.error('[payload-onpage] render after save failed', e)
-      } finally {
-        setRenders((n) => n - 1)
-        // Give the new DOM a moment to land (and the locator to rescan) before uncovering it.
-        setTimeout(() => {
-          for (const r of stale) ghostsRendered(refKey(r), seq ?? Number.MAX_SAFE_INTEGER)
-        }, 250)
-      }
-    },
-    [isLive, renderer, ghostsRendered],
-  )
+  // Refresh mode saves quickly (the page only updates after a save); client mode uses the collection's interval.
+  const session = useEditorSession({
+    dataSource,
+    locale,
+    autosaveDelay: props.autosaveDelay ?? (renderer.live ? undefined : 250),
+    onSaved: (ref, seq) => void rerender([ref], seq),
+  })
+  const snap = useSessionSnapshot(session)
+  const targets = useTargets(locator, root)
+  const { ghosts, add: addGhostEntry, rendered: ghostsRendered } = useGhosts(session ? snap : null)
 
-  const handleSaved = useEvent((ref: DocRef, seq: number) => void rerender([ref], seq))
-
-  // One session per data source and locale; disposed (after flushing) when they change or on unmount.
+  // Pending "retire ghosts" timers, cleared on unmount.
+  const ghostTimers = useRef(new Set<ReturnType<typeof setTimeout>>())
   useEffect(() => {
-    // Refresh mode saves quickly (the page only updates after a save); client mode uses the collection's interval.
-    const delay = autosaveDelay ?? (renderer.live ? undefined : 250)
-    const s = new EditorSession({
-      dataSource,
-      locale,
-      autosaveDelay: delay,
-      onSaved: (ref, seq) => handleSaved(ref, seq),
-    })
-    // The session is an external resource with a lifecycle; it lives in state so StrictMode's
-    // mount/unmount/mount gets a fresh one each time.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSession(s)
+    const timers = ghostTimers.current
     return () => {
-      void s.flush().finally(() => s.dispose())
+      for (const id of timers) clearTimeout(id)
+      timers.clear()
     }
-  }, [dataSource, locale, autosaveDelay, renderer.live, handleSaved])
+  }, [])
 
-  useEffect(() => {
-    if (!flash) return
-    const id = setTimeout(() => setFlash(null), 4000)
-    return () => clearTimeout(id)
-  }, [flash])
+  /** Re-render documents that aren't client-rendered, then retire their ghosts. */
+  const rerender = useEvent(async (refs: DocRef[], seq?: number) => {
+    const stale = refs.filter((r) => !isLive(refKey(r)))
+    if (!stale.length) return
+    setRenders((n) => n + 1)
+    try {
+      await renderer.afterSave({ refs: stale })
+    } catch (e) {
+      console.error('[payload-onpage] render after save failed', e)
+    } finally {
+      setRenders((n) => n - 1)
+      const id = setTimeout(() => {
+        ghostTimers.current.delete(id)
+        for (const r of stale) ghostsRendered(refKey(r), seq ?? Number.MAX_SAFE_INTEGER)
+      }, SETTLE_MS)
+      ghostTimers.current.add(id)
+    }
+  })
 
   // Documents on this page: everything the locator found, plus client-mode documents.
   const docKeys = useMemo(() => {
-    const keys = new Set<string>(clientDocs)
+    const keys = new Set<RefKey>(clientDocs)
     for (const target of targets.all) keys.add(refKey(target.ref))
     return [...keys]
   }, [targets, clientDocs])
 
   useEffect(() => {
     if (!session) return
-    const seen = new Set<string>()
+    const seen = new Set<RefKey>()
     for (const target of targets.all) {
-      const k = refKey(target.ref)
-      if (seen.has(k)) continue
-      seen.add(k)
+      const key = refKey(target.ref)
+      if (seen.has(key)) continue
+      seen.add(key)
       void session.open(target.ref)
     }
   }, [targets, session])
 
   useEffect(() => notifyLayout(), [snap, targets])
 
-  const notify = useCallback<OnPageContextValue['notify']>(
-    (key, vars, bad) => setFlash({ text: t(key, vars), bad }),
-    [t],
+  const addGhost = useEvent<OnPageApi['addGhost']>((g) =>
+    addGhostEntry(g, session?.get(g.key)?.save.seq ?? 0),
   )
 
-  const registerClientDoc = useCallback((key: string) => {
-    setClientDocs((s) => new Set(s).add(key))
-    return () =>
-      setClientDocs((s) => {
-        const next = new Set(s)
-        next.delete(key)
-        return next
-      })
-  }, [])
-
-  const addGhost = useCallback<OnPageContextValue['addGhost']>(
-    (g) => addGhostEntry(g, session?.get(g.key)?.save.seq ?? 0),
-    [addGhostEntry, session],
-  )
-
-  const edit = useCallback<OnPageContextValue['edit']>(
-    (key, path, opts = {}) => {
-      const state = session?.get(key)
-      if (!state?.schema || !state.doc) {
-        if (state?.status === 'error')
-          notify('notify.cantEdit', { message: state.error ?? '' }, true)
-        else notify('notify.loading')
+  // Stable: reads the latest state when called, so the API doesn't change on every rescan.
+  const edit = useEvent<OnPageApi['edit']>((key, path, opts = {}) => {
+    const target = resolveEditTarget(session?.get(key), editors, key, path, {
+      point: opts.point,
+      kind: opts.kind,
+      el: opts.anchor ?? targets.find(key, path)?.el,
+    })
+    switch (target.kind) {
+      case 'not-ready':
+        if (target.state?.status === 'error')
+          notify(t('notify.cantEdit', { message: target.state.error ?? '' }), true)
+        else notify(t('notify.loading'))
         return true
-      }
-      if (!isEditablePath(state.schema, path)) return false
-      const hit = fieldAtPath(state.schema.fields, state.doc, path)
-      if (!hit) return false
-      const editor = resolveEditor(
-        editors,
-        hit.field,
-        opts.kind === 'field' ? undefined : opts.kind,
-      )
-      if (!editor) return false
-      setEditing({
-        key,
-        path,
-        editor,
-        point: opts.point,
-        el: opts.anchor ?? targets.find(key, path)?.el,
-      })
-      return true
-    },
-    [session, editors, targets, notify],
-  )
+      case 'none':
+        return false
+      case 'edit':
+        setEditing(target.editing)
+        return true
+    }
+  })
 
-  const ctx = useMemo<OnPageContextValue | null>(
+  const api = useMemo<OnPageApi | null>(
     () =>
       session && {
         session,
-        snap,
         renderer,
         media,
         editors,
-        targets,
         links,
         t,
-        panel,
         setPanel,
-        editing,
         setEditing,
-        selected,
         setSelected,
-        docKeys,
         isLive,
         registerClientDoc,
-        rendering: renders > 0,
         edit,
         rerender: (refs) => rerender(refs),
         notify,
@@ -256,43 +205,37 @@ export function OnPageEditor(props: OnPageEditorProps) {
       },
     [
       session,
-      snap,
       renderer,
       media,
       editors,
-      targets,
       links,
       t,
-      panel,
-      editing,
-      selected,
-      docKeys,
       isLive,
       registerClientDoc,
-      renders,
       edit,
       rerender,
       notify,
       addGhost,
     ],
   )
-
-  useEffect(() => {
-    hub.set(ctx)
-  }, [ctx])
-  useEffect(() => () => hub.set(null), [])
-  useEffect(() => injectStyles(), [])
-  usePageEvents(ctx, root)
-
-  const mounted = useSyncExternalStore(
-    noopSubscribe,
-    () => true,
-    () => false,
+  const state = useMemo<OnPageState>(
+    () => ({ snap, targets, panel, editing, selected, docKeys, rendering: renders > 0, flash }),
+    [snap, targets, panel, editing, selected, docKeys, renders, flash],
   )
-  if (!mounted || !ctx) return null
+
+  // Components outside the editor's tree (client-mode documents) reach it through the hub.
+  useEffect(() => {
+    hub.set(api)
+  }, [api])
+  useEffect(() => () => hub.set(null), [])
+  useEditorStyles()
+  usePageEvents(api && { ...api, ...state }, root)
+
+  const mounted = useIsClient()
+  if (!mounted || !api) return null
 
   return (
-    <OnPageContext.Provider value={ctx}>
+    <OnPageProvider api={api} state={state}>
       {createPortal(
         <div className="po-doc-layer" {...{ [UI]: '' }}>
           <Ghosts ghosts={ghosts} />
@@ -306,10 +249,10 @@ export function OnPageEditor(props: OnPageEditorProps) {
           <SettingsPanel />
           <BlockPicker />
           <FieldHost mode="popover" />
-          <Dock flash={flash} />
+          <Dock />
         </div>,
         document.body,
       )}
-    </OnPageContext.Provider>
+    </OnPageProvider>
   )
 }

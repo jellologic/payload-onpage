@@ -11,13 +11,12 @@
  * cancels.
  */
 import { useLayoutEffect, useRef } from 'react'
-import { toText } from '@payload-onpage/core'
+import type { ScalarField } from '@payload-onpage/core'
 import { copyTypography, HIDDEN, placeCaret, placeOver, typographyOf } from '../dom.ts'
 import { useTrackElement } from '../layout.ts'
 import type { FieldEditorProps } from '../types.ts'
 
-export const escapeHtml = (s: string): string =>
-  s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
+import { escapeHtml } from '../sanitize.ts'
 
 export function InlineText({
   field,
@@ -30,10 +29,10 @@ export function InlineText({
   live,
   point,
   t,
-}: FieldEditorProps) {
+}: FieldEditorProps<ScalarField, string>) {
   const multiline = field.type === 'textarea'
   const ref = useRef<HTMLDivElement>(null)
-  const initial = useRef(toText(value))
+  const initial = useRef(value)
   const done = useRef(false)
 
   useLayoutEffect(() => {

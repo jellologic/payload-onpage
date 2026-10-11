@@ -1,19 +1,34 @@
 'use client'
 
-import { fieldAtPath, getAt } from '@payload-onpage/core'
+import { fieldAtPath, getAt, isReady, type ReadyDocumentState } from '@payload-onpage/core'
 import { Suspense, useCallback } from 'react'
 import { useOnPage } from '../context.tsx'
-import type { FieldEditorProps } from '../types.ts'
+import { canEdit } from '../registry.ts'
+import type { EditingState, FieldEditorDef, FieldEditorProps } from '../types.ts'
 
 /** Renders the open field editor, if it belongs to this layer. */
 export function FieldHost({ mode }: { mode: 'inline' | 'popover' }) {
-  const { editing, editors, session, snap, targets, setEditing, addGhost, isLive, t } = useOnPage()
-  const def = editing ? editors[editing.editor] : undefined
-  const state = editing ? snap.docs[editing.key] : undefined
-  const key = editing?.key ?? ''
-  const path = editing?.path ?? ''
+  const { editing, editors, snap } = useOnPage()
+  if (!editing) return null
+  const def = editors[editing.editor]
+  const state = snap.docs[editing.key]
+  if (!def || def.mode !== mode || !isReady(state)) return null
+  return <OpenEditor editing={editing} def={def} state={state} />
+}
+
+/** The editor for one field of a loaded document. */
+function OpenEditor({
+  editing,
+  def,
+  state,
+}: {
+  editing: EditingState
+  def: FieldEditorDef
+  state: ReadyDocumentState
+}) {
+  const { session, targets, setEditing, addGhost, isLive, t } = useOnPage()
+  const { key, path, el: clicked } = editing
   const live = isLive(key)
-  const clicked = editing?.el
 
   const element = useCallback(
     () => (clicked?.isConnected ? clicked : (targets.find(key, path)?.el ?? null)),
@@ -39,10 +54,10 @@ export function FieldHost({ mode }: { mode: 'inline' | 'popover' }) {
     [addGhost, key, path],
   )
 
-  if (!editing || !def || def.mode !== mode || !state?.schema || !state.doc) return null
   const field = fieldAtPath(state.schema.fields, state.doc, path)?.field
-  if (!field) return null
+  if (!field || !canEdit(def, field)) return null
   const Editor = def.component
+  const raw = getAt(state.doc, path)
   // Editors may be lazy (the rich-text editor is): render nothing until they've loaded.
   return (
     <Suspense fallback={null}>
@@ -52,7 +67,7 @@ export function FieldHost({ mode }: { mode: 'inline' | 'popover' }) {
         path={path}
         field={field}
         element={element}
-        value={getAt(state.doc, path)}
+        value={def.normalize ? def.normalize(raw, field) : raw}
         commit={commit}
         preview={preview}
         close={close}

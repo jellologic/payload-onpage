@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { pathnameOf, safeLinkUrl, safePath, samePath } from '../path.ts'
-import { SEAL_PURPOSE, seal, sha256, unseal } from '../seal.ts'
+import { getAt, pathnameOf, safeLinkUrl, safePath, samePath, setAt } from '../path.ts'
+import { SEAL_PURPOSE, isLivePreviewGrant, seal, sha256, unseal } from '../seal.ts'
 
 describe('safePath (open-redirect guard)', () => {
   it.each([
@@ -96,4 +96,32 @@ describe('safeLinkUrl', () => {
     'file:///etc/passwd',
     '',
   ])('rejects %j', (u) => expect(safeLinkUrl(u)).toBeNull())
+})
+
+describe('path safety', () => {
+  it('refuses path segments that reach the prototype', () => {
+    for (const path of [
+      '__proto__.polluted',
+      'a.constructor.prototype',
+      ['__proto__', 'x'],
+    ] as const) {
+      expect(() => setAt({}, path as never, 1)).toThrow(/Unsupported path/)
+      expect(() => getAt({}, path as never)).toThrow(/Unsupported path/)
+    }
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined()
+  })
+})
+
+describe('isLivePreviewGrant', () => {
+  const now = 1_700_000_000_000
+  const ok = { path: '/a', ref: 'c:pages:1', draft: 'secret', exp: now / 1000 + 60 }
+  it('accepts a complete, unexpired grant', () => expect(isLivePreviewGrant(ok, now)).toBe(true))
+  it.each([
+    ['expired', { ...ok, exp: now / 1000 - 1 }],
+    ['missing exp (NaN never expires)', { ...ok, exp: undefined }],
+    ['non-finite exp', { ...ok, exp: Infinity }],
+    ['missing draft', { ...ok, draft: '' }],
+    ['missing path', { ...ok, path: undefined }],
+    ['not an object', 'x'],
+  ])('refuses %s', (_, g) => expect(isLivePreviewGrant(g, now)).toBe(false))
 })

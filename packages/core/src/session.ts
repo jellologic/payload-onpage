@@ -8,18 +8,20 @@
  * touched. Publish, discard and reload run one at a time.
  */
 import { AutosaveQueue, type SaveState } from './autosave.ts'
-import { refKey, type DocRef } from './docref.ts'
+import { refKey, type DocRef, type RefKey } from './docref.ts'
 import { buildPatch, changedKeys } from './fields.ts'
 import { setAt } from './path.ts'
 import type { DataSource, Doc } from './ports.ts'
 import type { DocumentSchema } from './schema.ts'
 import { stegaCleanDeep } from './stega.ts'
+import { errorText } from './util.ts'
 
 export interface DocumentState {
-  key: string
+  key: RefKey
   ref: DocRef
   status: 'loading' | 'ready' | 'error'
-  error?: string
+  /** Why loading failed (status "error"). */
+  error?: string | undefined
   schema: DocumentSchema | null
   doc: Doc | null
   save: SaveState
@@ -27,8 +29,19 @@ export interface DocumentState {
   edited: boolean
 }
 
+/** A document that can be edited: loaded, with its schema and data. */
+export type ReadyDocumentState = DocumentState & {
+  status: 'ready'
+  schema: DocumentSchema
+  doc: Doc
+}
+
+/** Narrows a document's state to one that can be edited (instead of checking `schema && doc` by hand). */
+export const isReady = (state: DocumentState | undefined): state is ReadyDocumentState =>
+  state?.status === 'ready' && !!state.schema && !!state.doc
+
 export interface SessionSnapshot {
-  docs: Record<string, DocumentState>
+  docs: Record<RefKey, DocumentState>
   canUndo: boolean
   canRedo: boolean
   /** A publish, discard or reload is running. */
@@ -36,44 +49,47 @@ export interface SessionSnapshot {
 }
 
 interface HistoryEntry {
-  key: string
+  key: RefKey
   before: Doc
   after: Doc
 }
 
 export interface EditorSessionOptions {
   dataSource: DataSource
-  locale?: string
+  locale?: string | undefined
   /** Autosave debounce, ms. Default: the collection's autosave interval, else 800. */
-  autosaveDelay?: number
+  autosaveDelay?: number | undefined
   /** Called after a document's edits were saved; `seq` increments per save. Renderers refresh here. */
-  onSaved?: (ref: DocRef, seq: number) => void
+  onSaved?: ((ref: DocRef, seq: number) => void) | undefined
 }
 
 export interface PublishResult {
   ok: boolean
-  message?: string
+  message?: string | undefined
   published: DocRef[]
 }
 
+/** Schemas are per collection or global, not per document. */
+type SchemaKey = `${DocRef['kind']}:${string}`
+const schemaKey = (ref: DocRef): SchemaKey => `${ref.kind}:${ref.slug}`
+
 const HISTORY_LIMIT = 200
 const IDLE: SaveState = { status: 'idle', seq: 0 }
-const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
 export class EditorSession {
   readonly dataSource: DataSource
-  readonly locale?: string
-  private docs = new Map<string, DocumentState>()
-  private queues = new Map<string, AutosaveQueue>()
-  private updatedAt = new Map<string, string | undefined>()
+  readonly locale: string | undefined
+  private docs = new Map<RefKey, DocumentState>()
+  private queues = new Map<RefKey, AutosaveQueue>()
+  private updatedAt = new Map<RefKey, string | undefined>()
   /** Last value queued for saving, per document (diff base for the next save). */
-  private saved = new Map<string, Doc>()
+  private saved = new Map<RefKey, Doc>()
   /** Value before the current run of transient edits, per document. */
-  private anchors = new Map<string, Doc>()
+  private anchors = new Map<RefKey, Doc>()
   /** Documents whose value came from the page (client mode); a late server load must not replace it. */
-  private fromPage = new Set<string>()
-  private loading = new Map<string, Promise<void>>()
-  private schemaCache = new Map<string, Promise<DocumentSchema>>()
+  private fromPage = new Set<RefKey>()
+  private loading = new Map<RefKey, Promise<void>>()
+  private schemaCache = new Map<SchemaKey, Promise<DocumentSchema>>()
   private past: HistoryEntry[] = []
   private future: HistoryEntry[] = []
   private listeners = new Set<() => void>()
@@ -82,7 +98,7 @@ export class EditorSession {
   private snapshot: SessionSnapshot = { docs: {}, canUndo: false, canRedo: false, busy: false }
   private disposed = false
   private readonly autosaveDelay: number | undefined
-  private readonly onSaved?: (ref: DocRef, seq: number) => void
+  private readonly onSaved: ((ref: DocRef, seq: number) => void) | undefined
 
   constructor(opts: EditorSessionOptions) {
     this.dataSource = opts.dataSource
@@ -110,14 +126,20 @@ export class EditorSession {
     for (const fn of this.listeners) fn()
   }
 
-  private patchState(key: string, patch: Partial<DocumentState>) {
+  /** After a publish: no unpublished edits, and the local copy says so. */
+  private markPublished(key: RefKey) {
+    const doc = this.docs.get(key)?.doc
+    this.patchState(key, { edited: false, doc: doc ? { ...doc, _status: 'published' } : null })
+  }
+
+  private patchState(key: RefKey, patch: Partial<DocumentState>) {
     const cur = this.docs.get(key)
     if (!cur) return
     this.docs.set(key, { ...cur, ...patch })
     this.emit()
   }
 
-  get(key: string): DocumentState | undefined {
+  get(key: RefKey): DocumentState | undefined {
     return this.docs.get(key)
   }
 
@@ -139,7 +161,7 @@ export class EditorSession {
 
   // ── loading ─────────────────────────────────────────────────────────────
   private schemaFor(ref: DocRef): Promise<DocumentSchema> {
-    const k = `${ref.kind}:${ref.slug}`
+    const k = schemaKey(ref)
     let p = this.schemaCache.get(k)
     if (!p) {
       p = this.dataSource.loadSchema(ref, { locale: this.locale })
@@ -202,7 +224,7 @@ export class EditorSession {
   }
 
   /** Try loading a document again after an error. */
-  retry(key: string): Promise<void> {
+  retry(key: RefKey): Promise<void> {
     const state = this.docs.get(key)
     if (!state) return Promise.resolve()
     if (state.status === 'error') return this.open(state.ref)
@@ -210,7 +232,7 @@ export class EditorSession {
     return Promise.resolve()
   }
 
-  private adopt(key: string, raw: Doc) {
+  private adopt(key: RefKey, raw: Doc) {
     // A page rendered with auto-mapping markers may hand us its marked copy; edit clean values.
     const doc = stegaCleanDeep(raw)
     this.saved.set(key, doc)
@@ -219,10 +241,11 @@ export class EditorSession {
     if (cur) this.docs.set(key, { ...cur, doc })
   }
 
-  private queueFor(key: string): AutosaveQueue {
+  private queueFor(key: RefKey): AutosaveQueue {
     let q = this.queues.get(key)
     if (q) return q
-    const state = this.docs.get(key)!
+    const state = this.docs.get(key)
+    if (!state) throw new Error(`payload-onpage: ${key} is not open in this session`)
     q = new AutosaveQueue({
       delay: this.autosaveDelay ?? state.schema?.autosaveInterval ?? 800,
       onState: (save) => {
@@ -243,7 +266,7 @@ export class EditorSession {
   }
 
   /** Schedule the editable top-level fields that changed since the last save. */
-  private queueChanges(key: string, next: Doc) {
+  private queueChanges(key: RefKey, next: Doc) {
     const schema = this.docs.get(key)?.schema
     if (!schema) return
     const keys = changedKeys(this.saved.get(key) ?? {}, next, schema.editable)
@@ -254,7 +277,7 @@ export class EditorSession {
 
   // ── editing ─────────────────────────────────────────────────────────────
   /** Change a document. `transient` updates the view only (live typing): no history, no save. */
-  apply(key: string, fn: (doc: Doc) => Doc, opts: { transient?: boolean } = {}) {
+  apply(key: RefKey, fn: (doc: Doc) => Doc, opts: { transient?: boolean } = {}) {
     const state = this.docs.get(key)
     if (!state?.doc) return
     const before = state.doc
@@ -276,12 +299,12 @@ export class EditorSession {
     this.emit()
   }
 
-  setValue(key: string, path: string, value: unknown, opts: { transient?: boolean } = {}) {
+  setValue(key: RefKey, path: string, value: unknown, opts: { transient?: boolean } = {}) {
     this.apply(key, (d) => setAt(d, path, value), opts)
   }
 
   /** Drop transient changes (Escape while typing). */
-  cancelTransient(key: string) {
+  cancelTransient(key: RefKey) {
     const anchor = this.anchors.get(key)
     const state = this.docs.get(key)
     if (!anchor || !state) return
@@ -290,7 +313,7 @@ export class EditorSession {
     this.emit()
   }
 
-  private restore(key: string, doc: Doc) {
+  private restore(key: RefKey, doc: Doc) {
     const state = this.docs.get(key)
     if (!state) return
     this.anchors.delete(key)
@@ -328,14 +351,14 @@ export class EditorSession {
     return state.edited || state.doc?._status === 'draft'
   }
 
-  private selected(keys?: string[]): DocumentState[] {
+  private selected(keys?: RefKey[]): DocumentState[] {
     return [...this.docs.values()].filter(
       (s) => (!keys || keys.includes(s.key)) && s.doc && s.schema && this.unpublished(s),
     )
   }
 
   /** Publish every document with unpublished changes (edited here, or saved as a draft before). */
-  publish(opts: { keys?: string[] } = {}): Promise<PublishResult> {
+  publish(opts: { keys?: RefKey[] } = {}): Promise<PublishResult> {
     return this.serial(async () => {
       await this.flush()
       const published: DocRef[] = []
@@ -372,11 +395,7 @@ export class EditorSession {
             published,
           }
         if (res.updatedAt) this.updatedAt.set(key, res.updatedAt)
-        const now = this.docs.get(key)!
-        this.patchState(key, {
-          edited: false,
-          doc: now.doc ? { ...now.doc, _status: 'published' } : now.doc,
-        })
+        this.markPublished(key)
         published.push(state.ref)
       }
       return { ok: true, published }
@@ -384,7 +403,12 @@ export class EditorSession {
   }
 
   /** Reset drafts with unpublished changes to their published versions (also clears a conflict). */
-  discard(opts: { keys?: string[] } = {}): Promise<void> {
+  /**
+   * Reset the drafts to their published values. Done as an edit, so it lands on
+   * the undo stack: undo right after a discard brings the changes back (and
+   * autosave saves them again).
+   */
+  discard(opts: { keys?: RefKey[] } = {}): Promise<void> {
     return this.serial(async () => {
       await this.flush()
       for (const { key, ref } of this.selected(opts.keys)) {
@@ -393,7 +417,7 @@ export class EditorSession {
           this.dataSource.loadDocument(ref, { draft: true, locale: this.locale, depth: 2 }),
         ])
         const state = this.docs.get(key)
-        if (!state?.schema || !state.doc) continue
+        if (!isReady(state)) continue
         // Continue from the server's latest draft (so the stale-write guard accepts the reset).
         this.adopt(key, latest)
         this.queues.get(key)?.reset()
@@ -401,17 +425,13 @@ export class EditorSession {
         for (const k of state.schema.editable) next[k] = published[k]
         this.apply(key, () => next)
         await this.queues.get(key)?.flush()
-        const now = this.docs.get(key)!
-        this.patchState(key, {
-          edited: false,
-          doc: now.doc ? { ...now.doc, _status: 'published' } : now.doc,
-        })
+        this.markPublished(key)
       }
     })
   }
 
   /** After a conflict: load the latest draft of a document and continue from it (local edits are dropped). */
-  reload(key: string): Promise<void> {
+  reload(key: RefKey): Promise<void> {
     return this.serial(async () => {
       const state = this.docs.get(key)
       if (!state) return

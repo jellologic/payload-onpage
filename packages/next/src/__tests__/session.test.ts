@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const state = vi.hoisted(() => ({
   draft: false,
   cookies: new Map<string, string>(),
-  set: [] as Array<{ name: string; value: string; opts?: Record<string, unknown> }>,
+  set: [] as Array<{ name: string; value: string; opts?: Record<string, unknown> | undefined }>,
   headers: new Map<string, string>(),
 }))
 vi.mock('next/headers.js', () => ({

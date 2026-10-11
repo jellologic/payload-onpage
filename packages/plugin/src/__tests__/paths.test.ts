@@ -16,7 +16,11 @@ function req(
     headers: new Headers(),
     payload: {
       config: { serverURL: opts.serverURL ?? 'https://site.test' },
-      collections: { pages: { config: { admin: { preview: opts.preview } } } },
+      collections: {
+        pages: { config: { admin: { preview: opts.preview } } },
+        codes: { config: {}, customIDType: 'text' },
+      },
+      db: { defaultIDType: 'number' },
       findByID: vi.fn(async () => (opts.doc === undefined ? { id: 1, slug: 'about' } : opts.doc)),
       findGlobal: vi.fn(async () => ({ tagline: 'x' })),
     },
@@ -78,19 +82,46 @@ describe('resolvePath', () => {
 
 describe('http helpers', () => {
   it('readRef parses collection and global refs', () => {
-    expect(readRef({ kind: 'global', slug: 'header' })).toEqual({ kind: 'global', slug: 'header' })
-    expect(readRef({ slug: 'pages', id: '12' })).toEqual({
+    const r = req()
+    expect(readRef(r, { kind: 'global', slug: 'header' })).toEqual({
+      kind: 'global',
+      slug: 'header',
+    })
+    expect(readRef(r, { slug: 'pages', id: '12' })).toEqual({
       kind: 'collection',
       slug: 'pages',
       id: 12,
     })
-    expect(readRef({ slug: 'pages', id: 'abc' })).toEqual({
+    expect(readRef(r, { slug: 'pages', id: 'abc' })).toEqual({
       kind: 'collection',
       slug: 'pages',
       id: 'abc',
     })
-    expect(readRef({ slug: 'pages' })).toBeNull()
-    expect(readRef({})).toBeNull()
+    expect(readRef(r, { slug: 'pages' })).toBeNull()
+    expect(readRef(r, {})).toBeNull()
+  })
+  it('readRef types ids the way the collection stores them', () => {
+    const r = req()
+    // A text-id collection keeps numeric-looking ids as text.
+    expect(readRef(r, { slug: 'codes', id: '007' })).toEqual({
+      kind: 'collection',
+      slug: 'codes',
+      id: '007',
+    })
+    expect(readRef(r, { slug: 'codes', id: '12' })).toEqual({
+      kind: 'collection',
+      slug: 'codes',
+      id: '12',
+    })
+    // A number-id collection never coerces a non-canonical or unsafe id.
+    expect(readRef(r, { slug: 'pages', id: '007' })).toEqual({
+      kind: 'collection',
+      slug: 'pages',
+      id: '007',
+    })
+    expect(readRef(r, { slug: 'pages', id: '9007199254740993' })).toMatchObject({
+      id: '9007199254740993',
+    })
   })
   it('rejectCrossSite accepts same-origin POSTs only', () => {
     const r = req()

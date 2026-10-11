@@ -9,8 +9,15 @@
  * Payload's REST API, so access control, hooks, validation, drafts and versions
  * apply unchanged.
  */
-import { DEFAULTS, type SchemaField } from '@payload-onpage/core'
-import type { CollectionConfig, Config, GlobalConfig, Plugin } from 'payload'
+import { DEFAULTS, type DocRef, type SchemaField } from '@payload-onpage/core'
+import {
+  InvalidConfiguration,
+  type CollectionConfig,
+  type Config,
+  type GlobalConfig,
+  type Plugin,
+} from 'payload'
+import { deepMergeSimple } from 'payload/shared'
 import { createEndpoints } from './endpoints.ts'
 import { encodeOnRead, guardStaleWrite, stripMarkers } from './hooks.ts'
 import { normalizeEntries, type Entry, type OnPageOptions } from './options.ts'
@@ -19,56 +26,73 @@ import { translations } from './translations.ts'
 
 const APPLIED = 'payload-onpage'
 
-type Translations = Record<string, Record<string, unknown>>
-/** Ours first; the site's own translations (any language, any key) win. */
-function mergeTranslations(
-  ours: Translations,
-  theirs: unknown,
-): NonNullable<Config['i18n']>['translations'] {
-  const out: Translations = { ...ours }
-  for (const [lang, table] of Object.entries((theirs ?? {}) as Translations)) {
-    const mine = out[lang] ?? {}
-    out[lang] = {
-      ...mine,
-      ...table,
-      onpage: { ...(mine.onpage as object), ...(table.onpage ?? {}) },
-    }
-  }
-  return out
-}
-
 export function onpage(options: OnPageOptions): Plugin {
   return (incoming: Config): Config => {
     if (options.enabled === false || incoming.custom?.[APPLIED]) return incoming
+    const { session } = options
+    if (!session)
+      throw new InvalidConfiguration(
+        'payload-onpage: pass `session` (e.g. nextSession() from @payload-onpage/next/session). The enter, mode, exit and preview endpoints need it.',
+      )
     const prefix = options.routePrefix ?? DEFAULTS.routePrefix
-    const apiRoute = incoming.routes?.api ?? DEFAULTS.apiRoute
-    const entries = [
-      ...normalizeEntries(options.collections, 'collection'),
-      ...normalizeEntries(options.globals, 'global'),
-    ]
-    const byKey = new Map(entries.map((e) => [`${e.kind}:${e.slug}`, e]))
+    const entries = normalizeEntries(options)
+    const keyOf = (kind: DocRef['kind'], slug: string) => `${kind}:${slug}`
+    const byKey = new Map(entries.map((e) => [keyOf(e.kind, e.slug), e]))
 
-    const withHooks = <T extends CollectionConfig | GlobalConfig>(cfg: T, entry: Entry): T => {
-      let fields: SchemaField[] | undefined
-      // Encoding only needs names, types and editors: serialize once, lazily, without request context.
-      const lazyFields = () => (fields ??= serializeFields(cfg.fields, { blocks: incoming.blocks }))
-      const hooks = { ...(cfg.hooks ?? {}) } as Record<string, unknown[]>
-      hooks.beforeValidate = [...(hooks.beforeValidate ?? []), stripMarkers]
-      hooks.beforeChange = [...(hooks.beforeChange ?? []), stripMarkers, guardStaleWrite]
-      hooks.afterRead = [
-        ...(hooks.afterRead ?? []),
-        encodeOnRead({
-          kind: entry.kind,
-          slug: cfg.slug,
-          fields: lazyFields,
-          only: entry.options.fields,
-          filter: options.encode,
-        }),
-      ]
-      return { ...cfg, hooks }
+    const missing = entries.filter((e) =>
+      e.kind === 'global'
+        ? !incoming.globals?.some((g) => g.slug === e.slug)
+        : !incoming.collections?.some((c) => c.slug === e.slug),
+    )
+    if (missing.length) {
+      throw new InvalidConfiguration(
+        `payload-onpage: unknown ${missing.map((e) => `${e.kind} "${e.slug}"`).join(', ')}`,
+      )
     }
 
-    const control = (kind: Entry['kind'], slug: string) => ({
+    /** The hooks every enabled document gets (see ./hooks). Encoding serializes the fields once, lazily. */
+    const hooksFor = (cfg: CollectionConfig | GlobalConfig, entry: Entry) => {
+      let fields: SchemaField[] | undefined
+      return {
+        beforeValidate: [stripMarkers],
+        beforeChange: [stripMarkers, guardStaleWrite],
+        afterRead: [
+          encodeOnRead({
+            kind: entry.kind,
+            slug: cfg.slug,
+            fields: () => (fields ??= serializeFields(cfg.fields, { blocks: incoming.blocks })),
+            ...(entry.options.fields ? { only: entry.options.fields } : {}),
+            ...(options.encode ? { filter: options.encode } : {}),
+          }),
+        ],
+      }
+    }
+    const withCollectionHooks = (c: CollectionConfig, entry: Entry): CollectionConfig => {
+      const add = hooksFor(c, entry)
+      return {
+        ...c,
+        hooks: {
+          ...c.hooks,
+          beforeValidate: [...(c.hooks?.beforeValidate ?? []), ...add.beforeValidate],
+          beforeChange: [...(c.hooks?.beforeChange ?? []), ...add.beforeChange],
+          afterRead: [...(c.hooks?.afterRead ?? []), ...add.afterRead],
+        },
+      }
+    }
+    const withGlobalHooks = (g: GlobalConfig, entry: Entry): GlobalConfig => {
+      const add = hooksFor(g, entry)
+      return {
+        ...g,
+        hooks: {
+          ...g.hooks,
+          beforeValidate: [...(g.hooks?.beforeValidate ?? []), ...add.beforeValidate],
+          beforeChange: [...(g.hooks?.beforeChange ?? []), ...add.beforeChange],
+          afterRead: [...(g.hooks?.afterRead ?? []), ...add.afterRead],
+        },
+      }
+    }
+
+    const control = (kind: DocRef['kind'], slug: string) => ({
       path: '@payload-onpage/plugin/admin#OnPageAdminControls',
       clientProps: { kind, slug, prefix },
     })
@@ -112,39 +136,28 @@ export function onpage(options: OnPageOptions): Plugin {
       }
     }
 
-    const missing = entries.filter((e) =>
-      e.kind === 'global'
-        ? !incoming.globals?.some((g) => g.slug === e.slug)
-        : !incoming.collections?.some((c) => c.slug === e.slug),
-    )
-    if (missing.length) {
-      throw new Error(
-        `payload-onpage: unknown ${missing.map((e) => `${e.kind} "${e.slug}"`).join(', ')}`,
-      )
-    }
-
     return {
       ...incoming,
       custom: { ...incoming.custom, [APPLIED]: true },
       i18n: {
         ...incoming.i18n,
-        translations: mergeTranslations(translations, incoming.i18n?.translations),
+        // Ours first; the site's own translations (any language, any key) win.
+        translations: deepMergeSimple(translations, incoming.i18n?.translations ?? {}),
       },
       collections: (incoming.collections ?? []).map((c) => {
-        const entry = byKey.get(`collection:${c.slug}`)
-        return entry ? withCollectionAdmin(withHooks(c, entry)) : c
+        const entry = byKey.get(keyOf('collection', c.slug))
+        return entry ? withCollectionAdmin(withCollectionHooks(c, entry)) : c
       }),
       globals: (incoming.globals ?? []).map((g) => {
-        const entry = byKey.get(`global:${g.slug}`)
-        return entry ? withGlobalAdmin(withHooks(g, entry)) : g
+        const entry = byKey.get(keyOf('global', g.slug))
+        return entry ? withGlobalAdmin(withGlobalHooks(g, entry)) : g
       }),
       endpoints: [
         ...(incoming.endpoints ?? []),
         ...createEndpoints({
-          options,
+          options: { ...options, session },
           prefix,
-          apiRoute,
-          entry: (kind, slug) => byKey.get(`${kind}:${slug}`),
+          entry: (kind, slug) => byKey.get(keyOf(kind, slug)),
         }),
       ],
       onInit: async (payload) => {
@@ -159,7 +172,7 @@ export function onpage(options: OnPageOptions): Plugin {
   }
 }
 
-export type { OnPageDocOptions, OnPageOptions } from './options.ts'
+export type { OnPageDocOptions, OnPageOptions, OnPageTargets } from './options.ts'
 export { canEditDocument, canUseOnPage } from './access.ts'
 export { createPreviewToken, verifyPreviewToken, type PreviewTokenPayload } from './tokens.ts'
 export { serializeFields, type SerializeContext } from './schema.ts'

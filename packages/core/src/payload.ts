@@ -22,7 +22,7 @@ export interface PayloadRestOptions {
   /** API base, default "/api". */
   apiBase?: string
   /** Plugin endpoint prefix, default "/onpage". */
-  prefix?: string
+  prefix?: `/${string}`
   /** Extra request init (headers for a custom auth scheme, etc.). */
   init?: RequestInit
   fetch?: typeof fetch
@@ -51,23 +51,39 @@ export async function errorMessage(res: Response): Promise<string> {
   }
 }
 
-export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
+interface ClientOptions {
+  init?: RequestInit
+  fetch?: typeof fetch
+}
+
+/**
+ * The fetch and request init both adapters use: cookie auth by default, plus the
+ * caller's `init` (custom auth headers…) on every request. Headers are merged
+ * through `Headers`, so a `Headers` instance or tuple list works as well as an object.
+ */
+function client(opts: ClientOptions) {
+  const f = opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
+  const init = (extra: RequestInit = {}): RequestInit => {
+    const headers = new Headers(opts.init?.headers)
+    new Headers(extra.headers).forEach((v, k) => headers.set(k, v))
+    return { credentials: 'include', ...opts.init, ...extra, headers }
+  }
+  return { f, init }
+}
+
+export function payloadRest(
+  opts: PayloadRestOptions = {},
+): DataSource & Required<Pick<DataSource, 'createPreviewLink'>> {
   const api = opts.apiBase ?? DEFAULTS.apiRoute
   const prefix = opts.prefix ?? DEFAULTS.routePrefix
-  const f = opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
-  const init = (extra: RequestInit = {}): RequestInit => ({
-    credentials: 'include',
-    ...opts.init,
-    ...extra,
-    headers: { ...(opts.init?.headers ?? {}), ...(extra.headers ?? {}) },
-  })
+  const { f, init } = client(opts)
   const docUrl = (ref: DocRef) =>
     ref.kind === 'global' ? `${api}/globals/${ref.slug}` : `${api}/${ref.slug}/${ref.id}`
 
   const write = async (
     ref: DocRef,
     data: Doc,
-    o: { locale?: string; updatedAt?: string },
+    o: { locale?: string | undefined; updatedAt?: string | undefined },
     publish: boolean,
   ): Promise<SaveResult> => {
     const query = qs({
@@ -121,7 +137,7 @@ export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
       if (o.locale) p.set('locale', o.locale)
       if (o.query)
         p.set(`where[${titleField}][${titleField === 'id' ? 'equals' : 'like'}]`, o.query)
-      const res = await f(`${api}/${collection}?${p}`, init())
+      const res = await f(`${api}/${collection}?${p}`, init(o.signal ? { signal: o.signal } : {}))
       if (!res.ok) throw new Error(await errorMessage(res))
       const body = (await res.json()) as { docs?: Doc[] }
       return (body.docs ?? []).map((doc) => {
@@ -156,16 +172,30 @@ export function payloadRest(opts: PayloadRestOptions = {}): DataSource {
 export interface PayloadUploadsOptions {
   apiBase?: string
   pageSize?: number
+  /** Extra request init (headers for a custom auth scheme, etc.), as for `payloadRest`. */
+  init?: RequestInit
   fetch?: typeof fetch
 }
 
+/** Smallest image size at least this wide is used for picker thumbnails. */
+const THUMB_WIDTH = 240
+
+/**
+ * A thumbnail URL: Payload's `thumbnailURL` (the collection's adminThumbnail),
+ * else the smallest generated size that is still wide enough, whatever the
+ * sizes are named, else the original.
+ */
 function thumbOf(doc: Doc): string | undefined {
-  const sizes = (doc.sizes ?? {}) as Record<string, { url?: string | null } | undefined>
-  for (const key of ['thumbnail', 'small', 'card', 'medium']) {
-    const u = sizes[key]?.url
-    if (u) return u
-  }
-  return (doc.url as string | undefined) ?? undefined
+  if (typeof doc.thumbnailURL === 'string' && doc.thumbnailURL) return doc.thumbnailURL
+  const sizes = Object.values(
+    (doc.sizes ?? {}) as Record<string, { url?: string | null; width?: number | null } | undefined>,
+  )
+    .filter(
+      (s): s is { url: string; width?: number | null } => typeof s?.url === 'string' && !!s.url,
+    )
+    .sort((a, b) => (a.width ?? Infinity) - (b.width ?? Infinity))
+  const fit = sizes.find((s) => (s.width ?? 0) >= THUMB_WIDTH) ?? sizes.at(-1)
+  return fit?.url ?? (typeof doc.url === 'string' ? doc.url : undefined)
 }
 
 const toItem = (doc: Doc): MediaItem => ({
@@ -177,11 +207,13 @@ const toItem = (doc: Doc): MediaItem => ({
   doc,
 })
 
-export function payloadUploads(opts: PayloadUploadsOptions = {}): MediaLibrary {
+export function payloadUploads(
+  opts: PayloadUploadsOptions = {},
+): MediaLibrary & Required<Pick<MediaLibrary, 'upload'>> {
   const api = opts.apiBase ?? DEFAULTS.apiRoute
-  const f = opts.fetch ?? ((...a: Parameters<typeof fetch>) => fetch(...a))
+  const { f, init } = client(opts)
   return {
-    async search({ query, page = 1, relationTo }) {
+    async search({ query, page = 1, relationTo, signal }) {
       const p = new URLSearchParams({
         depth: '0',
         limit: String(opts.pageSize ?? 30),
@@ -193,7 +225,7 @@ export function payloadUploads(opts: PayloadUploadsOptions = {}): MediaLibrary {
         p.set('where[and][1][or][0][filename][like]', query)
         p.set('where[and][1][or][1][alt][like]', query)
       }
-      const res = await f(`${api}/${relationTo}?${p}`, { credentials: 'include' })
+      const res = await f(`${api}/${relationTo}?${p}`, init(signal ? { signal } : {}))
       if (!res.ok) throw new Error(await errorMessage(res))
       const body = (await res.json()) as { docs?: Doc[]; hasNextPage?: boolean }
       return { items: (body.docs ?? []).map(toItem), hasMore: Boolean(body.hasNextPage) }
@@ -206,11 +238,7 @@ export function payloadUploads(opts: PayloadUploadsOptions = {}): MediaLibrary {
         '_payload',
         JSON.stringify({ alt: alt ?? file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ') }),
       )
-      const res = await f(`${api}/${relationTo}`, {
-        method: 'POST',
-        credentials: 'include',
-        body: form,
-      })
+      const res = await f(`${api}/${relationTo}`, init({ method: 'POST', body: form }))
       if (!res.ok) throw new Error(await errorMessage(res))
       return toItem(((await res.json()) as { doc: Doc }).doc)
     },

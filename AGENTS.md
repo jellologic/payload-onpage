@@ -35,7 +35,18 @@ Guidance for coding agents working **on this repository**. To add payload-onpage
 
 ## Conventions
 
-- Prettier (single quotes, no semicolons, width 100). typescript-eslint type-checked, react-hooks (React Compiler rules), jsx-a11y. `strict` TypeScript.
+- Prettier (single quotes, no semicolons, width 100). typescript-eslint type-checked, react-hooks (React Compiler rules), jsx-a11y.
+- TypeScript: `strict` plus `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`, `noUnused*`. Guard indexes instead of asserting (`!`). An option callers fill from other optional values is typed `?: T | undefined`.
+- Make the compiler check it:
+  - `SchemaField` is a union on `type`: `switch` over it and end with `assertNever`.
+  - Document keys are `RefKey`.
+  - Use `isReady(state)` before reading `schema`/`doc`.
+  - Editors come from `defineEditor({ accepts })`.
+  - UI strings go through the typed `t()`.
+- Reuse before writing:
+  - Payload (`payload`, `payload/shared`): errors, `req.searchParams`/`req.locale`, `formatAdminURL`, hook and slug types.
+  - Core: `mapFields` is the one walker over field data; `rowOps` holds the row rules; geometry lives in `geometry.ts`.
+- Core's public API is the explicit list in `core/src/index.ts`. Exporting something new is a decision, not a side effect.
 - Tests: next to the code in `src/__tests__/`. Integration tests use real Payload on SQLite in memory via `handleEndpoints` (see `plugin/src/__tests__/integration.test.ts`). Component tests use Testing Library + happy-dom (`// @vitest-environment happy-dom`).
 - Behavior change → test. Security change → an integration test that would fail without it.
 - Public API → TSDoc, plus docs in `docs/`.

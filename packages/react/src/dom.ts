@@ -1,9 +1,21 @@
 /** DOM helpers shared by the editor UI (browser-only, no React). */
 
-/** Attribute that hides a page element while an editor or ghost stands in for it. */
-export const HIDDEN = 'data-onpage-hidden'
-/** Marks the editor's own UI, which locators and click handling ignore. */
-export const UI = 'data-onpage-ui'
+/** Every DOM attribute the editor sets (annotations, which sites write, are `ATTR`). */
+export const DOM_ATTR = {
+  /** Hides a page element while an editor or ghost stands in for it. */
+  hidden: 'data-onpage-hidden',
+  /** Marks the editor's own UI, which locators and click handling ignore. */
+  ui: 'data-onpage-ui',
+  /** A page target the editor made keyboard-focusable. */
+  focusable: 'data-onpage-focusable',
+  /** On <html> while editing. */
+  editing: 'data-onpage-editing',
+  /** The editor's injected stylesheet. */
+  styles: 'data-onpage-styles',
+} as const
+
+export const HIDDEN = DOM_ATTR.hidden
+export const UI = DOM_ATTR.ui
 
 /** Computed styles copied onto an inline editor so it looks like the element it replaces. */
 export const TYPOGRAPHY = [
@@ -94,20 +106,7 @@ export function placeCaret(el: HTMLElement, point?: { x: number; y: number }): v
   sel.addRange(range)
 }
 
-/** Position a fixed popover below (or above) an element, kept inside the viewport. */
-export function popoverPosition(
-  el: Element | null,
-  size = { width: 300, height: 320 },
-): { top: number; left: number } {
-  const vw = window.innerWidth
-  const vh = window.innerHeight
-  if (!el) return { top: 80, left: Math.max(8, vw / 2 - size.width / 2) }
-  const r = el.getBoundingClientRect()
-  const below = r.bottom + 8
-  const top = below + size.height < vh ? below : Math.max(8, r.top - 8 - size.height)
-  const left = Math.min(Math.max(8, r.left), vw - size.width - 8)
-  return { top, left }
-}
+export { popoverPosition } from './geometry.ts'
 
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'

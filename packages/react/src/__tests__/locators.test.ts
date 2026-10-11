@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Window } from 'happy-dom'
-import { stegaEncode } from '@payload-onpage/core'
-import { annotations, composite, rowPrefixes, stega } from '../locators.ts'
+import { rowPrefixes, stegaEncode } from '@payload-onpage/core'
+import { annotations, composite, stega } from '../locators.ts'
 import { editable, editableOff, ATTR } from '../annotations.ts'
 
 const REF = 'c:pages:5'
@@ -72,7 +72,7 @@ describe('stega() locator', () => {
       .scan(root)
       .filter((x) => x.kind === 'richtext')
     expect(t).toHaveLength(1)
-    expect((t[0].el as any).id).toBe('rt')
+    expect((t[0]!.el as any).id).toBe('rt')
   })
 
   it('infers rows and lists, without merging adjacent rows', () => {
@@ -121,6 +121,6 @@ describe('composite()', () => {
       .scan(root)
       .filter((t) => t.kind === 'item')
     expect(rows).toHaveLength(1)
-    expect((rows[0].el as any).id).toBe('exact')
+    expect((rows[0]!.el as any).id).toBe('exact')
   })
 })

@@ -7,6 +7,7 @@ export const defaultMessages = {
   'dock.label': 'Page editor',
   'dock.loading': 'Loading editor…',
   'dock.unavailable': '{doc}: {error}',
+  'dock.saveFailed': '{doc}: {message}',
   'dock.nothing': 'Nothing editable on this page',
   'dock.conflict': '{doc}: changed by someone else',
   'dock.saving': 'Saving draft…',
@@ -45,6 +46,8 @@ export const defaultMessages = {
   'row.settings': 'Settings',
   'row.delete': 'Delete (undo with ⌘Z)',
   'row.addSection': 'Add section',
+  'row.addSectionAbove': 'Add section above',
+  'row.addSectionBelow': 'Add section below',
   'row.addFirstSection': 'Add a section',
   'row.addItem': 'Add {item}',
   'row.toolbar': '{label} actions',
@@ -57,6 +60,7 @@ export const defaultMessages = {
   'common.apply': 'Apply',
   'common.clear': 'Clear',
   'common.remove': 'Remove',
+  'common.removeItem': 'Remove {item}',
   'common.none': '—',
   'common.selected': '{count} selected',
   'search.placeholder': 'Search…',
@@ -82,6 +86,7 @@ export const defaultMessages = {
   'rt.italic': 'Italic',
   'rt.underline': 'Underline',
   'rt.link': 'Link',
+  'rt.linkApply': 'Apply',
   'rt.h2': 'Heading 2',
   'rt.h3': 'Heading 3',
   'rt.ul': 'Bulleted list',
@@ -94,15 +99,31 @@ export const defaultMessages = {
 
 export type MessageKey = keyof typeof defaultMessages
 export type Messages = Partial<Record<MessageKey, string>>
-/** Translate a message key (unknown keys are returned as-is, so plain text works too). */
-export type Translate = (
-  key: MessageKey | (string & {}),
-  vars?: Record<string, string | number>,
+
+/** The {placeholders} of a message: `Placeholders<'Saved {when}'>` is `'when'`. */
+export type Placeholders<S extends string> = S extends `${string}{${infer Name}}${infer Rest}`
+  ? Name | Placeholders<Rest>
+  : never
+
+/** The variables a message needs, by key. */
+export type MessageVars<K extends MessageKey> = Record<
+  Placeholders<(typeof defaultMessages)[K]>,
+  string | number
+>
+
+/**
+ * Translate a message key. A message with placeholders requires exactly those
+ * variables (`t('dock.saved', { ago })`); one without takes none. Unknown keys
+ * don't compile: show raw text without `t`.
+ */
+export type Translate = <K extends MessageKey>(
+  key: K,
+  ...vars: [Placeholders<(typeof defaultMessages)[K]>] extends [never] ? [] : [vars: MessageVars<K>]
 ) => string
 
 export function createTranslate(overrides: Messages = {}): Translate {
   const table: Record<string, string> = { ...defaultMessages, ...overrides }
-  return (key, vars) => {
+  return (key: string, vars?: Record<string, string | number>) => {
     const template = table[key] ?? key
     return vars
       ? template.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m))

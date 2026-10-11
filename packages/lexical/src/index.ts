@@ -12,7 +12,7 @@
  * (uploads, blocks, relationships…) are kept as-is and shown as placeholders.
  * The editor component and its nodes are in `@payload-onpage/lexical/editor`.
  */
-import type { EditorRegistry } from '@payload-onpage/react/editor-kit'
+import { defineEditor, type EditorRegistry } from '@payload-onpage/react/editor-kit'
 import { lazy } from 'react'
 
 const InlineRichText = lazy(() =>
@@ -20,7 +20,7 @@ const InlineRichText = lazy(() =>
 )
 
 export const lexicalEditors: EditorRegistry = {
-  richText: { mode: 'inline', component: InlineRichText },
+  richText: defineEditor({ mode: 'inline', accepts: ['richText'], component: InlineRichText }),
 }
 
 export {

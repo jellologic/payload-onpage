@@ -6,16 +6,14 @@
  * records the document's save sequence when it was made; the render after a
  * later save retires it. Failed saves and a TTL retire ghosts too.
  */
-import type { SessionSnapshot } from '@payload-onpage/core'
+import type { SessionSnapshot, RefKey } from '@payload-onpage/core'
+import type { GhostInput } from '../types.ts'
 import { useCallback, useEffect, useState } from 'react'
 
-export interface Ghost {
+export interface Ghost extends GhostInput {
   id: string
-  key: string
+  key: RefKey
   path: string
-  html: string
-  className?: string
-  style?: Partial<CSSStyleDeclaration>
   /** Save sequence of the document when the ghost was made. */
   afterSeq: number
   until: number
@@ -35,7 +33,7 @@ export function useGhosts(snap: SessionSnapshot | null) {
   }, [])
 
   /** The page re-rendered after save `seq` of document `key`. */
-  const rendered = useCallback((key: string, seq: number) => {
+  const rendered = useCallback((key: RefKey, seq: number) => {
     setGhosts((gs) =>
       gs.some((g) => g.key === key && g.afterSeq < seq)
         ? gs.filter((g) => !(g.key === key && g.afterSeq < seq))

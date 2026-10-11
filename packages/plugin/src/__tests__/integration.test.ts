@@ -38,7 +38,8 @@ const session: SessionAdapter = {
 
 let config: SanitizedConfig
 let payload: Payload
-const ids: Record<string, string | number> = {}
+// Filled in beforeAll.
+const ids = {} as Record<'admin' | 'editor' | 'adminPage' | 'editorPage', string | number>
 const tokens: Record<string, string> = {}
 
 const isAdmin = (user: any) => user?.collection === 'users' && user.role === 'admin'
@@ -148,7 +149,7 @@ function call(
     request: new Request(`${ORIGIN}/api${path}`, {
       method,
       headers,
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      ...(opts.body === undefined ? {} : { body: JSON.stringify(opts.body) }),
     }),
   })
 }
@@ -201,8 +202,9 @@ describe('enter / mode / exit', () => {
   })
   it('refuses users of other auth collections', async () => {
     expect((await call('POST', enterPath(ids.editorPage), { as: 'customer' })).status).toBe(403)
+    // Signed in but not allowed → 403; not signed in at all → 401.
     expect((await call('POST', '/onpage/mode?mode=edit&path=/', { as: 'customer' })).status).toBe(
-      401,
+      403,
     )
     expect((await call('POST', '/onpage/mode?mode=edit&path=/')).status).toBe(401)
     expect(calls).toEqual([])
@@ -260,8 +262,8 @@ describe('preview links', () => {
     const res = await handleEndpoints({ config, request: new Request(link.url) })
     expect(res.status).toBe(307)
     expect(res.headers.get('location')).toBe(`${ORIGIN}/admin-page`)
-    const args = calls[0].args as { path: string; sealed: string }
-    expect(calls[0].fn).toBe('enableLink')
+    const args = calls[0]!.args as { path: string; sealed: string }
+    expect(calls[0]!.fn).toBe('enableLink')
     expect(args.path).toBe('/admin-page')
     expect(args.sealed).not.toContain('NEXT_SECRET')
   })

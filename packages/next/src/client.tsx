@@ -5,28 +5,28 @@
  * is loaded only when someone is editing or previewing.
  */
 import dynamic from 'next/dynamic.js'
-import type { DataSource, Locator, MediaLibrary } from '@payload-onpage/core'
+import type { DataSource, Locator, MediaLibrary, OnPageMode } from '@payload-onpage/core'
 import type { FieldEditorDef, Messages } from '@payload-onpage/react'
 
 export interface OnPageMountProps {
-  mode: 'edit' | 'view'
+  mode: OnPageMode
   /** Opened from a shared preview link (no editing). */
-  shared?: boolean
+  shared?: boolean | undefined
   /** Payload API route. Default "/api". */
-  apiRoute?: string
+  apiRoute?: string | undefined
   /** Plugin endpoint prefix. Default "/onpage". */
-  prefix?: string
+  prefix?: `/${string}` | undefined
   /** Payload admin route. Default "/admin". */
-  adminRoute?: string
+  adminRoute?: string | undefined
   /** Locale to edit. Default: <html lang>. */
-  locale?: string
+  locale?: string | undefined
   // Client-only options (pass them from your own 'use client' mount):
-  editors?: Record<string, FieldEditorDef | null>
-  locator?: Locator
-  media?: MediaLibrary
-  dataSource?: DataSource
+  editors?: Record<string, FieldEditorDef | null> | undefined
+  locator?: Locator | undefined
+  media?: MediaLibrary | undefined
+  dataSource?: DataSource | undefined
   /** Override editor UI strings (see `defaultMessages` in @payload-onpage/react). */
-  messages?: Messages
+  messages?: Messages | undefined
 }
 
 const Editor = dynamic(() => import('./editor.tsx').then((m) => m.NextEditor), { ssr: false })

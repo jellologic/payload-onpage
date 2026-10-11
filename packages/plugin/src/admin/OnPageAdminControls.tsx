@@ -14,14 +14,16 @@ import {
   useLocale,
   useTranslation,
 } from '@payloadcms/ui'
-import type { OnPageTranslationKey } from '../translations.ts'
+import { errorText, ROUTES, type DocRef } from '@payload-onpage/core'
+import { formatAdminURL } from 'payload/shared'
 import { useMemo, useState } from 'react'
+import type { OnPageTranslationKey, translations } from '../translations.ts'
 
 export interface OnPageAdminControlsProps {
-  kind: 'collection' | 'global'
+  kind: DocRef['kind']
   slug: string
   /** Plugin endpoint prefix (`routePrefix`). */
-  prefix: string
+  prefix: `/${string}`
 }
 
 /**
@@ -42,16 +44,16 @@ export function OnPageAdminControls({ kind, slug, prefix }: OnPageAdminControlsP
   const { id, hasSavePermission } = useDocumentInfo()
   const { config } = useConfig()
   const locale = useLocale()
-  const { t: translate } = useTranslation()
-  const t = (key: OnPageTranslationKey, vars?: Record<string, string>) =>
-    (translate as (k: string, v?: Record<string, string>) => string)(key, vars)
+  const { t } = useTranslation<(typeof translations)['en'], OnPageTranslationKey>()
   const [busy, setBusy] = useState(false)
-  const apiBase = `${config.serverURL ?? ''}${config.routes.api}`
+  // Built like Payload's own API URLs: routes.api, serverURL, Next's basePath.
+  const apiBase = formatAdminURL({ apiRoute: config.routes.api, serverURL: config.serverURL })
   const dataSource = useMemo(() => payloadRest({ apiBase, prefix }), [apiBase, prefix])
 
-  if ((kind === 'collection' && !id) || hasSavePermission === false) return null
-
-  const ref = kind === 'global' ? ({ kind, slug } as const) : ({ kind, slug, id: id! } as const)
+  if (hasSavePermission === false) return null
+  const ref: DocRef | null =
+    kind === 'global' ? { kind, slug } : id != null ? { kind, slug, id } : null
+  if (!ref) return null
   const params = new URLSearchParams({ kind, slug, mode: 'edit' })
   if (kind === 'collection') params.set('id', String(id))
   if (locale?.code) params.set('locale', locale.code)
@@ -59,13 +61,11 @@ export function OnPageAdminControls({ kind, slug, prefix }: OnPageAdminControlsP
   const copyLink = async () => {
     setBusy(true)
     try {
-      const link = await dataSource.createPreviewLink!(ref, { locale: locale?.code })
+      const link = await dataSource.createPreviewLink(ref, { locale: locale?.code })
       await navigator.clipboard.writeText(link.url)
-      toast.success(
-        `Preview link copied — valid until ${new Date(link.expiresAt).toLocaleString()}`,
-      )
+      toast.success(t('onpage:linkCopied', { date: new Date(link.expiresAt).toLocaleString() }))
     } catch (e) {
-      toast.error(t('onpage:linkFailed', { message: (e as Error).message }))
+      toast.error(t('onpage:linkFailed', { message: errorText(e) }))
     } finally {
       setBusy(false)
     }
@@ -77,7 +77,7 @@ export function OnPageAdminControls({ kind, slug, prefix }: OnPageAdminControlsP
       <Button
         buttonStyle="secondary"
         size="medium"
-        onClick={() => postInNewTab(`${apiBase}${prefix}/enter?${params}`)}
+        onClick={() => postInNewTab(`${apiBase}${prefix}${ROUTES.enter}?${params}`)}
         extraButtonProps={{ style, 'data-testid': 'onpage-edit-on-page' }}
       >
         {t('onpage:editOnPage')}

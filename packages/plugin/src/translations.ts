@@ -1,18 +1,24 @@
+import type { NestedKeysStripped } from '@payloadcms/translations'
 /**
  * Admin UI strings, registered with Payload's i18n under the `onpage` namespace
  * (so the admin language applies). Add or override languages with
  * `i18n.translations` in your Payload config.
  */
-export const translations = {
-  en: {
-    onpage: {
-      editOnPage: 'Edit on page',
-      copyPreviewLink: 'Copy preview link',
-      copyPreviewLinkHint: 'Copy a read-only link to this draft',
-      linkCopied: 'Preview link copied — valid until {{date}}',
-      linkFailed: "Couldn't create a preview link: {{message}}",
-    },
+const en = {
+  onpage: {
+    editOnPage: 'Edit on page',
+    copyPreviewLink: 'Copy preview link',
+    copyPreviewLinkHint: 'Copy a read-only link to this draft',
+    linkCopied: 'Preview link copied — valid until {{date}}',
+    linkFailed: "Couldn't create a preview link: {{message}}",
   },
+}
+
+/** Every language must translate every key: a missing or extra one is a compile error. */
+type Table = { onpage: Record<keyof (typeof en)['onpage'], string> }
+
+export const translations = {
+  en,
   es: {
     onpage: {
       editOnPage: 'Editar en la página',
@@ -40,6 +46,6 @@ export const translations = {
       linkFailed: 'Vorschaulink konnte nicht erstellt werden: {{message}}',
     },
   },
-}
+} satisfies Record<string, Table>
 
-export type OnPageTranslationKey = `onpage:${keyof (typeof translations)['en']['onpage']}`
+export type OnPageTranslationKey = NestedKeysStripped<typeof en>

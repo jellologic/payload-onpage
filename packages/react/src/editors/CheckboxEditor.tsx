@@ -1,23 +1,22 @@
 'use client'
 
+import type { ScalarField } from '@payload-onpage/core'
 import type { FieldEditorProps } from '../types.ts'
-import { Dialog } from '../ui/Dialog.tsx'
+import { EditorPopover } from './kit.tsx'
 
-export function CheckboxEditor({ field, value, element, commit, close, t }: FieldEditorProps) {
+/** A checkbox value (unset falls back to the field's default). */
+export const checkedOf = (raw: unknown, field: { defaultValue?: unknown }): boolean =>
+  Boolean(raw ?? field.defaultValue)
+
+export function CheckboxEditor(props: FieldEditorProps<ScalarField, boolean>) {
+  const { field, value, commit, close } = props
   return (
-    <Dialog
-      variant="popover"
-      anchor={element}
-      title={field.label}
-      onClose={close}
-      t={t}
-      testId="onpage-checkbox"
-    >
+    <EditorPopover props={props} testId="onpage-checkbox">
       <label className="po-check">
         <input
           type="checkbox"
           data-autofocus
-          checked={Boolean(value ?? field.defaultValue)}
+          checked={value}
           onChange={(e) => {
             commit(e.target.checked)
             close()
@@ -26,6 +25,6 @@ export function CheckboxEditor({ field, value, element, commit, close, t }: Fiel
         />
         {field.label}
       </label>
-    </Dialog>
+    </EditorPopover>
   )
 }

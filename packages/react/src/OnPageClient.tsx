@@ -12,10 +12,11 @@
  * invisible markers (turn off with `autoMap={false}`).
  */
 import { useEvent } from './useEvent.ts'
+import { toRef } from './annotations.ts'
 import { encodeDocument, refKey, type DocRef } from '@payload-onpage/core'
 import { useEffect, useMemo, type ReactNode } from 'react'
 import { editable, editableOff, type Editable } from './annotations.ts'
-import { useOnPageOptional } from './context.tsx'
+import { useOnPageOptional, useSessionSnapshot } from './context.tsx'
 
 export type OnPageClientProps<T> = {
   doc: T
@@ -33,9 +34,9 @@ export function OnPageClient<T extends { id?: string | number } | null | undefin
   const ref = useMemo<DocRef | null>(
     () =>
       globalSlug
-        ? { kind: 'global', slug: globalSlug }
-        : collection && id != null
-          ? { kind: 'collection', slug: collection, id }
+        ? toRef({ global: globalSlug })
+        : collection
+          ? toRef({ collection, doc: { id } })
           : null,
     [globalSlug, collection, id],
   )
@@ -51,7 +52,8 @@ export function OnPageClient<T extends { id?: string | number } | null | undefin
   })
   useEffect(() => (enabled && ref ? join(ref) : undefined), [enabled, ref, join])
 
-  const state = key ? ctx?.snap.docs[key] : undefined
+  const snap = useSessionSnapshot(ctx?.session)
+  const state = key ? snap.docs[key] : undefined
   const stateDoc = state?.doc
   const fields = state?.schema?.fields
   const autoMap = props.autoMap !== false
@@ -63,5 +65,7 @@ export function OnPageClient<T extends { id?: string | number } | null | undefin
     () => (enabled && ref ? editable(ref, { enabled: true }) : editableOff),
     [enabled, ref],
   )
+  // The session's copy started as this `doc` (same document, edited, held as plain JSON),
+  // so it is handed back as the page's own type.
   return <>{render(current as T, e)}</>
 }

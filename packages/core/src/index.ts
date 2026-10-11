@@ -3,16 +3,129 @@
  * schema, path and field operations, the stega codec, autosave, the editor
  * session, and the port interfaces adapters implement. The default Payload REST
  * adapters are in `@payload-onpage/core/payload`.
+ *
+ * The public API is listed explicitly: anything not exported here is internal
+ * and may change in any release.
  */
-export * from './docref.ts'
-export * from './path.ts'
-export * from './schema.ts'
-export * from './fields.ts'
-export * from './autosave.ts'
-export * from './stega.ts'
-export * from './encode.ts'
-export * from './lexical.ts'
-export * from './ports.ts'
-export * from './session.ts'
-export * from './seal.ts'
-export * from './constants.ts'
+export {
+  isRefKey,
+  parseRefKey,
+  refKey,
+  targetKey,
+  type DocRef,
+  type RefKey,
+  type TargetKey,
+} from './docref.ts'
+export {
+  getAt,
+  insertItem,
+  moveItem,
+  newRowId,
+  parsePath,
+  pathnameOf,
+  removeItem,
+  rowPrefixes,
+  safeLinkUrl,
+  safePath,
+  samePath,
+  setAt,
+  splitItemPath,
+  updateArray,
+  type PathSegment,
+} from './path.ts'
+export {
+  isListField,
+  type ArrayField,
+  type BlocksField,
+  type ChoiceField,
+  type DateField,
+  type DocumentSchema,
+  type FieldOf,
+  type GroupField,
+  type ListField,
+  type NumberField,
+  type RelationField,
+  type ScalarField,
+  type ScalarFieldType,
+  type SchemaBlock,
+  type SchemaField,
+  type SchemaFieldType,
+  type SchemaLabels,
+  type SchemaOption,
+} from './schema.ts'
+export {
+  asList,
+  blockFor,
+  buildPatch,
+  changedKeys,
+  cloneRow,
+  defaultsFor,
+  fieldAtPath,
+  isEditablePath,
+  newArrayRow,
+  newBlockRow,
+  normalizeRichText,
+  normalizeValue,
+  relationId,
+  relationTitle,
+  resolveRow,
+  rowFieldsOf,
+  toText,
+  type FieldAtPath,
+  type RowInfo,
+} from './fields.ts'
+export { AutosaveQueue, type AutosaveOptions, type SaveState, type SaveStatus } from './autosave.ts'
+export {
+  encodeMarker,
+  hasStegaMarker,
+  stegaClean,
+  stegaCleanDeep,
+  stegaDecode,
+  stegaEncode,
+  type Marker,
+  type MarkerKind,
+} from './stega.ts'
+export { encodeDocument, isMachineFieldName, type EncodeFilter } from './encode.ts'
+export {
+  eachLexicalNode,
+  isLexicalState,
+  mapLexical,
+  type LexicalNode,
+  type LexicalState,
+} from './lexical.ts'
+export {
+  isOnPageMode,
+  isTargetKind,
+  type DataSource,
+  type Doc,
+  type Locator,
+  type MediaItem,
+  type MediaLibrary,
+  type OnPageMode,
+  type PreviewLink,
+  type Renderer,
+  type SaveResult,
+  type SearchHit,
+  type SessionAdapter,
+  type Target,
+  type TargetKind,
+} from './ports.ts'
+export {
+  EditorSession,
+  isReady,
+  type DocumentState,
+  type EditorSessionOptions,
+  type PublishResult,
+  type ReadyDocumentState,
+  type SessionSnapshot,
+} from './session.ts'
+export {
+  isLivePreviewGrant,
+  seal,
+  SEAL_PURPOSE,
+  sha256,
+  unseal,
+  type PreviewGrant,
+} from './seal.ts'
+export { CONTEXT_KEY, COOKIE, DEFAULTS, HEADER, ROUTES } from './constants.ts'
+export { assertNever, errorText } from './util.ts'

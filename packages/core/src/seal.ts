@@ -100,3 +100,34 @@ export async function sha256(input: string): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(input)))
   return Array.from(d, (b) => b.toString(16).padStart(2, '0')).join('')
 }
+
+/**
+ * The sealed `onpage_preview` cookie a share link sets: which page it opens,
+ * until when, and Next's draft secret to inject for that page only. Written by
+ * the plugin, read by the Next proxy.
+ */
+export interface PreviewGrant {
+  /** The page's pathname. */
+  path: string
+  /** The document's ref key. */
+  ref: string
+  /** Expiry, seconds since the epoch. */
+  exp: number
+  /** Next's draft-mode secret. */
+  draft: string
+}
+
+/** A well-formed grant that hasn't expired. Anything else, including a missing `exp`, is refused. */
+export function isLivePreviewGrant(value: unknown, now = Date.now()): value is PreviewGrant {
+  if (!value || typeof value !== 'object') return false
+  const g = value as Partial<Record<keyof PreviewGrant, unknown>>
+  return (
+    typeof g.path === 'string' &&
+    typeof g.ref === 'string' &&
+    typeof g.draft === 'string' &&
+    !!g.draft &&
+    typeof g.exp === 'number' &&
+    Number.isFinite(g.exp) &&
+    g.exp * 1000 > now
+  )
+}

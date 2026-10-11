@@ -18,7 +18,11 @@ Default: users of `config.admin.user`, with the document's own `update` access, 
 Replace it entirely with the `access` option. `ref` is undefined for "may use on-page editing at all":
 
 ```ts
-onpage({ access: ({ req, ref }) => req.user?.roles?.includes('editor') ?? false })
+onpage({
+  collections: ['pages'],
+  session: nextSession(),
+  access: ({ req, ref }) => req.user?.roles?.includes('editor') ?? false,
+})
 ```
 
 Fields the user can't update are left out of the editor schema (field-level access).

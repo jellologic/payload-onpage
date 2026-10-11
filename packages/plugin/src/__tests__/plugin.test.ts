@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
+import { InvalidConfiguration } from 'payload'
+import type { SessionAdapter } from '@payload-onpage/core'
 import { stegaClean, stegaCleanDeep, stegaDecode } from '@payload-onpage/core'
 import { serializeFields } from '../schema.ts'
+import { narrow } from '../../../core/src/__tests__/fixtures/narrow.ts'
 import { payloadFields } from '../../../core/src/__tests__/fixtures/payloadFields.ts'
 import { encodeDocument } from '@payload-onpage/core'
 import { createPreviewToken, verifyPreviewToken } from '../tokens.ts'
@@ -74,15 +77,15 @@ describe('encodeDocument (auto-mapping)', () => {
   it('marks displayable strings with their exact field paths', () => {
     expect(stegaDecode(out.title)).toEqual([{ ref: 'c:pages:5', path: 'title', kind: 'text' }])
     expect(stegaDecode(out.summary)[0]).toMatchObject({ path: 'summary', kind: 'textarea' })
-    expect(stegaDecode(out.layout[0].heading)[0].path).toBe('layout.0.heading')
-    expect(stegaDecode(out.layout[0].buttons[0].label)[0].path).toBe('layout.0.buttons.0.label')
+    expect(stegaDecode(out.layout[0]!.heading)[0]!.path).toBe('layout.0.heading')
+    expect(stegaDecode(out.layout[0]!.buttons[0]!.label)[0]!.path).toBe('layout.0.buttons.0.label')
   })
 
   it('marks rich-text text nodes (including inside links) with the field path', () => {
     const p = out.body.root.children[0]
-    expect(stegaDecode(p.children[0].text)[0]).toMatchObject({ path: 'body', kind: 'richtext' })
-    expect(stegaDecode(p.children[1].children[0].text)[0].path).toBe('body')
-    expect(p.children[1].fields.url).toBe('/x')
+    expect(stegaDecode(p.children[0]!.text)[0]).toMatchObject({ path: 'body', kind: 'richtext' })
+    expect(stegaDecode(p.children[1]!.children[0]!.text)[0]!.path).toBe('body')
+    expect(p.children[1]!.fields.url).toBe('/x')
   })
 
   it("maps images through the upload's alt text", () => {
@@ -95,7 +98,7 @@ describe('encodeDocument (auto-mapping)', () => {
     expect(out.slug).toBe('home')
     expect(out.status).toBe('a')
     expect(out.views).toBe(3)
-    expect(out.layout[0].buttons[0].url).toBe('/contact')
+    expect(out.layout[0]!.buttons[0]!.url).toBe('/contact')
     expect(out.id).toBe(5)
   })
 
@@ -122,17 +125,28 @@ describe('serializeFields', () => {
     expect(schema[2]).toMatchObject({ type: 'group', label: 'SEO' })
   })
   it('keeps static defaults; function defaults need a request', () => {
-    const hero = schema[1].blocks![0]
-    expect(hero.fields.find((f) => f.name === 'section')!.fields![0].defaultValue).toBe('white')
-    expect(schema[2].fields![0].defaultValue).toBeUndefined()
+    const hero = narrow(schema[1], 'blocks').blocks[0]!
+    const section = narrow(
+      hero.fields.find((f) => f.name === 'section'),
+      'group',
+    )
+    expect(section.fields[0]?.defaultValue).toBe('white')
+    expect(narrow(schema[2], 'group').fields[0]?.defaultValue).toBeUndefined()
   })
   it('labels like the admin does (toWords), and keeps string options as-is', () => {
-    const bg = schema[1].blocks![0].fields.find((f) => f.name === 'section')!.fields![0]
+    const hero = narrow(schema[1], 'blocks').blocks[0]!
+    const bg = narrow(
+      narrow(
+        hero.fields.find((f) => f.name === 'section'),
+        'group',
+      ).fields[0],
+      'select',
+    )
     expect(bg.options).toEqual([
       { label: 'White', value: 'white' },
       { label: 'light', value: 'light' },
     ])
-    expect(schema[1].blocks![1].labels.singular).toBe('Gallery')
+    expect(narrow(schema[1], 'blocks').blocks[1]?.labels.singular).toBe('Gallery')
   })
   it('leaves out system, hidden, disabled, virtual and join fields', () => {
     const out = serializeFields([
@@ -153,7 +167,7 @@ describe('serializeFields', () => {
         blocks: [{ slug: 'cta', fields: [{ name: 'label', type: 'text' }] }] as any,
       },
     )
-    expect(out[0].blocks!.map((b) => b.slug)).toEqual(['cta'])
+    expect(narrow(out[0], 'blocks').blocks.map((b) => b.slug)).toEqual(['cta'])
   })
   it('drops fields the user may not update (field permissions)', () => {
     const out = serializeFields(
@@ -177,7 +191,7 @@ describe('serializeFields', () => {
       },
     )
     expect(out.map((f) => f.name)).toEqual(['title', 'seo'])
-    expect(out[1].fields!.map((f) => f.name)).toEqual(['a'])
+    expect(narrow(out[1], 'group').fields.map((f) => f.name)).toEqual(['a'])
   })
 })
 
@@ -203,6 +217,14 @@ describe('preview tokens', () => {
   })
 })
 
+/** A do-nothing session adapter: these tests only inspect the built config. */
+const session: SessionAdapter = {
+  enable: async () => {},
+  enableLink: async () => {},
+  disable: async () => {},
+  getMode: async () => null,
+}
+
 describe('onpage() plugin', () => {
   const config: any = {
     collections: [
@@ -215,7 +237,7 @@ describe('onpage() plugin', () => {
     ],
     globals: [{ slug: 'header', fields: [{ name: 'tagline', type: 'text' }] }],
   }
-  const out: any = onpage({ collections: ['pages'], globals: ['header'] })(config)
+  const out: any = onpage({ collections: ['pages'], globals: ['header'], session })(config)
 
   it('adds endpoints, hooks and admin controls only to enabled documents', () => {
     expect(out.endpoints.map((e: any) => `${e.method} ${e.path}`)).toEqual([
@@ -229,11 +251,11 @@ describe('onpage() plugin', () => {
     const pages = out.collections.find((c: any) => c.slug === 'pages')
     expect(pages.hooks.afterRead).toHaveLength(2)
     expect(pages.hooks.beforeChange).toHaveLength(2)
-    expect(pages.admin.components.edit.beforeDocumentControls[0].path).toBe(
+    expect(pages.admin.components.edit.beforeDocumentControls[0]!.path).toBe(
       '@payload-onpage/plugin/admin#OnPageAdminControls',
     )
     expect(out.collections.find((c: any) => c.slug === 'media').hooks).toBeUndefined()
-    expect(out.globals[0].admin.components.elements.beforeDocumentControls).toHaveLength(1)
+    expect(out.globals[0]!.admin.components.elements.beforeDocumentControls).toHaveLength(1)
   })
 
   it('marks reads only when asked, and strips markers from writes', async () => {
@@ -254,13 +276,30 @@ describe('onpage() plugin', () => {
   })
 
   it('is idempotent and can be disabled', () => {
-    const twice: any = onpage({ collections: ['pages'] })(
-      onpage({ collections: ['pages'] })({ ...config }) as any,
+    const twice: any = onpage({ collections: ['pages'], session })(
+      onpage({ collections: ['pages'], session })({ ...config }) as any,
     )
     expect(twice.endpoints.filter((e: any) => e.path === '/onpage/enter')).toHaveLength(1)
-    expect(twice.collections[0].hooks.afterRead).toHaveLength(2)
-    expect(() => onpage({ collections: ['nope'] })(config)).toThrow(/unknown collection "nope"/)
+    expect(twice.collections[0]!.hooks.afterRead).toHaveLength(2)
+    expect(() => onpage({ collections: ['nope'], session })(config)).toThrow(
+      /unknown collection "nope"/,
+    )
     expect(onpage({ collections: ['pages'], enabled: false })(config)).toBe(config)
+  })
+
+  it('fails at config time, not on the first request, without a session adapter', () => {
+    expect(() => onpage({ collections: ['pages'] })(config)).toThrow(InvalidConfiguration)
+  })
+
+  it("merges its translations under the site's, which win", () => {
+    const merged: any = onpage({ collections: ['pages'], session })({
+      ...config,
+      i18n: { translations: { en: { onpage: { editOnPage: 'Edit live' }, custom: { x: 'y' } } } },
+    })
+    expect(merged.i18n.translations.en.onpage.editOnPage).toBe('Edit live')
+    expect(merged.i18n.translations.en.onpage.copyPreviewLink).toBe('Copy preview link')
+    expect(merged.i18n.translations.en.custom).toEqual({ x: 'y' })
+    expect(merged.i18n.translations.es.onpage.editOnPage).toBe('Editar en la página')
   })
 })
 

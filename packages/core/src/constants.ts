@@ -5,6 +5,22 @@ export const DEFAULTS = {
   adminRoute: '/admin',
 } as const
 
+/** The plugin's endpoints, under `${apiRoute}${routePrefix}`. One list for the plugin and every client. */
+export const ROUTES = {
+  schema: '/schema',
+  enter: '/enter',
+  mode: '/mode',
+  exit: '/exit',
+  previewLink: '/preview-link',
+  preview: '/preview',
+} as const
+
+/**
+ * The Payload request-context key that asks a read for auto-mapping markers.
+ * `onpageContext()` sets it; the plugin's afterRead hook reads it.
+ */
+export const CONTEXT_KEY = 'onpage'
+
 /** Cookies and headers used by the Next.js adapter and its proxy. */
 export const COOKIE = {
   /** Editor mode, bound to the signed-in session: `edit|view:<authCookie>:<hash>`. */

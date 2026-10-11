@@ -17,7 +17,11 @@ Never marked:
 Narrow it further with the plugin's `encode` option:
 
 ```ts
-onpage({ collections: ['pages'], encode: ({ field, path }) => !path.startsWith('seo.') })
+onpage({
+  collections: ['pages'],
+  session: nextSession(),
+  encode: ({ field, path }) => !path.startsWith('seo.'),
+})
 ```
 
 ## Lifecycle

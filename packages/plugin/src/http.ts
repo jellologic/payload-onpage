@@ -1,25 +1,24 @@
 /** Request helpers shared by the endpoints. */
-import { parseRefKey, safePath, type DocRef } from '@payload-onpage/core'
-import type { PayloadRequest } from 'payload'
+import { safePath, type DocRef } from '@payload-onpage/core'
+import type { PayloadRequest, SanitizedCollectionConfig, SanitizedGlobalConfig } from 'payload'
+import { formatAdminURL, stripTrailingSlash } from 'payload/shared'
 
 /** The site origin: `serverURL` when configured, else the request's own origin. */
-export function originOf(req: PayloadRequest): string {
+export const originOf = (req: PayloadRequest): string => {
   const configured = req.payload.config.serverURL
-  if (configured) return configured.replace(/\/$/, '')
-  try {
-    return new URL(req.url ?? '').origin
-  } catch {
-    const host = req.headers.get('x-forwarded-host') ?? req.headers.get('host') ?? 'localhost'
-    const proto = req.headers.get('x-forwarded-proto') ?? 'http'
-    return `${proto}://${host}`
-  }
+  return configured ? stripTrailingSlash(configured) : req.origin
 }
 
 export const isSecure = (req: PayloadRequest): boolean => originOf(req).startsWith('https:')
 
-export const queryOf = (req: PayloadRequest): URLSearchParams =>
-  new URL(req.url ?? '/', 'http://localhost').searchParams
+/**
+ * Absolute URL of one of our API routes (e.g. `/onpage/preview`), built the way
+ * Payload builds its own: honours `routes.api`, Next's basePath and trailing slashes.
+ */
+export const apiURL = (req: PayloadRequest, path: `/${string}`): string =>
+  formatAdminURL({ apiRoute: req.payload.config.routes.api, path, serverURL: originOf(req) })
 
+/** Plain-text reply for the form-POST / new-tab endpoints, where JSON would just be shown raw. */
 export const text = (body: string, status: number): Response =>
   new Response(body, {
     status,
@@ -45,13 +44,50 @@ export function rejectCrossSite(req: PayloadRequest): Response | null {
   return site === 'same-origin' || site === 'none' ? null : text('Cross-site request refused', 403)
 }
 
+/** A collection's or global's sanitized config. */
+export function entityConfig(
+  req: PayloadRequest,
+  kind: 'collection',
+  slug: string,
+): SanitizedCollectionConfig | undefined
+export function entityConfig(
+  req: PayloadRequest,
+  kind: 'global',
+  slug: string,
+): SanitizedGlobalConfig | undefined
+export function entityConfig(
+  req: PayloadRequest,
+  kind: DocRef['kind'],
+  slug: string,
+): SanitizedCollectionConfig | SanitizedGlobalConfig | undefined
+export function entityConfig(req: PayloadRequest, kind: DocRef['kind'], slug: string) {
+  return kind === 'global'
+    ? req.payload.globals.config.find((g) => g.slug === slug)
+    : req.payload.collections[slug]?.config
+}
+
 /** A document ref from `kind`, `slug`, `id` query/body values. */
-export function readRef(values: { kind?: unknown; slug?: unknown; id?: unknown }): DocRef | null {
+export function readRef(
+  req: PayloadRequest,
+  values: { kind?: unknown; slug?: unknown; id?: unknown },
+): DocRef | null {
   const slug = typeof values.slug === 'string' ? values.slug : ''
   if (!slug) return null
   if (values.kind === 'global') return { kind: 'global', slug }
   const id = values.id
   if (typeof id === 'number') return { kind: 'collection', slug, id }
   if (typeof id !== 'string' || !id) return null
-  return parseRefKey(`c:${slug}:${id}`)
+  return withIdType(req, { kind: 'collection', slug, id })
+}
+
+/**
+ * The ref with its id typed the way the collection stores it (number or text),
+ * so a text id that looks numeric ("007") is never coerced.
+ */
+export function withIdType(req: PayloadRequest, ref: DocRef): DocRef {
+  if (ref.kind === 'global') return ref
+  const type = req.payload.collections[ref.slug]?.customIDType ?? req.payload.db.defaultIDType
+  const raw = String(ref.id)
+  const n = Number(raw)
+  return { ...ref, id: type === 'number' && Number.isSafeInteger(n) && String(n) === raw ? n : raw }
 }

@@ -8,7 +8,10 @@
  *   composite()    merge several; earlier locators win for the same element+path
  */
 import {
+  hasStegaMarker,
+  isTargetKind,
   parseRefKey,
+  rowPrefixes,
   targetKey,
   stegaDecode,
   type DocRef,
@@ -29,12 +32,14 @@ export function annotations(): Locator {
         if (!ref) return
         const label = el.getAttribute(ATTR.label) ?? undefined
         const field = el.getAttribute(ATTR.field)
+        const kind = el.getAttribute(ATTR.kind)
         if (field)
           out.push({
             el,
             ref,
             path: field,
-            kind: (el.getAttribute(ATTR.kind) as TargetKind) || 'field',
+            // Page markup is input: an unknown kind is treated as a plain field.
+            kind: isTargetKind(kind) ? kind : 'field',
             label,
             source: 'annotation',
           })
@@ -53,21 +58,12 @@ const SKIP_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'TEXTAREA'
 /** Lowest common ancestor of a set of elements. */
 function commonAncestor(els: Element[]): Element | null {
   if (!els.length) return null
-  let anc: Element | null = els[0]
+  let anc: Element | null = els[0] ?? null
   for (const el of els.slice(1)) {
     while (anc && !anc.contains(el)) anc = anc.parentElement
     if (!anc) return null
   }
   return anc
-}
-
-/** "layout.2.items.0.title" → ["layout.2", "layout.2.items.0"] (row paths, outermost first). */
-export function rowPrefixes(path: string): string[] {
-  const segs = path.split('.')
-  const out: string[] = []
-  for (let i = 1; i < segs.length; i++)
-    if (/^\d+$/.test(segs[i]) && i < segs.length - 1) out.push(segs.slice(0, i + 1).join('.'))
-  return out
 }
 
 export function stega(opts: { inferRows?: boolean } = {}): Locator {
@@ -92,7 +88,7 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
       const walker = doc.createTreeWalker(root, 4 /* NodeFilter.SHOW_TEXT */)
       for (let n = walker.nextNode(); n; n = walker.nextNode()) {
         const text = n.nodeValue
-        if (!text || !text.includes('\u2063\u2062')) continue
+        if (!text || !hasStegaMarker(text)) continue
         const parent = n.parentElement
         if (!parent || SKIP_TAGS.has(parent.tagName) || parent.closest(`[${UI}]`)) continue
         for (const m of stegaDecode(text)) {
@@ -121,8 +117,9 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
         rich.set(k, [...(rich.get(k) ?? []), t])
       }
       for (const group of rich.values()) {
+        const [first] = group
         const el = commonAncestor(group.map((t) => t.el))
-        if (el) out.push({ ...group[0], el })
+        if (first && el) out.push({ ...first, el })
       }
 
       if (!inferRows) return out
@@ -170,7 +167,7 @@ export function stega(opts: { inferRows?: boolean } = {}): Locator {
         byList.set(k, entry)
       }
       for (const { ref, path, els } of byList.values()) {
-        const anc = els.length > 1 ? commonAncestor(els) : els[0].parentElement
+        const anc = els.length > 1 ? commonAncestor(els) : (els[0]?.parentElement ?? null)
         if (anc && anc !== root) rows.push({ el: anc, ref, path, kind: 'list', source: 'stega' })
       }
       return [...out, ...rows]

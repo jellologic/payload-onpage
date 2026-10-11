@@ -11,42 +11,60 @@
  * Field editors are registered in @payload-onpage/react.
  */
 import type { DocRef } from './docref.ts'
-import type { MarkerKind } from './stega.ts'
+import { MARKER_KINDS } from './stega.ts'
 import type { DocumentSchema } from './schema.ts'
 
 export type Doc = Record<string, unknown>
 
-export interface SaveResult {
-  ok: boolean
-  /** HTTP-like status on failure; 409 means someone else saved first. */
-  status?: number
-  message?: string
-  /** The document's new `updatedAt` after a successful save. */
-  updatedAt?: string
-}
+/** The outcome of a save: success carries the new version, failure its status. */
+export type SaveResult =
+  | {
+      ok: true
+      /** The document's new `updatedAt`. */
+      updatedAt?: string | undefined
+    }
+  | {
+      ok: false
+      /** HTTP-like status: 409 means someone else saved first, 0 a network failure. */
+      status: number
+      message?: string | undefined
+    }
+
+/** Options callers often fill from other optional values, so `undefined` is accepted. */
+type Opt<T> = T | undefined
 
 export interface DataSource {
-  loadSchema(ref: DocRef, opts: { locale?: string }): Promise<DocumentSchema>
-  loadDocument(ref: DocRef, opts: { draft: boolean; locale?: string; depth?: number }): Promise<Doc>
+  loadSchema(ref: DocRef, opts: { locale?: Opt<string> }): Promise<DocumentSchema>
+  loadDocument(
+    ref: DocRef,
+    opts: { draft: boolean; locale?: Opt<string>; depth?: Opt<number> },
+  ): Promise<Doc>
   /** Save fields to the rolling draft. `updatedAt` enables stale-write detection. */
   saveDraft(
     ref: DocRef,
     data: Doc,
-    opts: { locale?: string; updatedAt?: string },
+    opts: { locale?: Opt<string>; updatedAt?: Opt<string> },
   ): Promise<SaveResult>
   /** Make the given values live. */
   publish(
     ref: DocRef,
     data: Doc,
-    opts: { locale?: string; updatedAt?: string },
+    opts: { locale?: Opt<string>; updatedAt?: Opt<string> },
   ): Promise<SaveResult>
   /** Find documents to link to (relationship fields), by their title field. Optional. */
   search?(
     collection: string,
-    opts: { query?: string; titleField?: string; locale?: string; limit?: number },
+    opts: {
+      query?: Opt<string>
+      titleField?: Opt<string>
+      locale?: Opt<string>
+      limit?: Opt<number>
+      /** Aborted when the search is superseded (the user kept typing). */
+      signal?: Opt<AbortSignal>
+    },
   ): Promise<SearchHit[]>
   /** Create a read-only preview link for a document. Optional. */
-  createPreviewLink?(ref: DocRef, opts: { locale?: string }): Promise<PreviewLink>
+  createPreviewLink?(ref: DocRef, opts: { locale?: Opt<string> }): Promise<PreviewLink>
 }
 
 export interface PreviewLink {
@@ -74,11 +92,13 @@ export interface MediaItem {
 
 export interface MediaLibrary {
   search(opts: {
-    query?: string
-    page?: number
+    query?: Opt<string>
+    page?: Opt<number>
     relationTo: string
+    /** Aborted when the search is superseded. */
+    signal?: Opt<AbortSignal>
   }): Promise<{ items: MediaItem[]; hasMore: boolean }>
-  upload?(file: File, opts: { relationTo: string; alt?: string }): Promise<MediaItem>
+  upload?(file: File, opts: { relationTo: string; alt?: Opt<string> }): Promise<MediaItem>
 }
 
 /**
@@ -86,16 +106,21 @@ export interface MediaLibrary {
  * the kinds auto-mapping markers carry; `field` = resolve from the schema), a
  * row of an array/blocks field (`item`), or the element holding a list (`list`).
  */
-export type TargetKind = MarkerKind | 'field' | 'item' | 'list'
+/** What a page element shows: a marker's kind, or an annotation's field / row item / list. */
+export const TARGET_KINDS = [...MARKER_KINDS, 'field', 'item', 'list'] as const
+export type TargetKind = (typeof TARGET_KINDS)[number]
+export const isTargetKind = (value: unknown): value is TargetKind =>
+  (TARGET_KINDS as readonly unknown[]).includes(value)
 
 export interface Target {
   el: Element
   ref: DocRef
   path: string
   kind: TargetKind
-  label?: string
+  label?: Opt<string>
   /** Which locator produced it ("annotation" wins over inferred ones). */
-  source: string
+  /** Which locator found it. */
+  source: 'annotation' | 'stega' | (string & {})
 }
 
 export interface Locator {
@@ -115,7 +140,10 @@ export interface Renderer {
   live: boolean
 }
 
-export type OnPageMode = 'edit' | 'view'
+export const ONPAGE_MODES = ['edit', 'view'] as const
+export type OnPageMode = (typeof ONPAGE_MODES)[number]
+export const isOnPageMode = (value: unknown): value is OnPageMode =>
+  (ONPAGE_MODES as readonly unknown[]).includes(value)
 
 /**
  * Server side: turns a browser's edit/preview access on and off. Framework

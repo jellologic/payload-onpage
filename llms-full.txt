@@ -290,7 +290,11 @@ Never marked:
 Narrow it further with the plugin's `encode` option:
 
 ```ts
-onpage({ collections: ['pages'], encode: ({ field, path }) => !path.startsWith('seo.') })
+onpage({
+  collections: ['pages'],
+  session: nextSession(),
+  encode: ({ field, path }) => !path.startsWith('seo.'),
+})
 ```
 
 ## Lifecycle
@@ -355,7 +359,11 @@ Default: users of `config.admin.user`, with the document's own `update` access, 
 Replace it entirely with the `access` option. `ref` is undefined for "may use on-page editing at all":
 
 ```ts
-onpage({ access: ({ req, ref }) => req.user?.roles?.includes('editor') ?? false })
+onpage({
+  collections: ['pages'],
+  session: nextSession(),
+  access: ({ req, ref }) => req.user?.roles?.includes('editor') ?? false,
+})
 ```
 
 Fields the user can't update are left out of the editor schema (field-level access).
@@ -477,14 +485,20 @@ The editor opens every document it finds on the page:
 
 # Custom field editor
 
-A field editor is a React component receiving `FieldEditorProps`, registered by id.
+A field editor is a React component, registered by id with `defineEditor`. You declare which field types it accepts. Its props are then typed for those fields: a `number` editor gets a `NumberField` with `min`/`max`, and a select editor gets the `options`. The registry never hands an editor any other kind of field.
 
 ```tsx
 'use client'
-import { Dialog, type FieldEditorProps } from '@payload-onpage/react/editor-kit'
+import {
+  defineEditor,
+  EditorPopover,
+  type FieldEditorProps,
+} from '@payload-onpage/react/editor-kit'
+import type { ScalarField } from '@payload-onpage/core'
 import { useState } from 'react'
 
-export function JsonEditor({ field, value, element, commit, close, t }: FieldEditorProps) {
+function JsonEditor(props: FieldEditorProps<ScalarField>) {
+  const { value, commit, close, t } = props
   const [text, setText] = useState(JSON.stringify(value ?? {}, null, 2))
   const [error, setError] = useState<string | null>(null)
   const apply = () => {
@@ -496,14 +510,7 @@ export function JsonEditor({ field, value, element, commit, close, t }: FieldEdi
     }
   }
   return (
-    <Dialog
-      variant="popover"
-      anchor={element}
-      title={field.label}
-      onClose={close}
-      t={t}
-      width={360}
-    >
+    <EditorPopover props={props} testId="my-json" width={360}>
       <textarea
         className="po-input"
         rows={8}
@@ -515,9 +522,11 @@ export function JsonEditor({ field, value, element, commit, close, t }: FieldEdi
       <button type="button" className="po-btn po-primary" onClick={apply}>
         {t('common.apply')}
       </button>
-    </Dialog>
+    </EditorPopover>
   )
 }
+
+export const json = defineEditor({ mode: 'popover', accepts: ['json'], component: JsonEditor })
 ```
 
 Register it from a client mount, and pass that mount to `<OnPage>`:
@@ -525,40 +534,78 @@ Register it from a client mount, and pass that mount to `<OnPage>`:
 ```tsx
 'use client'
 import { OnPageMount, type OnPageMountProps } from '@payload-onpage/next/client'
-import { JsonEditor } from './JsonEditor'
+import { json } from './JsonEditor'
 
-export const Mount = (p: OnPageMountProps) => (
-  <OnPageMount {...p} editors={{ json: { mode: 'popover', component: JsonEditor } }} />
-)
+export const Mount = (p: OnPageMountProps) => <OnPageMount {...p} editors={{ json }} />
 ```
 
 ```tsx
 <OnPage mount={Mount} />
 ```
 
+## Typed values
+
+`normalize` turns the stored value into the editor's value once, before it renders. The component then receives that type:
+
+```tsx
+const percent = defineEditor({
+  mode: 'popover',
+  accepts: ['number'],
+  normalize: (raw) => (typeof raw === 'number' ? raw : null),
+  component: PercentEditor, // (props: FieldEditorProps<NumberField, number | null>)
+})
+```
+
+A text draft that previews live and commits on Apply is `useDraft`. Add `ApplyBar` for the buttons:
+
+```tsx
+function PercentEditor(props: FieldEditorProps<NumberField, number | null>) {
+  const { draft, change, save, onKeyDown } = useDraft(props, {
+    format: (v) => (v === null ? '' : String(v)),
+    parse: (d) => (d === '' ? null : Number.isFinite(Number(d)) ? Number(d) : undefined), // undefined = not valid yet
+  })
+  return (
+    <EditorPopover props={props} testId="my-percent">
+      <input
+        className="po-input"
+        value={draft}
+        onChange={(e) => change(e.target.value)}
+        onKeyDown={onKeyDown}
+        data-autofocus
+      />
+      <ApplyBar onApply={save} t={props.t} />
+    </EditorPopover>
+  )
+}
+```
+
 ## Which editor a field gets
 
-1. `admin: { custom: { onpage: { editor: 'json' } } }` on the field
+1. `admin: { custom: { onpage: { editor: 'json' } } }` on the field, when the editor accepts the field's type
 2. The kind the element declares (`text`/`textarea`/`richtext`/`media`)
 3. The editor registered for the field's type (`json`, `select`…)
 
-`null` removes a default (`editors={{ color: null }}`).
+Inline editors never get a field holding a list of values (`hasMany`). `null` removes a default (`editors={{ color: null }}`).
 
 ## Props
 
 | Prop              |                                                                        |
 | ----------------- | ---------------------------------------------------------------------- |
-| `field`           | Serialized field (label, options, relationTo, min/max…)                |
-| `value`           | Current value                                                          |
+| `field`           | The field, typed by the kinds the editor accepts                       |
+| `value`           | Current value (after `normalize`)                                      |
 | `commit(v)`       | Save a value: one undo step, autosaved                                 |
 | `preview(v)`      | Live preview (client mode); not saved                                  |
 | `close()`         | Close; reverts uncommitted previews                                    |
 | `element()`       | The page element showing the field (anchor, measurements)              |
 | `ghost({ html })` | Refresh mode: keep new content on screen until the server render lands |
 | `live`            | true when the page renders from editor state                           |
-| `t(key, vars)`    | UI strings                                                             |
+| `t(key, vars)`    | UI strings: keys and their variables are checked by the compiler       |
 
-`editor-kit` also exports `useOnPage`, `useDebouncedSearch`, `useTrackElement`, `placeOver`, `copyTypography`, `sanitizeHtml` and friends.
+`editor-kit` also exports:
+
+- the building blocks above: `EditorPopover`, `ApplyBar`, `useDraft`, `Dialog`
+- hooks: `useOnPage`, `useDebouncedSearch` (its search receives an `AbortSignal`), `useTrackElement`
+- DOM helpers: `placeOver`, `copyTypography`, `sanitizeHtml` and friends
 
 
 <!-- docs/guides/custom-data-source.md -->
@@ -581,14 +628,16 @@ export const graphqlSource = (endpoint: string): DataSource => ({
   async saveDraft(ref, data, { locale, updatedAt }) {
     // Save only `data` (the changed top-level fields) as a draft.
     // Send `updatedAt` as the x-onpage-if-unmodified-since header (or your own check)
-    // and return { ok: false, status: 409 } when someone else saved first.
+    // and return { ok: false, status: 409 } when someone else saved first
+    // (a failure always has a status: 0 for a network error).
     return { ok: true, updatedAt: '…new updatedAt…' }
   },
   async publish(ref, data, opts) {
     /* save with _status: 'published' */ return { ok: true }
   },
   // Optional:
-  async search(collection, { query, titleField, limit }) {
+  async search(collection, { query, titleField, limit, signal }) {
+    // Pass `signal` to fetch: it aborts when the user keeps typing.
     return [/* { id, title, doc } */]
   },
   async createPreviewLink(ref, { locale }) {
@@ -625,8 +674,12 @@ The default adapter, [`core/src/payload.ts`](../../packages/core/src/payload.ts)
 import type { MediaLibrary } from '@payload-onpage/core'
 
 export const cloudinaryLibrary = (): MediaLibrary => ({
-  async search({ query, page, relationTo }) {
-    const res = await fetch(`/api/my-dam/search?q=${encodeURIComponent(query ?? '')}&page=${page}`)
+  async search({ query, page, relationTo, signal }) {
+    // `signal` aborts a search the user has moved on from.
+    const res = await fetch(
+      `/api/my-dam/search?q=${encodeURIComponent(query ?? '')}&page=${page}`,
+      { signal },
+    )
     const body = await res.json()
     return {
       // `doc` is what gets stored in the field (and rendered in client mode): usually the upload document.
@@ -735,6 +788,37 @@ Field and block labels come from your Payload config, translated with Payload's 
 <!-- docs/upgrading.md -->
 
 # Upgrading
+
+## 0.2 → 0.3
+
+0.3 makes the compiler catch more mistakes and fixes several bugs. Most sites only notice the first two rows.
+
+| Change                                                                                                                                                      | What to do                                                                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `session` is **required**: without it, `onpage()` throws `InvalidConfiguration` when the config is built, not on the first request                          | Pass `session: nextSession()` (or your own `SessionAdapter`)                                                                                                                                                          |
+| `collections` / `globals` keys are checked against your generated `CollectionSlug` / `GlobalSlug`                                                           | A typo is now a compile error. Without generated types, any string is accepted                                                                                                                                        |
+| `routePrefix` must start with `/` (a `` `/${string}` `` type)                                                                                               | Nothing, unless you set one without a leading slash                                                                                                                                                                   |
+| Custom field editors: use `defineEditor({ mode, accepts, normalize?, component })`                                                                          | Plain `{ mode, component }` objects still work and accept any field. With `accepts`, props are typed (`FieldEditorProps<NumberField, number \| null>`), and the registry never hands the editor another kind of field |
+| `SchemaField` is a union discriminated on `type` (`ScalarField`, `NumberField`, `ChoiceField`, `RelationField`, `GroupField`, `ArrayField`, `BlocksField`…) | Check `field.type` before reading kind-specific properties (`options`, `relationTo`, `fields`, `blocks`, `min`…)                                                                                                      |
+| `t(key, vars)` accepts only message keys, and requires exactly the variables a message uses                                                                 | Show raw text without `t`                                                                                                                                                                                             |
+| `notify(text, bad?)` takes already-translated text                                                                                                          | `notify(t('notify.published'))` instead of `notify('notify.published')`                                                                                                                                               |
+| `useOnPageOptional()` returns the editor's API (no `snap`). New: `useOnPageApi()`, `useSessionSnapshot(session)`                                            | Read documents with `useSessionSnapshot(api?.session)`. `useOnPage()` is unchanged                                                                                                                                    |
+| `SaveResult` is a union: `{ ok: true, updatedAt? }` or `{ ok: false, status, message? }`                                                                    | Custom data sources: return a `status` with every failure (0 for a network error)                                                                                                                                     |
+| `DataSource.search` and `MediaLibrary.search` receive a `signal`                                                                                            | Pass it to `fetch`, so superseded searches are cancelled. `useDebouncedSearch(search)` no longer takes `deps`; its search gets `(query, page, signal)`                                                                |
+| `getAt()` returns `unknown`                                                                                                                                 | Narrow the result (`Array.isArray`, `typeof`)                                                                                                                                                                         |
+| Document keys are typed `RefKey` (`` `c:${string}:${string}` \| `g:${string}` ``)                                                                           | Build them with `refKey(ref)`                                                                                                                                                                                         |
+| Fewer exports from `@payload-onpage/core`: internal helpers (the field walker, `collectionRef`, …) are no longer public                                     | Everything documented is still exported                                                                                                                                                                               |
+| The schema endpoint and preview-link endpoint answer errors in Payload's format (`{ errors: [{ message }] }`)                                               | Nothing, unless you parsed their old `{ error }` body yourself                                                                                                                                                        |
+| The mode endpoint answers 403 (not 401) to a signed-in user who isn't allowed                                                                               | Nothing                                                                                                                                                                                                               |
+
+**Fixed:**
+
+- **Wrong document opened:** text ids that look numeric (`"007"`) and ids past 2^53 opened the wrong document. The server now uses the collection's id type.
+- **Lexical links without an id:** old Payload Lexical links (versions 1 and 2) got no id after an edit.
+- **Custom auth on media:** the media adapter ignored `init` headers.
+- **Translations:** the admin "link copied" message and translated collection labels are now translated.
+- **Dialogs:** the popover dialog could miss an outside click while typing.
+- **Settings panel:** the panel ignored a field's custom editor (e.g. `color`).
 
 ## 0.1 → 0.2
 

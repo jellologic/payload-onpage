@@ -5,14 +5,14 @@
  * new file, through the MediaLibrary port. The chosen document goes into state
  * populated, so a client-rendered page shows it at once; saving sends its id.
  */
-import { relationId, type MediaItem } from '@payload-onpage/core'
+import { errorText, relationId, type MediaItem, type RelationField } from '@payload-onpage/core'
 import { useCallback, useRef, useState } from 'react'
 import { useOnPage } from '../context.tsx'
 import type { FieldEditorProps } from '../types.ts'
 import { Dialog } from '../ui/Dialog.tsx'
 import { useDebouncedSearch } from './useDebouncedSearch.ts'
 
-export function UploadEditor({ field, value, commit, close, t }: FieldEditorProps) {
+export function UploadEditor({ field, value, commit, close, t }: FieldEditorProps<RelationField>) {
   const { media } = useOnPage()
   const relationTo =
     (Array.isArray(field.relationTo) ? field.relationTo[0] : field.relationTo) ?? 'media'
@@ -20,13 +20,13 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const search = useCallback(
-    (query: string, page: number) =>
+    (query: string, page: number, signal: AbortSignal) =>
       media
-        ? media.search({ query, page, relationTo })
+        ? media.search({ query, page, relationTo, signal })
         : Promise.resolve({ items: [] as MediaItem[], hasMore: false }),
     [media, relationTo],
   )
-  const results = useDebouncedSearch<MediaItem>(media ? search : null, [])
+  const results = useDebouncedSearch<MediaItem>(media ? search : null)
   const currentId = relationId(value)
 
   const choose = (m: MediaItem) => {
@@ -39,7 +39,7 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
     try {
       choose(await media.upload(file, { relationTo }))
     } catch (e) {
-      setUploadError((e as Error).message)
+      setUploadError(errorText(e))
     } finally {
       setUploading(false)
     }
