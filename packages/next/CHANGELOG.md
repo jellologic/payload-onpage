@@ -1,5 +1,14 @@
 # @payload-onpage/next
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [[`3f4bc61`](https://github.com/jellologic/payload-onpage/commit/3f4bc6152629b2a684c8604bfafd1f771e810b72)]:
+  - @payload-onpage/react@0.3.2
+  - @payload-onpage/lexical@0.3.2
+  - @payload-onpage/core@0.3.2
+
 ## 0.3.1
 
 ### Patch Changes

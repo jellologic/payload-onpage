@@ -1,5 +1,14 @@
 # @payload-onpage/react
 
+## 0.3.2
+
+### Patch Changes
+
+- [#12](https://github.com/jellologic/payload-onpage/pull/12) [`3f4bc61`](https://github.com/jellologic/payload-onpage/commit/3f4bc6152629b2a684c8604bfafd1f771e810b72) Thanks [@jellologic](https://github.com/jellologic)! - - **Dock position:** a new `--po-dock-bottom` CSS variable (default `16px`) raises the dock above a site's own fixed bottom bar. The preview toolbar, the locale notice and the pinned "+ Add" button follow it.
+  - **Icons:** the dock, section toolbar, dialogs and rich-text toolbar now use SVG icons (undo, redo, move, duplicate, settings, close) instead of text glyphs, which rendered tiny and unevenly in some fonts.
+- Updated dependencies []:
+  - @payload-onpage/core@0.3.2
+
 ## 0.3.1
 
 ### Patch Changes
