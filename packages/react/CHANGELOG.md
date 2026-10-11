@@ -1,5 +1,13 @@
 # @payload-onpage/react
 
+## 0.3.1
+
+### Patch Changes
+
+- [#9](https://github.com/jellologic/payload-onpage/pull/9) [`c44ca24`](https://github.com/jellologic/payload-onpage/commit/c44ca24c6b137d665a3526606c9fce34c38a46c9) Thanks [@jellologic](https://github.com/jellologic)! - The dock, the preview toolbar and the locale notice no longer wrap at half the window width. These centred bars were capped at 50% of the viewport, which pushed **Publish** onto a second row on ordinary laptop screens.
+- Updated dependencies []:
+  - @payload-onpage/core@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes
