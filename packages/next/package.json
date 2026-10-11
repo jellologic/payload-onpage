@@ -1,6 +1,6 @@
 {
   "name": "@payload-onpage/next",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "payload-onpage for Next.js App Router: draft-mode session adapter, <OnPage />, onpageContext() and refresh rendering.",
   "license": "MIT",
   "type": "module",
