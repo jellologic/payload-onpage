@@ -51,3 +51,4 @@ Guidance for coding agents working **on this repository**. To add payload-onpage
 - Tests: next to the code in `src/__tests__/`. Integration tests use real Payload on SQLite in memory via `handleEndpoints` (see `plugin/src/__tests__/integration.test.ts`). Component tests use Testing Library + happy-dom (`// @vitest-environment happy-dom`).
 - Behavior change → test. Security change → an integration test that would fail without it.
 - Public API → TSDoc, plus docs in `docs/`.
+- Name test files `*.test.ts` or `*.test.tsx`.
