@@ -1,27 +1,59 @@
 name: Release
-# Publishing a GitHub Release tagged v<version> publishes every @payload-onpage/*
-# package at that version to npm, with provenance, via npm trusted publishing (OIDC).
-# version.yml drafts the release; a maintainer reviews and publishes it.
+# Merging to main keeps a "Version packages" PR up to date (Changesets).
+# Merging that PR releases automatically: every package whose version isn't on
+# npm yet is published with provenance through npm trusted publishing (OIDC, no
+# token), then a GitHub Release v<version> is created from the changelog.
+# Re-run by hand with "Run workflow" if a release was interrupted.
 on:
-  release:
-    types: [published]
-  workflow_dispatch: # re-run for a tag: run it from the tag, not a branch
-permissions:
-  contents: read
-  id-token: write # npm trusted publishing + provenance
+  push:
+    branches: [main]
+  workflow_dispatch:
 concurrency: release
 
 jobs:
-  publish:
+  version:
     if: github.repository == 'jellologic/payload-onpage'
     runs-on: ubuntu-latest
-    environment: npm # deployments allowed from v* tags only
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      version: ${{ steps.pending.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-      - name: Tag matches the package version
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - id: changesets
+        uses: changesets/action@v1
+        with:
+          version: bun run version-packages # also refreshes bun.lock, which bun pm pack reads
+          title: Version packages
+          commit: 'chore: version packages'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Nothing left to version: is this version still unreleased?
+      - id: pending
+        if: steps.changesets.outputs.hasChangesets == 'false'
         run: |
           v=$(node -p "require('./packages/core/package.json').version")
-          test "$GITHUB_REF" = "refs/tags/v$v" || { echo "::error::$GITHUB_REF is not refs/tags/v$v"; exit 1; }
+          if npm view "@payload-onpage/core@$v" version >/dev/null 2>&1; then
+            echo "v$v is already on npm"
+          else
+            echo "version=$v" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    needs: version
+    if: needs.version.outputs.version != ''
+    runs-on: ubuntu-latest
+    environment: npm # deploys from main only
+    permissions:
+      contents: write # the GitHub Release
+      id-token: write # npm trusted publishing + provenance
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - uses: actions/setup-node@v4
         with:
@@ -29,5 +61,18 @@ jobs:
           registry-url: https://registry.npmjs.org
       - run: npm install -g npm@latest # trusted publishing needs npm >= 11.5.1
       - run: bun install --frozen-lockfile
+      - name: Packages are at the version being released
+        run: test "$(node -p "require('./packages/core/package.json').version")" = "$VERSION"
       - run: bun run check
       - run: node scripts/release.mjs
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "v$VERSION already has a release"; exit 0
+          fi
+          # This version's section of the changelog, else GitHub's generated notes.
+          awk -v h="## $VERSION" '$0==h{f=1;next} f&&/^## /{exit} f' packages/core/CHANGELOG.md > notes.md || true
+          if [ -s notes.md ]; then set -- --notes-file notes.md; else set -- --generate-notes; fi
+          gh release create "v$VERSION" --title "v$VERSION" --target "$GITHUB_SHA" --latest "$@"
