@@ -55,3 +55,7 @@ Guidance for coding agents working **on this repository**. To add payload-onpage
 - Behavior change → test. Security change → an integration test that would fail without it.
 - Public API → TSDoc, plus docs in `docs/`.
 - Name test files `*.test.ts` or `*.test.tsx`.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

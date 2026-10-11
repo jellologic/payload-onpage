@@ -123,3 +123,7 @@ Inline editors never get a field holding a list of values (`hasMany`). `null` re
 - the building blocks above: `EditorPopover`, `ApplyBar`, `useDraft`, `Dialog`
 - hooks: `useOnPage`, `useDebouncedSearch` (its search receives an `AbortSignal`), `useTrackElement`
 - DOM helpers: `placeOver`, `copyTypography`, `sanitizeHtml` and friends
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

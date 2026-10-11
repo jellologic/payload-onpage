@@ -16,3 +16,7 @@
 | The editor never appears; the console shows "useOnPage must be used inside <OnPageEditor>" | Two copies of `@payload-onpage/react` installed                                                                          | Dedupe (`npm ls @payload-onpage/react`). The hub is shared across copies, but contexts aren't.                                                       |
 | 403 "Cross-site request refused" from enter/exit                                           | A link or form posts from another origin                                                                                 | Use the built-in buttons; enter/mode/exit accept same-origin POSTs only.                                                                             |
 | Next 15 build: `Cannot find module 'libsql'` (SQLite adapter)                              | Next 15 treats `libsql` as an external server package; with nested installs (Bun, pnpm) it isn't resolvable from the app | Add `libsql` as a direct dependency of the app (the example does).                                                                                   |
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

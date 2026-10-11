@@ -14,3 +14,7 @@ The editor opens every document it finds on the page:
 - **Publish** publishes every document on the page that has unpublished changes.
 - The dock shows "N documents".
 - Document refs are `c:<collection>:<id>` or `g:<global>`; markers and annotations carry them.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

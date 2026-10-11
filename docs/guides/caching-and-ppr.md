@@ -5,3 +5,7 @@
 - **Share links on static pages work.** The proxy injects draft mode into the request before Next decides how to serve it.
 - **Reads that feed the page** should pass `draft` and `...onpageContext()`. Anything cached with `unstable_cache` or `'use cache'` must not be shared between draft and published reads: key it by draft, or skip the cache when `draft` is true.
 - **Revalidation after publish** is your site's existing mechanism (Payload `afterChange` hooks calling `revalidatePath`/`revalidateTag`). Publishing from the page is a normal Payload update, so those hooks run.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

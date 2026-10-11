@@ -26,3 +26,7 @@ A share link shows one page's draft, read-only, to anyone with the link:
 | Server components | Yes                                                                                          | The rendered tree must be client-renderable                               |
 
 Both can be used on one page: client-mode documents skip the refresh.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

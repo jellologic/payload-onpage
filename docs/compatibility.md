@@ -19,3 +19,7 @@ Both frameworks run the same e2e suite in CI (`basic` on Next.js, `tanstack` on 
 **Start + Payload 3:** not supported. The Start adapter and its session read path target Payload 4.
 
 **Pages Router:** not supported. The session adapter and refresh renderer target the App Router. The ports allow other adapters.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

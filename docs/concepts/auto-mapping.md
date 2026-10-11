@@ -36,3 +36,7 @@ onpage({
 - **Strings change in edit mode.** Comparing or slicing a marked string (`title === 'Home'`, `title.slice(0, 20)`) behaves differently. Use `stegaClean(value)` from `@payload-onpage/core`, or annotate that element instead.
 - **Strings used as identifiers** (CSS classes, keys, ids) should come from fields that aren't marked; see the list above.
 - **Rows** are inferred when their fields render inside a common wrapper. For exact rows, or rows without text, use [annotations](../guides/annotations.md).
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

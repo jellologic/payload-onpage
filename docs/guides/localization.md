@@ -26,3 +26,7 @@ i18n: { translations: { it: { onpage: { editOnPage: 'Modifica nella pagina', cop
 ```
 
 Field and block labels come from your Payload config, translated with Payload's `getTranslation` into the admin language.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

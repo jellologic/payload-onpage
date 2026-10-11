@@ -25,3 +25,7 @@ export function LivePage({ page }) {
 - Saves use the collection's autosave interval. The page doesn't wait for them.
 
 Example: [`InstantPage.tsx`](../../examples/basic/src/components/InstantPage.tsx) (`/about` in the example).
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

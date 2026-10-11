@@ -95,8 +95,12 @@ The full walkthrough, with checks after every step and a prompt for coding agent
 
 ## Contributing
 
-`bun install && bun run check`. See [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Report security issues privately ([SECURITY.md](SECURITY.md)).
+Issues and pull requests are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md) (setup: `bun install && bun run check`); agents should read [AGENTS.md](AGENTS.md). Newcomers: look for [`good first issue`](https://github.com/jellologic/payload-onpage/labels/good%20first%20issue). Report security issues privately ([SECURITY.md](SECURITY.md)).
 
 ## License
 
 MIT
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

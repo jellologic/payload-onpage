@@ -50,3 +50,7 @@ Pass it from a client mount: `<OnPageMount {...p} dataSource={graphqlSource('/ap
 Errors: return `{ ok: false, status, message }`. 0, 429 and 5xx are retried; other statuses stop with your message shown.
 
 The default adapter, [`core/src/payload.ts`](../../packages/core/src/payload.ts), is a complete reference, and its tests ([`payload-adapter.test.ts`](../../packages/core/src/__tests__/payload-adapter.test.ts)) can be copied as a contract test.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

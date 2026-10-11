@@ -35,3 +35,7 @@ const e = editable({ collection: 'pages', doc: page }, { enabled: (await getOnPa
 Globals: `editable({ global: 'header' }, …)`. Paths are dotted with numeric indexes (`p('layout', i, 'heading')` builds them).
 
 When both apply, annotations win over inferred targets. Example: [`examples/basic/src/components/PageView.tsx`](../../examples/basic/src/components/PageView.tsx).
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

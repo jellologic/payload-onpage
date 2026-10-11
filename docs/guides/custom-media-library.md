@@ -33,3 +33,7 @@ export const cloudinaryLibrary = (): MediaLibrary => ({
 ```
 
 Pass it with `<OnPageMount {...p} media={cloudinaryLibrary()} />`. Without a media library, upload fields can't be changed on the page.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

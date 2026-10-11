@@ -2,6 +2,12 @@
 
 Thanks for helping! Issues and pull requests are welcome. Agents: [AGENTS.md](AGENTS.md) has the same information in checklist form.
 
+## Found a bug?
+
+[Open a bug report](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) with repro steps and versions (the template prompts for both). Security vulnerabilities go through [private reporting](SECURITY.md), never public issues.
+
+New here? [`good first issue`](https://github.com/jellologic/payload-onpage/labels/good%20first%20issue) marks scoped starter tasks, and the [tour](docs/tour.md) shows what the project does.
+
 ## Setup
 
 ```bash
@@ -12,6 +18,8 @@ bun run dev:example  # example site on :3100
 ```
 
 `bun run reset` inside `examples/basic` wipes the example database and uploads.
+
+Installing dependencies also installs a pre-commit hook (Prettier + ESLint on staged files). `bun run check` is the full gate, and CI runs it on every pull request.
 
 ## Workflow
 

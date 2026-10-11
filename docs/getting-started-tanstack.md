@@ -101,3 +101,7 @@ curl -s https://your-site.test/ | grep -c 'data-onpage'   # → 0
 ## Prompt for your coding agent
 
 > Add payload-onpage to this Payload 4 + TanStack Start site following https://github.com/jellologic/payload-onpage/blob/main/docs/getting-started-tanstack.md. Enable it for the collections that render pages (with drafts on) and for any globals shown on every page. Mount `<OnPage />` in the frontend layout route, spread `onpageContext()` into every draft read that feeds a page, switch draft checks to `isDraftEnabled()`, and pass the Payload secret to `tanstackSession()` (there is no proxy step on Start). Then verify: the admin shows "Edit on page"; clicking it lets you edit text; `curl` of a public page contains no `data-onpage`.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

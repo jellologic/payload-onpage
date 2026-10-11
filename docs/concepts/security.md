@@ -52,3 +52,7 @@ Payload's dev `autoLogin` also authenticates API requests (as the seeded user) â
 ## Reporting
 
 See [SECURITY.md](../../SECURITY.md).
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

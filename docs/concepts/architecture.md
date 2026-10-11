@@ -49,3 +49,7 @@ renderer.afterSave    ──router.refresh()──────────▶ ne
 - One state per document (schema, draft, save state); undo is session-wide.
 - Publish, discard and reload run one at a time and re-read state after every await.
 - Autosave is single-flight. It retries transient failures (network, 429, 5xx); a 409 freezes the queue until reload or discard.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

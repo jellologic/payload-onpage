@@ -67,3 +67,7 @@ The demo is [`examples/tanstack`](../examples/tanstack); setup is in [Getting st
 ---
 
 Ready to add it to your site? See **[Getting started](getting-started.md)** (Next.js) or **[Getting started with TanStack Start](getting-started-tanstack.md)**.
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

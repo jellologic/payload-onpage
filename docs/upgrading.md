@@ -47,3 +47,7 @@
 | `SessionAdapter` gained `enableLink()`; `Links.previewLink` → `DataSource.createPreviewLink`                                                                 | Custom adapters only                                                                                                            |
 | `<OnPageEditor media>` has no default                                                                                                                        | The Next adapter passes `payloadUploads()`. Pass a `MediaLibrary` if you mount `OnPageEditor` yourself.                         |
 | Peers: Payload `^3.90.2`, Next `^15.4.11 \|\| ^16.3.8`, Lexical `~0.50.0` (security releases)                                                                | Upgrade Payload, Next and Lexical together                                                                                      |
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._

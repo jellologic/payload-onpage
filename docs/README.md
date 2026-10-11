@@ -31,3 +31,7 @@ On-page editing and draft previews for **Payload CMS**, on **Next.js (App Router
 **Reference**: `bun run docs:api` generates the API reference (TypeDoc) into `docs/api/`. Every export carries TSDoc.
 
 Upgrading from 0.1? See [upgrading](upgrading.md). Working on this repository? See [AGENTS.md](../AGENTS.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
+
+---
+
+_Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/new?template=bug_report.yml) or see [CONTRIBUTING.md](https://github.com/jellologic/payload-onpage/blob/main/CONTRIBUTING.md) to fix it yourself._
