@@ -16,6 +16,8 @@ import {
   rowPrefixes,
   type RowInfo,
   type Target,
+  isReady,
+  type RefKey,
 } from '@payload-onpage/core'
 import { useEffect, useState } from 'react'
 import { useOnPage } from '../context.tsx'
@@ -84,7 +86,7 @@ function Outline({
 }
 
 interface ActiveRow {
-  key: string
+  key: RefKey
   info: RowInfo
   el: Element
 }
@@ -190,7 +192,7 @@ function AddItem({ list }: { list: Target }) {
   const { snap, session, setPanel, setSelected, t } = useOnPage()
   const key = refKey(list.ref)
   const state = snap.docs[key]
-  if (!state?.schema || !state.doc || !isEditablePath(state.schema, list.path)) return null
+  if (!isReady(state) || !isEditablePath(state.schema, list.path)) return null
   const field = fieldAtPath(state.schema.fields, state.doc, list.path)?.field
   if (!field || !isListField(field)) return null
   const rows = getAt(state.doc, list.path)
@@ -242,8 +244,7 @@ export function Overlay() {
     if (!target) return null
     const key = refKey(target.ref)
     const state = snap.docs[key]
-    const info =
-      state?.schema && state.doc ? resolveRow(state.schema, state.doc, target.path) : null
+    const info = isReady(state) ? resolveRow(state.schema, state.doc, target.path) : null
     return info ? { key, info, el: target.el } : null
   }
 

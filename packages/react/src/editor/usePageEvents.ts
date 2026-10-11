@@ -8,7 +8,7 @@
  *  - a warning before leaving with unsaved changes
  */
 import { useEvent } from '../useEvent.ts'
-import { refKey, resolveRow } from '@payload-onpage/core'
+import { refKey, resolveRow, isReady } from '@payload-onpage/core'
 import { rowOps } from '../rowOps.ts'
 import { useEffect } from 'react'
 import { isOurs, isTyping } from '../dom.ts'
@@ -49,7 +49,7 @@ export function usePageEvents(ctx: OnPageContextValue | null, root: () => Parent
     if (!ctx?.selected) return false
     const { key, path } = ctx.selected
     const state = ctx.snap.docs[key]
-    const info = state?.schema && state.doc ? resolveRow(state.schema, state.doc, path) : null
+    const info = isReady(state) ? resolveRow(state.schema, state.doc, path) : null
     if (!info) return false
     const ops = rowOps(ctx.session, key, info)
     if (dir === 'delete') {

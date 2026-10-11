@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { encodeMarker, stegaClean, stegaCleanDeep, stegaDecode, stegaEncode } from '../stega.ts'
-import { parseRefKey, refKey } from '../docref.ts'
+import {
+  encodeMarker,
+  stegaClean,
+  stegaCleanDeep,
+  stegaDecode,
+  stegaEncode,
+  type Marker,
+} from '../stega.ts'
+import { isRefKey, parseRefKey, refKey, type RefKey } from '../docref.ts'
 import { EditorSession } from '../session.ts'
 import type { DataSource, Doc, SaveResult } from '../ports.ts'
 import type { DocumentSchema } from '../schema.ts'
@@ -27,7 +34,7 @@ describe('docref', () => {
 })
 
 describe('stega', () => {
-  const marker = { ref: 'c:pages:23', path: 'sections.3.items.2.title', kind: 'text' as const }
+  const marker: Marker = { ref: 'c:pages:23', path: 'sections.3.items.2.title', kind: 'text' }
 
   it('round-trips a marker and stays invisible', () => {
     const s = stegaEncode('Trade pricing', marker)
@@ -39,7 +46,7 @@ describe('stega', () => {
   })
 
   it('handles unicode values and paths', () => {
-    const m = { ref: 'g:en-tête', path: 'titre', kind: 'textarea' as const }
+    const m: Marker = { ref: 'g:en-tête', path: 'titre', kind: 'textarea' }
     expect(stegaDecode(stegaEncode('Café ☕ — déjà', m))).toEqual([m])
     expect(stegaClean(stegaEncode('Café ☕ — déjà', m))).toBe('Café ☕ — déjà')
   })
@@ -338,5 +345,16 @@ describe('EditorSession', () => {
     s.dispose()
     s.setValue('c:pages:1', 'title', 'x')
     expect(calls).toBe(0)
+  })
+})
+
+describe('RefKey', () => {
+  it('only accepts document keys where a document key belongs', () => {
+    const key: RefKey = refKey({ kind: 'collection', slug: 'pages', id: 1 })
+    expect(isRefKey(key)).toBe(true)
+    expect(isRefKey('sections.0.title')).toBe(false)
+    // @ts-expect-error a field path is not a document key
+    const wrong: RefKey = 'sections.0.title'
+    expect(wrong).toBeTruthy()
   })
 })

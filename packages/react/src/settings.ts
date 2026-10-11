@@ -3,7 +3,7 @@
  * on the page itself (layout selects, toggles, numbers, links, images that
  * aren't shown…). Fields shown on the page are edited there instead.
  */
-import type { SchemaField, SchemaFieldType } from '@payload-onpage/core'
+import type { SchemaField, SchemaFieldType, RefKey } from '@payload-onpage/core'
 import type { TargetIndex } from './types.ts'
 
 /** Row bookkeeping, never a setting. */
@@ -23,7 +23,7 @@ const PANEL_FIELD_TYPES: ReadonlySet<SchemaFieldType> = new Set([
 export function settable(
   field: SchemaField,
   path: string,
-  key: string,
+  key: RefKey,
   targets: TargetIndex,
 ): boolean {
   if (SKIP.has(field.name)) return false
@@ -44,6 +44,6 @@ export function settable(
 export const hasSettings = (
   fields: SchemaField[],
   path: string,
-  key: string,
+  key: RefKey,
   targets: TargetIndex,
 ): boolean => fields.some((f) => settable(f, path, key, targets))

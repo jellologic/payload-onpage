@@ -12,10 +12,11 @@ import {
   updateArray,
   type EditorSession,
   type RowInfo,
+  type RefKey,
 } from '@payload-onpage/core'
 import type { Selection } from './types.ts'
 
-const rowAt = (key: string, listPath: string, index: number): Selection => ({
+const rowAt = (key: RefKey, listPath: string, index: number): Selection => ({
   key,
   path: `${listPath}.${index}`,
 })
@@ -23,7 +24,7 @@ const rowAt = (key: string, listPath: string, index: number): Selection => ({
 /** Insert a row into the list at `listPath`; returns the new row's selection. */
 export function insertRow(
   session: EditorSession,
-  key: string,
+  key: RefKey,
   listPath: string,
   index: number,
   row: unknown,
@@ -32,7 +33,7 @@ export function insertRow(
   return rowAt(key, listPath, index)
 }
 
-export function rowOps(session: EditorSession, key: string, info: RowInfo) {
+export function rowOps(session: EditorSession, key: RefKey, info: RowInfo) {
   const { listPath, index, length, rowFields, listField } = info
   const apply = (fn: (rows: unknown[]) => unknown[]) =>
     session.apply(key, (d) => updateArray(d, listPath, fn))

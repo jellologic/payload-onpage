@@ -8,7 +8,7 @@
  * touched. Publish, discard and reload run one at a time.
  */
 import { AutosaveQueue, type SaveState } from './autosave.ts'
-import { refKey, type DocRef } from './docref.ts'
+import { refKey, type DocRef, type RefKey } from './docref.ts'
 import { buildPatch, changedKeys } from './fields.ts'
 import { setAt } from './path.ts'
 import type { DataSource, Doc } from './ports.ts'
@@ -17,7 +17,7 @@ import { stegaCleanDeep } from './stega.ts'
 import { errorText } from './util.ts'
 
 export interface DocumentState {
-  key: string
+  key: RefKey
   ref: DocRef
   status: 'loading' | 'ready' | 'error'
   /** Why loading failed (status "error"). */
@@ -41,7 +41,7 @@ export const isReady = (state: DocumentState | undefined): state is ReadyDocumen
   state?.status === 'ready' && !!state.schema && !!state.doc
 
 export interface SessionSnapshot {
-  docs: Record<string, DocumentState>
+  docs: Record<RefKey, DocumentState>
   canUndo: boolean
   canRedo: boolean
   /** A publish, discard or reload is running. */
@@ -49,7 +49,7 @@ export interface SessionSnapshot {
 }
 
 interface HistoryEntry {
-  key: string
+  key: RefKey
   before: Doc
   after: Doc
 }
@@ -75,16 +75,16 @@ const IDLE: SaveState = { status: 'idle', seq: 0 }
 export class EditorSession {
   readonly dataSource: DataSource
   readonly locale: string | undefined
-  private docs = new Map<string, DocumentState>()
-  private queues = new Map<string, AutosaveQueue>()
-  private updatedAt = new Map<string, string | undefined>()
+  private docs = new Map<RefKey, DocumentState>()
+  private queues = new Map<RefKey, AutosaveQueue>()
+  private updatedAt = new Map<RefKey, string | undefined>()
   /** Last value queued for saving, per document (diff base for the next save). */
-  private saved = new Map<string, Doc>()
+  private saved = new Map<RefKey, Doc>()
   /** Value before the current run of transient edits, per document. */
-  private anchors = new Map<string, Doc>()
+  private anchors = new Map<RefKey, Doc>()
   /** Documents whose value came from the page (client mode); a late server load must not replace it. */
-  private fromPage = new Set<string>()
-  private loading = new Map<string, Promise<void>>()
+  private fromPage = new Set<RefKey>()
+  private loading = new Map<RefKey, Promise<void>>()
   private schemaCache = new Map<string, Promise<DocumentSchema>>()
   private past: HistoryEntry[] = []
   private future: HistoryEntry[] = []
@@ -122,14 +122,14 @@ export class EditorSession {
     for (const fn of this.listeners) fn()
   }
 
-  private patchState(key: string, patch: Partial<DocumentState>) {
+  private patchState(key: RefKey, patch: Partial<DocumentState>) {
     const cur = this.docs.get(key)
     if (!cur) return
     this.docs.set(key, { ...cur, ...patch })
     this.emit()
   }
 
-  get(key: string): DocumentState | undefined {
+  get(key: RefKey): DocumentState | undefined {
     return this.docs.get(key)
   }
 
@@ -214,7 +214,7 @@ export class EditorSession {
   }
 
   /** Try loading a document again after an error. */
-  retry(key: string): Promise<void> {
+  retry(key: RefKey): Promise<void> {
     const state = this.docs.get(key)
     if (!state) return Promise.resolve()
     if (state.status === 'error') return this.open(state.ref)
@@ -222,7 +222,7 @@ export class EditorSession {
     return Promise.resolve()
   }
 
-  private adopt(key: string, raw: Doc) {
+  private adopt(key: RefKey, raw: Doc) {
     // A page rendered with auto-mapping markers may hand us its marked copy; edit clean values.
     const doc = stegaCleanDeep(raw)
     this.saved.set(key, doc)
@@ -231,7 +231,7 @@ export class EditorSession {
     if (cur) this.docs.set(key, { ...cur, doc })
   }
 
-  private queueFor(key: string): AutosaveQueue {
+  private queueFor(key: RefKey): AutosaveQueue {
     let q = this.queues.get(key)
     if (q) return q
     const state = this.docs.get(key)!
@@ -255,7 +255,7 @@ export class EditorSession {
   }
 
   /** Schedule the editable top-level fields that changed since the last save. */
-  private queueChanges(key: string, next: Doc) {
+  private queueChanges(key: RefKey, next: Doc) {
     const schema = this.docs.get(key)?.schema
     if (!schema) return
     const keys = changedKeys(this.saved.get(key) ?? {}, next, schema.editable)
@@ -266,7 +266,7 @@ export class EditorSession {
 
   // ── editing ─────────────────────────────────────────────────────────────
   /** Change a document. `transient` updates the view only (live typing): no history, no save. */
-  apply(key: string, fn: (doc: Doc) => Doc, opts: { transient?: boolean } = {}) {
+  apply(key: RefKey, fn: (doc: Doc) => Doc, opts: { transient?: boolean } = {}) {
     const state = this.docs.get(key)
     if (!state?.doc) return
     const before = state.doc
@@ -288,12 +288,12 @@ export class EditorSession {
     this.emit()
   }
 
-  setValue(key: string, path: string, value: unknown, opts: { transient?: boolean } = {}) {
+  setValue(key: RefKey, path: string, value: unknown, opts: { transient?: boolean } = {}) {
     this.apply(key, (d) => setAt(d, path, value), opts)
   }
 
   /** Drop transient changes (Escape while typing). */
-  cancelTransient(key: string) {
+  cancelTransient(key: RefKey) {
     const anchor = this.anchors.get(key)
     const state = this.docs.get(key)
     if (!anchor || !state) return
@@ -302,7 +302,7 @@ export class EditorSession {
     this.emit()
   }
 
-  private restore(key: string, doc: Doc) {
+  private restore(key: RefKey, doc: Doc) {
     const state = this.docs.get(key)
     if (!state) return
     this.anchors.delete(key)
@@ -423,7 +423,7 @@ export class EditorSession {
   }
 
   /** After a conflict: load the latest draft of a document and continue from it (local edits are dropped). */
-  reload(key: string): Promise<void> {
+  reload(key: RefKey): Promise<void> {
     return this.serial(async () => {
       const state = this.docs.get(key)
       if (!state) return

@@ -9,6 +9,7 @@
  * maps an image). Never tagged: selects, numbers, dates, relationships, JSON,
  * code, and any field whose name suggests machine use (url, slug, email…).
  */
+import type { RefKey } from './docref.ts'
 import { stegaEncode, type Marker } from './stega.ts'
 import type { SchemaField } from './schema.ts'
 import { mapFields, type FieldVisitor } from './fields.ts'
@@ -50,10 +51,10 @@ export function isMachineFieldName(name: string): boolean {
 /** Field editors that edit text: a field using any other editor (color, …) holds a machine value and is never marked. */
 const TEXT_EDITORS = new Set(['text', 'textarea', 'email', 'richText'])
 
-export type EncodeFilter = (args: { field: SchemaField; path: string; ref: string }) => boolean
+export type EncodeFilter = (args: { field: SchemaField; path: string; ref: RefKey }) => boolean
 
 interface Ctx {
-  ref: string
+  ref: RefKey
   filter?: EncodeFilter | undefined
 }
 
@@ -115,7 +116,7 @@ const encoding = (ctx: Ctx): FieldVisitor => ({
 export function encodeDocument<T extends Record<string, unknown>>(
   doc: T,
   fields: SchemaField[],
-  ref: string,
+  ref: RefKey,
   opts: { only?: string[] | undefined; filter?: EncodeFilter | undefined } = {},
 ): T {
   const { only } = opts

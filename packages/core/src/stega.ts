@@ -14,11 +14,12 @@
  * All of these render with zero width and are ignored by `trim()`-insensitive
  * layout; they are stripped before anything is written back to Payload.
  */
+import { isRefKey, type RefKey } from './docref.ts'
 
 export type MarkerKind = 'text' | 'textarea' | 'richtext' | 'media'
 
 export interface Marker {
-  ref: string // refKey
+  ref: RefKey
   path: string
   kind: MarkerKind
 }
@@ -80,7 +81,7 @@ function decodeBody(body: string): Marker | null {
   }
   const [ref, path, code, ...extra] = text.split('|')
   const kind = code === undefined ? undefined : CODE_KIND.get(code)
-  if (!ref || !path || !kind || extra.length) return null
+  if (!ref || !isRefKey(ref) || !path || !kind || extra.length) return null
   return { ref, path, kind }
 }
 

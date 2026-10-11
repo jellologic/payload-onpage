@@ -6,10 +6,21 @@
 export type DocRef =
   { kind: 'collection'; slug: string; id: string | number } | { kind: 'global'; slug: string }
 
-/** Stable string key: "c:<slug>:<id>" or "g:<slug>". */
-export function refKey(ref: DocRef): string {
+/**
+ * A document's stable key: "c:<slug>:<id>" or "g:<slug>". A template-literal
+ * type, so a field path or slug can't be passed where a document key belongs.
+ */
+export type RefKey = `c:${string}:${string}` | `g:${string}`
+
+/** A field (or row/list) of one document: "<refKey>|<path>". */
+export type TargetKey = `${RefKey}|${string}`
+
+export function refKey(ref: DocRef): RefKey {
   return ref.kind === 'global' ? `g:${ref.slug}` : `c:${ref.slug}:${ref.id}`
 }
+
+/** Is this string a well-formed document key? */
+export const isRefKey = (key: string): key is RefKey => parseRefKey(key) !== null
 
 export function parseRefKey(key: string): DocRef | null {
   if (key.startsWith('g:')) {
@@ -37,5 +48,5 @@ export function collectionRef(slug: string, id: string): DocRef {
 }
 
 /** Key for one field (or row/list) of one document: "<refKey>|<path>". */
-export const targetKey = (ref: DocRef | string, path: string): string =>
+export const targetKey = (ref: DocRef | RefKey, path: string): TargetKey =>
   `${typeof ref === 'string' ? ref : refKey(ref)}|${path}`

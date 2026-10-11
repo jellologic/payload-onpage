@@ -1,6 +1,6 @@
 'use client'
 
-import { fieldAtPath, newBlockRow } from '@payload-onpage/core'
+import { fieldAtPath, isReady, newBlockRow } from '@payload-onpage/core'
 import { insertRow } from '../rowOps.ts'
 import { useOnPage } from '../context.tsx'
 import { Dialog } from './Dialog.tsx'
@@ -10,7 +10,7 @@ export function BlockPicker() {
   const { panel, setPanel, snap, session, setSelected, t } = useOnPage()
   if (panel?.kind !== 'blocks') return null
   const state = snap.docs[panel.key]
-  if (!state?.schema || !state.doc) return null
+  if (!isReady(state)) return null
   const { key, listPath, index } = panel
   const field = fieldAtPath(state.schema.fields, state.doc, listPath)?.field
   const blocks = field?.type === 'blocks' ? field.blocks : []

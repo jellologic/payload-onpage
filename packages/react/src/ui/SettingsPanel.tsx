@@ -17,6 +17,8 @@ import {
   type NumberField,
   type ScalarField,
   type SchemaField,
+  isReady,
+  type RefKey,
 } from '@payload-onpage/core'
 import { useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { useOnPage } from '../context.tsx'
@@ -40,7 +42,7 @@ function TextInput({
   field,
   id,
 }: {
-  docKey: string
+  docKey: RefKey
   path: string
   field: ScalarField | NumberField
   id: string
@@ -79,7 +81,7 @@ function Segmented({
   field,
   labelId,
 }: {
-  docKey: string
+  docKey: RefKey
   path: string
   field: ChoiceField
   labelId: string
@@ -136,7 +138,7 @@ function Control({
   id,
   labelId,
 }: {
-  docKey: string
+  docKey: RefKey
   path: string
   field: SchemaField
   anchor: RefObject<HTMLDivElement | null>
@@ -211,7 +213,7 @@ function Control({
   }
 }
 
-function Row({ docKey, path, field }: { docKey: string; path: string; field: SchemaField }) {
+function Row({ docKey, path, field }: { docKey: RefKey; path: string; field: SchemaField }) {
   const anchor = useRef<HTMLDivElement>(null)
   const id = useId()
   const labelId = `${id}-label`
@@ -235,7 +237,7 @@ function Row({ docKey, path, field }: { docKey: string; path: string; field: Sch
   )
 }
 
-function Fields({ docKey, fields, path }: { docKey: string; fields: SchemaField[]; path: string }) {
+function Fields({ docKey, fields, path }: { docKey: RefKey; fields: SchemaField[]; path: string }) {
   const { targets } = useOnPage()
   return (
     <>
@@ -261,7 +263,7 @@ export function SettingsPanel() {
   const { panel, setPanel, snap, t } = useOnPage()
   if (panel?.kind !== 'settings') return null
   const state = snap.docs[panel.key]
-  if (!state?.schema || !state.doc) return null
+  if (!isReady(state)) return null
   const owner = fieldAtPath(state.schema.fields, state.doc, panel.path)?.field
   // Row fields: the block's fields for a blocks row, the item fields for an array row.
   const fields =

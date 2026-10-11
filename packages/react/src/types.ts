@@ -10,12 +10,13 @@ import type {
   SessionSnapshot,
   Target,
   TargetKind,
+  RefKey,
 } from '@payload-onpage/core'
 import type { MessageKey, Translate } from './messages.ts'
 
 export interface EditingState {
   /** refKey of the document */
-  key: string
+  key: RefKey
   path: string
   /** Editor id from the registry ("text", "richText", …). */
   editor: string
@@ -25,12 +26,12 @@ export interface EditingState {
 }
 
 export type Panel =
-  | { kind: 'settings'; key: string; path: string; title: string }
-  | { kind: 'blocks'; key: string; listPath: string; index: number }
+  | { kind: 'settings'; key: RefKey; path: string; title: string }
+  | { kind: 'blocks'; key: RefKey; listPath: string; index: number }
   | null
 
 export interface Selection {
-  key: string
+  key: RefKey
   path: string
 }
 
@@ -39,7 +40,7 @@ export interface Selection {
  * `NumberField`, with `min`/`max`) and `V` its value after `normalize`.
  */
 export interface FieldEditorProps<F extends SchemaField = SchemaField, V = unknown> {
-  docKey: string
+  docKey: RefKey
   path: string
   field: F
   /** The element showing the field (re-resolved after each refresh). */
@@ -97,7 +98,7 @@ export interface TargetIndex {
   all: Target[]
   /** Targets whose element is exactly `el`. */
   at: (el: Element) => Target[]
-  find: (key: string, path: string, kinds?: TargetKind[]) => Target | undefined
+  find: (key: RefKey, path: string, kinds?: TargetKind[]) => Target | undefined
 }
 
 /** What extensions and field editors can use from the editor (`useOnPage()`). */
@@ -123,16 +124,16 @@ export interface OnPageContextValue {
   selected: Selection | null
   setSelected: (s: Selection | null) => void
   /** Documents shown on the current page (the session may hold others from earlier pages). */
-  docKeys: string[]
+  docKeys: RefKey[]
   /** Is this document rendered from session state (client mode)? */
-  isLive: (key: string) => boolean
+  isLive: (key: RefKey) => boolean
   /** Client-mode documents register here (they don't need a server refresh). */
-  registerClientDoc: (key: string) => () => void
+  registerClientDoc: (key: RefKey) => () => void
   /** The page is re-rendering after a save (refresh mode). */
   rendering: boolean
   /** Open the right editor for a field (registry resolution); false if none applies. */
   edit: (
-    key: string,
+    key: RefKey,
     path: string,
     opts?: {
       point?: { x: number; y: number } | undefined
@@ -148,5 +149,5 @@ export interface OnPageContextValue {
     vars?: Record<string, string | number>,
     bad?: boolean,
   ) => void
-  addGhost: (g: GhostInput & { key: string; path: string }) => void
+  addGhost: (g: GhostInput & { key: RefKey; path: string }) => void
 }

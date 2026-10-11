@@ -19,6 +19,8 @@ import {
   type MediaLibrary,
   type Renderer,
   type SessionSnapshot,
+  isReady,
+  type RefKey,
 } from '@payload-onpage/core'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
@@ -96,7 +98,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
   const [selected, setSelected] = useState<Selection | null>(null)
   const [renders, setRenders] = useState(0)
   const [flash, setFlash] = useState<Flash | null>(null)
-  const [clientDocs, setClientDocs] = useState<ReadonlySet<string>>(() => new Set())
+  const [clientDocs, setClientDocs] = useState<ReadonlySet<RefKey>>(() => new Set())
   const [session, setSession] = useState<EditorSession | null>(null)
   const snap = useSyncExternalStore(
     session?.subscribe ?? noopSubscribe,
@@ -107,7 +109,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
   const { ghosts, add: addGhostEntry, rendered: ghostsRendered } = useGhosts(session ? snap : null)
 
   const isLive = useCallback(
-    (key: string) => renderer.live || clientDocs.has(key),
+    (key: RefKey) => renderer.live || clientDocs.has(key),
     [renderer, clientDocs],
   )
 
@@ -173,14 +175,14 @@ export function OnPageEditor(props: OnPageEditorProps) {
 
   // Documents on this page: everything the locator found, plus client-mode documents.
   const docKeys = useMemo(() => {
-    const keys = new Set<string>(clientDocs)
+    const keys = new Set<RefKey>(clientDocs)
     for (const target of targets.all) keys.add(refKey(target.ref))
     return [...keys]
   }, [targets, clientDocs])
 
   useEffect(() => {
     if (!session) return
-    const seen = new Set<string>()
+    const seen = new Set<RefKey>()
     for (const target of targets.all) {
       const k = refKey(target.ref)
       if (seen.has(k)) continue
@@ -196,7 +198,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
     [t],
   )
 
-  const registerClientDoc = useCallback((key: string) => {
+  const registerClientDoc = useCallback((key: RefKey) => {
     setClientDocs((s) => new Set(s).add(key))
     return () =>
       setClientDocs((s) => {
@@ -214,7 +216,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
   const edit = useCallback<OnPageContextValue['edit']>(
     (key, path, opts = {}) => {
       const state = session?.get(key)
-      if (!state?.schema || !state.doc) {
+      if (!isReady(state)) {
         if (state?.status === 'error')
           notify('notify.cantEdit', { message: state.error ?? '' }, true)
         else notify('notify.loading')
