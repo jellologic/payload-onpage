@@ -35,4 +35,4 @@ bun run dev:example  # example site on :3100
 
 ## Releasing
 
-Merging to `main` makes Changesets open a "Version packages" PR. Merging that publishes to npm with provenance (dry run first, then publish), and creates tags and GitHub Releases. npm trusted publishing must be configured for the `@payload-onpage` packages (or an `NPM_TOKEN` secret set) in the `npm` environment.
+Merging to `main` makes Changesets open a "Version packages" PR. Merging that bumps the versions and changelogs and drafts a GitHub Release `v<version>` with the changelog as notes. **Publishing that release publishes to npm**: `release.yml` checks the tag matches the version, runs `bun run check`, dry-runs every package, then publishes them with provenance through npm trusted publishing. No npm token is stored. Each package trusts `jellologic/payload-onpage`, workflow `release.yml`, environment `npm`, and the `npm` environment only deploys from `v*` tags.
