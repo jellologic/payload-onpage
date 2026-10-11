@@ -1,6 +1,6 @@
 // Publish every @payload-onpage/* package whose version isn't on npm yet.
 // `bun pm pack` rewrites workspace:* to real versions; npm publishes the tarball with provenance.
-// Run by .github/workflows/release.yml when a GitHub Release is published.
+// Run by .github/workflows/release.yml once the Version packages PR is merged.
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
