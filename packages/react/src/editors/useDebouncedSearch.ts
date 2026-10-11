@@ -3,14 +3,20 @@
 import { errorText } from '@payload-onpage/core'
 import { useEffect, useState } from 'react'
 
+/** A search the hook runs: it should stop when `signal` aborts. */
+export type SearchFn<T> = (
+  query: string,
+  page: number,
+  signal: AbortSignal,
+) => Promise<{ items: T[]; hasMore: boolean }>
+
 /**
- * Run `search(query, page)` 250ms after the inputs settle; results accumulate
- * across pages and reset when the query changes. Stale responses are ignored.
+ * Run `search(query, page, signal)` 250ms after the inputs settle; results
+ * accumulate across pages and reset when the query changes. A superseded search
+ * is aborted, and its response ignored. Re-runs when `search` changes, so keep
+ * it stable (`useCallback`) with its inputs as dependencies.
  */
-export function useDebouncedSearch<T>(
-  search: ((query: string, page: number) => Promise<{ items: T[]; hasMore: boolean }>) | null,
-  deps: unknown[],
-) {
+export function useDebouncedSearch<T>(search: SearchFn<T> | null) {
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
   const [items, setItems] = useState<T[]>([])
@@ -21,24 +27,25 @@ export function useDebouncedSearch<T>(
   useEffect(() => {
     if (!search) return
     let live = true
+    const aborter = new AbortController()
     const timer = setTimeout(() => {
       setBusy(true)
-      search(query, page)
+      search(query, page, aborter.signal)
         .then((res) => {
           if (!live) return
           setItems((prev) => (page === 1 ? res.items : [...prev, ...res.items]))
           setHasMore(res.hasMore)
           setError(null)
         })
-        .catch((e: unknown) => live && setError(errorText(e)))
+        .catch((e: unknown) => live && !aborter.signal.aborted && setError(errorText(e)))
         .finally(() => live && setBusy(false))
     }, 250)
     return () => {
       live = false
       clearTimeout(timer)
+      aborter.abort()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, query, page, ...deps])
+  }, [search, query, page])
 
   return {
     query,

@@ -59,6 +59,8 @@ export interface DataSource {
       titleField?: Opt<string>
       locale?: Opt<string>
       limit?: Opt<number>
+      /** Aborted when the search is superseded (the user kept typing). */
+      signal?: Opt<AbortSignal>
     },
   ): Promise<SearchHit[]>
   /** Create a read-only preview link for a document. Optional. */
@@ -93,6 +95,8 @@ export interface MediaLibrary {
     query?: Opt<string>
     page?: Opt<number>
     relationTo: string
+    /** Aborted when the search is superseded. */
+    signal?: Opt<AbortSignal>
   }): Promise<{ items: MediaItem[]; hasMore: boolean }>
   upload?(file: File, opts: { relationTo: string; alt?: Opt<string> }): Promise<MediaItem>
 }

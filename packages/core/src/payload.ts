@@ -137,7 +137,7 @@ export function payloadRest(
       if (o.locale) p.set('locale', o.locale)
       if (o.query)
         p.set(`where[${titleField}][${titleField === 'id' ? 'equals' : 'like'}]`, o.query)
-      const res = await f(`${api}/${collection}?${p}`, init())
+      const res = await f(`${api}/${collection}?${p}`, init(o.signal ? { signal: o.signal } : {}))
       if (!res.ok) throw new Error(await errorMessage(res))
       const body = (await res.json()) as { docs?: Doc[] }
       return (body.docs ?? []).map((doc) => {
@@ -213,7 +213,7 @@ export function payloadUploads(
   const api = opts.apiBase ?? DEFAULTS.apiRoute
   const { f, init } = client(opts)
   return {
-    async search({ query, page = 1, relationTo }) {
+    async search({ query, page = 1, relationTo, signal }) {
       const p = new URLSearchParams({
         depth: '0',
         limit: String(opts.pageSize ?? 30),
@@ -225,7 +225,7 @@ export function payloadUploads(
         p.set('where[and][1][or][0][filename][like]', query)
         p.set('where[and][1][or][1][alt][like]', query)
       }
-      const res = await f(`${api}/${relationTo}?${p}`, init())
+      const res = await f(`${api}/${relationTo}?${p}`, init(signal ? { signal } : {}))
       if (!res.ok) throw new Error(await errorMessage(res))
       const body = (await res.json()) as { docs?: Doc[]; hasNextPage?: boolean }
       return { items: (body.docs ?? []).map(toItem), hasMore: Boolean(body.hasNextPage) }

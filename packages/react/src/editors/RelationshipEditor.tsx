@@ -30,7 +30,7 @@ export function RelationshipEditor(props: FieldEditorProps<RelationField>) {
   const current = asList(value, many)
   const ds = session.dataSource
   const search = useCallback(
-    async (query: string) =>
+    async (query: string, _page: number, signal: AbortSignal) =>
       ds.search
         ? {
             items: await ds.search(collection, {
@@ -38,13 +38,14 @@ export function RelationshipEditor(props: FieldEditorProps<RelationField>) {
               titleField,
               locale: session.locale,
               limit: 12,
+              signal,
             }),
             hasMore: false,
           }
         : { items: [] as SearchHit[], hasMore: false },
     [ds, collection, titleField, session.locale],
   )
-  const results = useDebouncedSearch<SearchHit>(ds.search ? search : null, [])
+  const results = useDebouncedSearch<SearchHit>(ds.search ? search : null)
 
   const wrap = (hit: SearchHit): unknown =>
     poly ? { relationTo: collection, value: hit.doc } : hit.doc

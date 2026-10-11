@@ -347,14 +347,14 @@ export class EditorSession {
     return state.edited || state.doc?._status === 'draft'
   }
 
-  private selected(keys?: string[]): DocumentState[] {
+  private selected(keys?: RefKey[]): DocumentState[] {
     return [...this.docs.values()].filter(
       (s) => (!keys || keys.includes(s.key)) && s.doc && s.schema && this.unpublished(s),
     )
   }
 
   /** Publish every document with unpublished changes (edited here, or saved as a draft before). */
-  publish(opts: { keys?: string[] } = {}): Promise<PublishResult> {
+  publish(opts: { keys?: RefKey[] } = {}): Promise<PublishResult> {
     return this.serial(async () => {
       await this.flush()
       const published: DocRef[] = []
@@ -399,7 +399,12 @@ export class EditorSession {
   }
 
   /** Reset drafts with unpublished changes to their published versions (also clears a conflict). */
-  discard(opts: { keys?: string[] } = {}): Promise<void> {
+  /**
+   * Reset the drafts to their published values. Done as an edit, so it lands on
+   * the undo stack: undo right after a discard brings the changes back (and
+   * autosave saves them again).
+   */
+  discard(opts: { keys?: RefKey[] } = {}): Promise<void> {
     return this.serial(async () => {
       await this.flush()
       for (const { key, ref } of this.selected(opts.keys)) {
@@ -408,7 +413,7 @@ export class EditorSession {
           this.dataSource.loadDocument(ref, { draft: true, locale: this.locale, depth: 2 }),
         ])
         const state = this.docs.get(key)
-        if (!state?.schema || !state.doc) continue
+        if (!isReady(state)) continue
         // Continue from the server's latest draft (so the stale-write guard accepts the reset).
         this.adopt(key, latest)
         this.queues.get(key)?.reset()

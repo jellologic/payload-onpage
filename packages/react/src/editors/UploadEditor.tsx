@@ -20,13 +20,13 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const search = useCallback(
-    (query: string, page: number) =>
+    (query: string, page: number, signal: AbortSignal) =>
       media
-        ? media.search({ query, page, relationTo })
+        ? media.search({ query, page, relationTo, signal })
         : Promise.resolve({ items: [] as MediaItem[], hasMore: false }),
     [media, relationTo],
   )
-  const results = useDebouncedSearch<MediaItem>(media ? search : null, [])
+  const results = useDebouncedSearch<MediaItem>(media ? search : null)
   const currentId = relationId(value)
 
   const choose = (m: MediaItem) => {
