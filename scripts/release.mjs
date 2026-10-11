@@ -1,6 +1,6 @@
 // Publish every @payload-onpage/* package whose version isn't on npm yet.
 // `bun pm pack` rewrites workspace:* to real versions; npm publishes the tarball with provenance.
-// Prints "New tag: <name>@<version>" lines, which changesets/action turns into tags and releases.
+// Run by .github/workflows/release.yml when a GitHub Release is published.
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -42,5 +42,5 @@ const tarballs = pending.map((p) => {
 for (const { p, file } of tarballs) {
   const { name, version } = JSON.parse(readFileSync(join('packages', p, 'package.json'), 'utf8'))
   run('npm', ['publish', file, '--access', 'public', '--provenance'])
-  console.log(`New tag: ${name}@${version}`)
+  console.log(`Published ${name}@${version}`)
 }
