@@ -1,5 +1,14 @@
 # @payload-onpage/tanstack-start
 
+## 0.4.1
+
+### Patch Changes
+
+- Updated dependencies [[`32e018c`](https://github.com/jellologic/payload-onpage/commit/32e018c5b2d90491b8d917a452d7ac2147c2964c)]:
+  - @payload-onpage/core@0.4.1
+  - @payload-onpage/lexical@0.4.1
+  - @payload-onpage/react@0.4.1
+
 ## 0.4.0
 
 ### Minor Changes
