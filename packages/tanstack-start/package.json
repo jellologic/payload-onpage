@@ -31,7 +31,10 @@
     "wysiwyg",
     "headless-cms",
     "cms",
-    "react"
+    "react",
+    "click-to-edit",
+    "payload-4",
+    "content-editing"
   ],
   "exports": {
     ".": {
