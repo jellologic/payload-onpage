@@ -119,10 +119,27 @@ export type ListField = ArrayField | BlocksField
 export const isListField = (field: SchemaField): field is ListField =>
   field.type === 'array' || field.type === 'blocks'
 
+/** An image shown for a block in the block picker. */
+export interface SchemaImage {
+  url: string
+  alt?: string
+}
+
 export interface SchemaBlock {
   slug: string
   labels: SchemaLabels
   fields: SchemaField[]
+  /** Picker image: Payload's `admin.images.thumbnail` (or the older `imageURL`). */
+  thumbnail?: SchemaImage
+  /** Picker group: Payload's `admin.group`, translated. */
+  group?: string
+  /**
+   * Sample content for the live preview in the block picker
+   * (`admin.custom.onpage.example`). Never saved: an inserted block gets its defaults.
+   */
+  example?: Record<string, unknown>
+  /** Start an inserted block from `example` instead of its defaults (`admin.custom.onpage.insertExample`). */
+  insertExample?: boolean
 }
 
 /** The editable shape of one collection or global, as served by the plugin. */

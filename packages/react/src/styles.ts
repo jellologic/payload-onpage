@@ -26,7 +26,7 @@ export const PO_CSS = `
 .po-add.is-item .po-btn{background:#167a45;box-shadow:0 2px 10px #167a4555}
 .po-panel{position:fixed;width:320px;max-height:min(70vh,560px);overflow:auto;background:#fff;color:#0f172a;border-radius:12px;box-shadow:0 20px 60px #0f172a40,0 0 0 1px #0f172a14;pointer-events:auto;padding:14px}
 .po-panel .po-h3{margin:0 0 10px;font:700 13px/1.2 system-ui,sans-serif}
-.po-panel .po-h4{margin:14px 0 6px;font:600 11px/1.2 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#64748b}
+.po-panel .po-h4,.po-blocks-group .po-h4{margin:14px 0 6px;font:600 11px/1.2 system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#64748b}
 .po-row{display:flex;flex-direction:column;gap:4px;margin:0 0 10px}
 .po-row label{font-weight:600;font-size:12px}
 .po-row small{color:#64748b;font-size:11px}
@@ -50,8 +50,17 @@ export const PO_CSS = `
 .po-tile img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:6px;background:#f1f5f9}
 .po-tile span{font-size:11px;color:#475569;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .po-blocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.po-blocks button{all:unset;padding:14px;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;font:600 13px system-ui,sans-serif}
-.po-blocks button:hover,.po-blocks button:focus-visible{border-color:#4f7cff;background:#f5f8ff}
+.po-blocks.is-narrow{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.po-blocks-group:first-of-type .po-h4{margin-top:0}
+.po-blocks-group.is-ungrouped{margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0}
+.po-blocks-hint{margin:0 0 10px;font-size:12px;color:#475569}
+.po-block-card{all:unset;box-sizing:border-box;display:flex;flex-direction:column;gap:8px;padding:8px;border:1px solid #e2e8f0;border-radius:10px;cursor:pointer;color:#0f172a;font:600 13px system-ui,sans-serif}
+.po-block-card:hover,.po-block-card:focus-visible{border-color:#4f7cff;background:#f5f8ff}
+.po-block-card:focus-visible{outline:2px solid #4f7cff;outline-offset:2px}
+.po-block-card.is-previewing{border-color:#3b63e0;background:#eef2ff;box-shadow:inset 0 0 0 1px #3b63e0}
+.po-block-card img,.po-block-thumb{display:block;width:100%;aspect-ratio:3/2;object-fit:cover;border-radius:6px;background:#f1f5f9}
+.po-block-thumb{display:flex;align-items:center;justify-content:center;color:#475569;font:700 22px system-ui,sans-serif}
+.po-block-label{padding:0 2px 2px}
 .po-btn svg{display:block}
 .po-dock{position:fixed;left:50%;width:max-content;bottom:var(--po-dock-bottom,16px);transform:translateX(-50%);display:flex;align-items:center;gap:4px;padding:6px;background:#0f172a;color:#fff;border-radius:12px;box-shadow:0 12px 40px #0f172a55;pointer-events:auto;max-width:calc(100vw - 24px);flex-wrap:wrap}
 .po-dock .po-status{padding:0 10px;font-size:12px;opacity:.85;white-space:nowrap}

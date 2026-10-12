@@ -50,6 +50,7 @@ export {
   type SchemaBlock,
   type SchemaField,
   type SchemaFieldType,
+  type SchemaImage,
   type SchemaLabels,
   type SchemaOption,
 } from './schema.ts'
@@ -66,6 +67,7 @@ export {
   newBlockRow,
   normalizeRichText,
   normalizeValue,
+  previewRow,
   relationId,
   relationTitle,
   resolveRow,

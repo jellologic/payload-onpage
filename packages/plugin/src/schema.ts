@@ -4,7 +4,13 @@
  * instead: it strips `defaultValue` and `custom`, which the editor needs.
  */
 import { getTranslation } from '@payloadcms/translations'
-import type { DocumentSchema, SchemaBlock, SchemaField } from '@payload-onpage/core'
+import {
+  stegaCleanDeep,
+  type DocumentSchema,
+  type SchemaBlock,
+  type SchemaField,
+  type SchemaImage,
+} from '@payload-onpage/core'
 import type { Block, Field, PayloadRequest, SanitizedFieldsPermissions } from 'payload'
 import { getDefaultValue } from 'payload'
 import {
@@ -103,7 +109,53 @@ const isJsonSafe = (v: unknown): boolean => {
   }
 }
 
+/**
+ * The block properties the picker reads. Payload v3 and v4 type them a little
+ * differently (and `imageURL` is deprecated), so they're read through this view.
+ */
+interface BlockPresentation {
+  imageURL?: unknown
+  imageAltText?: unknown
+  custom?: { onpage?: { example?: unknown; insertExample?: unknown } }
+  admin?: {
+    group?: unknown
+    images?: { thumbnail?: unknown }
+    custom?: { onpage?: { example?: unknown; insertExample?: unknown } }
+  }
+}
+
+const nonEmpty = (v: unknown): v is string => typeof v === 'string' && v.length > 0
+
+/** `admin.images.thumbnail` (a URL or `{ url, alt }`), else the deprecated `imageURL`/`imageAltText`. */
+function thumbnailOf(block: BlockPresentation): SchemaImage | undefined {
+  const t = block.admin?.images?.thumbnail
+  if (nonEmpty(t)) return { url: t }
+  if (t && typeof t === 'object') {
+    const { url, alt } = t as { url?: unknown; alt?: unknown }
+    if (nonEmpty(url)) return { url, ...(nonEmpty(alt) ? { alt } : {}) }
+  }
+  if (nonEmpty(block.imageURL))
+    return {
+      url: block.imageURL,
+      ...(nonEmpty(block.imageAltText) ? { alt: block.imageAltText } : {}),
+    }
+  return undefined
+}
+
+/** `admin.custom.onpage.example` when it's a plain, JSON-safe object (markers removed). */
+function exampleOf(block: BlockPresentation): Record<string, unknown> | undefined {
+  const e = block.admin?.custom?.onpage?.example ?? block.custom?.onpage?.example
+  if (!e || typeof e !== 'object' || Array.isArray(e) || !isJsonSafe(e)) return undefined
+  return stegaCleanDeep(JSON.parse(JSON.stringify(e)) as Record<string, unknown>)
+}
+
 function serializeBlock(block: Block, perms: Permissions, ctx: SerializeContext): SchemaBlock {
+  const view = block as BlockPresentation
+  const thumbnail = thumbnailOf(view)
+  const group = label(view.admin?.group, '', ctx)
+  const example = exampleOf(view)
+  const insertExample =
+    view.admin?.custom?.onpage?.insertExample ?? view.custom?.onpage?.insertExample
   return {
     slug: block.slug,
     labels: {
@@ -111,6 +163,10 @@ function serializeBlock(block: Block, perms: Permissions, ctx: SerializeContext)
       plural: label(block.labels?.plural, toWords(block.slug), ctx),
     },
     fields: serializeFields(block.fields, { ...ctx, permissions: perms }),
+    ...(thumbnail ? { thumbnail } : {}),
+    ...(group ? { group } : {}),
+    ...(example ? { example } : {}),
+    ...(example && insertExample === true ? { insertExample: true } : {}),
   }
 }
 

@@ -202,6 +202,15 @@ export function newBlockRow(block: SchemaBlock): Data {
   return { id: newRowId(), blockType: block.slug, ...defaultsFor(block.fields) }
 }
 
+/**
+ * A row to preview a block before it's inserted: its defaults with the block's
+ * `example` content over them. Every row in it, nested ones included, gets a new id.
+ */
+export function previewRow(block: SchemaBlock): Data {
+  const row = { ...newBlockRow(block), ...block.example, blockType: block.slug }
+  return cloneRow(row, block.fields) as Data
+}
+
 /** Cloning: every row gets a new id; related documents' ids are kept; other objects are deep-copied. */
 const cloning: FieldVisitor = {
   leaf: (value) => (typeof value === 'object' ? structuredClone(value) : value),

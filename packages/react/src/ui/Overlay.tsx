@@ -237,9 +237,11 @@ function AddItem({ list }: { list: Target }) {
 }
 
 export function Overlay() {
-  const { selected, editing, targets, snap } = useOnPage()
+  const { selected, editing, targets, snap, panel } = useOnPage()
   useLayoutTick()
   const hover = useHover()
+  // Choosing a section: the page may be showing a preview of it, which isn't editable yet.
+  if (panel?.kind === 'blocks') return null
 
   const rowFor = (target: Target | undefined): ActiveRow | null => {
     if (!target) return null
@@ -251,7 +253,8 @@ export function Overlay() {
 
   // The active row: the selected one, else the innermost hovered row.
   const active = rowFor(
-    selected ? targets.find(selected.key, selected.path, ['item']) : hover.rows[0],
+    // A selection whose row is gone (undone, deleted) falls back to the hovered row.
+    (selected && targets.find(selected.key, selected.path, ['item'])) ?? hover.rows[0],
   )
 
   // Its section: the outermost enclosing row of a blocks field (may be itself).

@@ -59,7 +59,7 @@ module.exports = [
     name: 'Editor (lazy, editors only)',
     path: 'packages/next/dist/editor.js',
     import: '{ NextEditor }',
-    limit: '30 KB',
+    limit: '31 KB',
     ignore,
   },
   {
@@ -74,7 +74,7 @@ module.exports = [
     name: 'Editor (Start, lazy, editors only)',
     path: 'packages/tanstack-start/dist/editor.js',
     import: '{ TanstackEditor }',
-    limit: '30 KB',
+    limit: '31 KB',
     ignore,
   },
   {
