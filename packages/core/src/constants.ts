@@ -14,6 +14,7 @@ export const ROUTES = {
   previewLink: '/preview-link',
   preview: '/preview',
   schedule: '/schedule',
+  conditions: '/conditions',
 } as const
 
 /**

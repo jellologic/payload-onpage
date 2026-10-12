@@ -24,6 +24,7 @@ import {
   samePath,
   SEAL_PURPOSE,
   seal,
+  stegaCleanDeep,
   type DocRef,
   type DocumentSchema,
   type PreviewGrant,
@@ -66,6 +67,7 @@ import {
 } from './http.ts'
 import type { Entry, OnPageOptions } from './options.ts'
 import { resolvePath } from './paths.ts'
+import { hasConditions, hiddenPaths } from './conditions.ts'
 import { label, relationTargets, serializeFields } from './schema.ts'
 import { createPreviewToken, verifyPreviewToken } from './tokens.ts'
 
@@ -178,6 +180,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
         fields,
         drafts: hasDraftsEnabled(cfg),
         ...(hasScheduledPublishEnabled(cfg) ? { schedulePublish: true } : {}),
+        ...(hasConditions(cfg.fields, req.payload.config.blocks) ? { conditions: true } : {}),
         ...(hasAutosaveEnabled(cfg) ? { autosaveInterval: getAutosaveInterval(cfg) } : {}),
         ...(useAsTitle ? { useAsTitle } : {}),
         ...(Object.keys(relations).length ? { relations } : {}),
@@ -368,5 +371,33 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     },
   }
 
-  return [schema, enter, mode, exit, previewLink, preview, schedule]
+  /** Which fields' `admin.condition` hides them for the document as the editor has it. */
+  const conditions: Endpoint = {
+    path: `${prefix}${ROUTES.conditions}`,
+    method: 'post',
+    handler: async (req) => {
+      const refused = rejectCrossSite(req)
+      if (refused) return refused
+      if (!req.headers.get('content-type')?.includes('application/json'))
+        throw new APIError('Expected a JSON body', 415)
+      await addDataAndFileToRequest(req)
+      if (!(await canUseOnPage(req, options))) throw new Forbidden(req.t)
+      const body: Record<string, unknown> = req.data ?? {}
+      const ref = readRef(req, body)
+      const entry = ref && ctx.entry(ref.kind, ref.slug)
+      const cfg = ref && entityConfig(req, ref.kind, ref.slug)
+      if (!ref || !entry || !cfg) throw new APIError('Unknown document', 400)
+      if (!(await canEditDocument(req, ref, options))) throw new Forbidden(req.t)
+      const data = body.data
+      if (!data || typeof data !== 'object' || Array.isArray(data))
+        throw new APIError('Expected the document as `data`', 400)
+      const hidden = hiddenPaths(cfg.fields, stegaCleanDeep(data as Record<string, unknown>), {
+        user: req.user,
+        blocks: req.payload.config.blocks,
+      })
+      return json({ hidden })
+    },
+  }
+
+  return [schema, enter, mode, exit, previewLink, preview, schedule, conditions]
 }

@@ -6,6 +6,10 @@
 
 Narrow what's offered with the plugin's `fields` option per collection, or with field access.
 
+### Field conditions
+
+Fields with `admin.condition` show and hide in page and section settings as they do in the admin. Conditions are functions in your config, so the plugin runs them on the server against the document as the editor has it (`POST /api/onpage/conditions`), shortly after each change. A link group that shows either `url` or `reference` depending on its `type`, as in Payload's website template, shows only the one that applies.
+
 ## Publish
 
 **Publish** publishes every document on the page that has unpublished changes: edits made here, or drafts saved earlier. Documents without changes are skipped.

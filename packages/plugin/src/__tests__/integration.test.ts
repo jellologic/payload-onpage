@@ -107,6 +107,12 @@ beforeAll(async () => {
             type: 'checkbox',
             access: { update: ({ doc }) => doc?.slug !== 'admin-page' },
           },
+          // Shown only when featured: a field condition the editor asks about.
+          {
+            name: 'badge',
+            type: 'text',
+            admin: { condition: (_, sibling) => Boolean(sibling?.featured) },
+          },
         ],
       },
       {
@@ -223,7 +229,7 @@ describe('schema endpoint', () => {
     const editor = await (
       await call('GET', '/onpage/schema/collection/pages', { as: 'editor' })
     ).json()
-    expect(editor.editable).toEqual(['title', 'slug', 'body', 'author', 'featured'])
+    expect(editor.editable).toEqual(['title', 'slug', 'body', 'author', 'featured', 'badge'])
     expect(editor.drafts).toBe(true)
     expect(editor.autosaveInterval).toBe(1500)
     expect(editor.relations).toEqual({ users: { titleField: 'id', label: 'User' } })
@@ -263,6 +269,36 @@ describe('schema endpoint', () => {
     expect((await call('GET', '/onpage/schema/collection/fragile', { as: 'admin' })).status).toBe(
       403,
     )
+  })
+})
+
+describe('conditions endpoint', () => {
+  const ask = (data: unknown, as: As = 'editor', id: unknown = ids.editorPage) =>
+    call('POST', '/onpage/conditions', {
+      as,
+      body: { kind: 'collection', slug: 'pages', id, data },
+    })
+  it("returns the fields a condition hides for the editor's current data", async () => {
+    expect(await (await ask({ featured: false })).json()).toEqual({ hidden: ['badge'] })
+    expect(await (await ask({ featured: true })).json()).toEqual({ hidden: [] })
+    const schema = await (
+      await call('GET', '/onpage/schema/collection/pages', { as: 'editor' })
+    ).json()
+    expect(schema.conditions).toBe(true)
+  })
+  it('only for documents the user may edit, same-site, with a document body', async () => {
+    expect((await ask({}, 'editor', ids.adminPage)).status).toBe(403)
+    expect((await ask({}, null)).status).toBe(403)
+    expect((await ask('nope')).status).toBe(400)
+    expect(
+      (
+        await call('POST', '/onpage/conditions', {
+          as: 'editor',
+          origin: 'https://evil.test',
+          body: { kind: 'collection', slug: 'pages', id: ids.editorPage, data: {} },
+        })
+      ).status,
+    ).toBe(403)
   })
 })
 
