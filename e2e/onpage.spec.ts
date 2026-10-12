@@ -199,6 +199,8 @@ test('drag a feature card to another place, then undo', async ({ context }) => {
   const titles = page.locator('.features li h3')
   const names = async () => (await titles.allTextContents()).map(clean)
   const before = await names()
+  // The list at the top of the window (window heights differ between machines).
+  await page.locator('.features').evaluate((el) => el.scrollIntoView({ block: 'start' }))
   // Select the first card; its toolbar has the drag handle.
   await page
     .locator('.features li')
@@ -210,12 +212,41 @@ test('drag a feature card to another place, then undo', async ({ context }) => {
   const last = (await page.locator('.features li').last().boundingBox())!
   await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
   await page.mouse.down()
-  await page.mouse.move(last.x + last.width - 4, last.y + last.height / 2, { steps: 8 })
+  const height = page.viewportSize()!.height
+  await page.mouse.move(last.x + last.width - 4, Math.min(last.y + last.height / 2, height - 80), {
+    steps: 8,
+  })
   await expect(page.getByTestId('onpage-drop-line')).toBeVisible()
   await page.mouse.up()
   await expect.poll(names).toEqual([...before.slice(1), before[0]])
   await page.keyboard.press('ControlOrMeta+z')
   await expect.poll(names).toEqual(before)
+})
+
+test.describe('in a short window', () => {
+  test.use({ viewport: { width: 1280, height: 420 } })
+  test('dragging a section to the bottom edge scrolls the page; the drag goes on', async ({
+    context,
+  }) => {
+    const page = await editPage(context)
+    const order = () => page.locator('section').evaluateAll((s) => s.map((x) => x.className))
+    const before = await order()
+    await page
+      .locator('section')
+      .first()
+      .click({ position: { x: 5, y: 5 } })
+    const from = (await page.getByTestId('onpage-block-drag').boundingBox())!
+    const top = await page.evaluate(() => window.scrollY)
+    await page.mouse.move(from.x + 8, from.y + 8)
+    await page.mouse.down()
+    for (let i = 0; i < 60; i++) await page.mouse.move(from.x + 8, 410 - (i % 2))
+    expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(top + 100)
+    await expect(page.getByTestId('onpage-drop-line')).toBeVisible()
+    await page.mouse.up()
+    await expect.poll(order).not.toEqual(before)
+    await page.keyboard.press('ControlOrMeta+z')
+    await expect.poll(order).toEqual(before)
+  })
 })
 
 test('client mode updates live while typing', async ({ context }) => {

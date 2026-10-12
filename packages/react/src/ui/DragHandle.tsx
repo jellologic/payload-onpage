@@ -10,6 +10,9 @@ import { useOnPage } from '../context.tsx'
 import { GripIcon } from '../icons.tsx'
 import { rowOps } from '../rowOps.ts'
 
+/** How close to the window's edge (px) a drag starts scrolling the page. */
+const EDGE = 48
+
 interface Slot {
   /** Where the row would go: an index in the list after removing it. */
   to: number
@@ -41,34 +44,47 @@ export function slotAt(rects: DOMRect[], from: number, x: number, y: number): Sl
 export function DragHandle({
   rowKey,
   info,
+  onDragging,
   testId,
 }: {
   rowKey: RefKey
   info: RowInfo
+  /** A drag started or ended (the toolbar stays on screen while it runs). */
+  onDragging?: ((on: boolean) => void) | undefined
   testId: string
 }) {
   const { session, targets, setSelected, t } = useOnPage()
   const [slot, setSlot] = useState<Slot | null>(null)
-  const rects = useRef<DOMRect[]>([])
   const dragging = useRef(false)
 
-  const start = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (e.button !== 0 || info.length < 2) return
-    e.preventDefault()
-    e.currentTarget.setPointerCapture(e.pointerId)
-    rects.current = Array.from({ length: info.length }, (_, i) =>
+  /** Where the rows are now (the page may have scrolled); null if some aren't on the page. */
+  const measure = (): DOMRect[] | null => {
+    const rects = Array.from({ length: info.length }, (_, i) =>
       targets.find(rowKey, `${info.listPath}.${i}`, ['item'])?.el.getBoundingClientRect(),
     ).filter((r): r is DOMRect => !!r)
-    if (rects.current.length !== info.length) return // some rows aren't on the page
+    return rects.length === info.length ? rects : null
+  }
+
+  const start = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    if (e.button !== 0 || info.length < 2 || !measure()) return
+    e.preventDefault()
+    e.currentTarget.setPointerCapture(e.pointerId)
     dragging.current = true
+    onDragging?.(true)
     setSelected({ key: rowKey, path: info.path }) // keep this toolbar while hovering other rows
   }
   const move = (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (dragging.current) setSlot(slotAt(rects.current, info.index, e.clientX, e.clientY))
+    if (!dragging.current) return
+    // Near the window's top or bottom edge, scroll, so a row can go anywhere in its list.
+    const edge = EDGE - Math.min(e.clientY, window.innerHeight - e.clientY)
+    if (edge > 0) window.scrollBy(0, (e.clientY < window.innerHeight / 2 ? -1 : 1) * edge)
+    const rects = measure()
+    if (rects) setSlot(slotAt(rects, info.index, e.clientX, e.clientY))
   }
   const stop = (drop: boolean) => {
     if (!dragging.current) return
     dragging.current = false
+    onDragging?.(false)
     const to = slot?.to
     setSlot(null)
     if (!drop || to === undefined) return
@@ -81,11 +97,12 @@ export function DragHandle({
       if (e.key !== 'Escape') return
       e.stopPropagation()
       dragging.current = false
+      onDragging?.(false)
       setSlot(null)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [slot])
+  }, [slot, onDragging])
 
   return (
     <>
