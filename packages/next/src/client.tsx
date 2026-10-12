@@ -5,7 +5,13 @@
  * is loaded only when someone is editing or previewing.
  */
 import dynamic from 'next/dynamic.js'
-import type { DataSource, Locator, MediaLibrary, OnPageMode } from '@payload-onpage/core'
+import type {
+  AssistPort,
+  DataSource,
+  Locator,
+  MediaLibrary,
+  OnPageMode,
+} from '@payload-onpage/core'
 import type { FieldEditorDef, Messages, OnPageEvent } from '@payload-onpage/react'
 
 export interface OnPageMountProps {
@@ -27,6 +33,8 @@ export interface OnPageMountProps {
   dataSource?: DataSource | undefined
   /** Saves, conflicts, publishes and failures, for logging or error reporting (client-only). */
   onEvent?: ((event: OnPageEvent) => void) | undefined
+  /** A writing assistant for text fields (client-only; see the assist guide). */
+  assist?: AssistPort | undefined
   /** Override editor UI strings (see `defaultMessages` in @payload-onpage/react). */
   messages?: Messages | undefined
   /** The language of `messages`, for plurals, dates and times in the editor UI. Default "en". */

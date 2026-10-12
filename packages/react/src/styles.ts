@@ -128,6 +128,10 @@ html[data-onpage-editing] [data-onpage-invalid]{outline:2px solid #dc2626!import
 .po-link{all:unset;color:#1d4ed8;text-decoration:underline;cursor:pointer;font-size:12px}
 .po-review{margin-top:14px;border-top:1px solid #e2e8f0;padding-top:10px}
 .po-quote{margin:0 0 10px;padding-inline-start:8px;border-inline-start:3px solid #cbd5e1;color:#334155;font-size:12px}
+.po-assist-btn{position:fixed;pointer-events:auto;height:24px;min-width:24px;padding:0 4px;background:#0f172a;border-radius:6px;z-index:1}
+.po-assist{position:fixed;pointer-events:auto;display:flex;flex-direction:column;gap:6px;padding:8px;background:#fff;color:#0f172a;border-radius:10px;box-shadow:0 12px 40px #0f172a40,0 0 0 1px #0f172a14;max-width:min(420px,calc(100vw - 16px))}
+.po-assist .po-btn{color:#0f172a;background:#f1f5f9}
+.po-assist small{color:#475569;font-size:11px}
 .po-split{min-width:22px;padding:0 4px;margin-inline-start:-4px}
 .po-schedule{margin-top:14px}
 .po-alt{display:flex;flex-direction:column;gap:10px}

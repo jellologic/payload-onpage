@@ -10,15 +10,20 @@
  * until the server render arrives. Blur/Enter commits (one undo step), Escape
  * cancels.
  */
-import { useLayoutEffect, useRef } from 'react'
+import { lazy, Suspense, useLayoutEffect, useRef, useState, type FocusEvent } from 'react'
 import type { ScalarField } from '@payload-onpage/core'
+import { useOnPage } from '../context.tsx'
 import { copyTypography, HIDDEN, placeCaret, placeOver, typographyOf } from '../dom.ts'
 import { useTrackElement } from '../layout.ts'
 import type { FieldEditorProps } from '../types.ts'
 
 import { escapeHtml } from '../sanitize.ts'
 
+const AssistMenu = lazy(() => import('../ui/lazy/AssistMenu.tsx'))
+
 export function InlineText({
+  docKey,
+  path,
   field,
   value,
   element,
@@ -34,6 +39,15 @@ export function InlineText({
   const ref = useRef<HTMLDivElement>(null)
   const initial = useRef(value)
   const done = useRef(false)
+  const { assist, session } = useOnPage()
+  const [assisting, setAssisting] = useState(false)
+  const [box, setBox] = useState<DOMRect | null>(null)
+  const menu = useRef<HTMLDivElement>(null)
+  // Focus moving between the text and the assistant's menu isn't leaving the editor.
+  const leaving = (e: FocusEvent) => {
+    const to = e.relatedTarget as Node | null
+    return !(to && (ref.current?.contains(to) || menu.current?.contains(to)))
+  }
 
   useLayoutEffect(() => {
     const el = element()
@@ -57,6 +71,7 @@ export function InlineText({
     if (!ref.current) return
     if (!el.hasAttribute(HIDDEN)) el.setAttribute(HIDDEN, 'true')
     placeOver(ref.current, el, { minWidth: 40, minHeight: true })
+    if (assist) setBox(ref.current.getBoundingClientRect())
   })
 
   const read = () => {
@@ -77,7 +92,17 @@ export function InlineText({
     close()
   }
 
-  return (
+  const applyAnswer = (text: string) => {
+    const twin = ref.current
+    if (!twin) return
+    twin.textContent = text
+    if (live) preview(read())
+    twin.focus({ preventScroll: true })
+    placeCaret(twin, undefined)
+  }
+
+  const docRef = session.get(docKey)?.ref
+  const twinEl = (
     <div
       ref={ref}
       className="po-inline"
@@ -90,7 +115,7 @@ export function InlineText({
       data-testid="onpage-inline-text"
       spellCheck
       onInput={() => live && preview(read())}
-      onBlur={() => finish(true)}
+      onBlur={(e) => leaving(e) && finish(true)}
       onKeyDown={(e) => {
         if (e.key === 'Escape') {
           e.preventDefault()
@@ -101,5 +126,42 @@ export function InlineText({
         }
       }}
     />
+  )
+  if (!assist || !docRef) return twinEl
+  return (
+    <>
+      {twinEl}
+      <button
+        type="button"
+        className="po-btn po-assist-btn"
+        style={box ? { top: Math.max(4, box.top - 30), left: box.right - 28 } : { display: 'none' }}
+        aria-label={t('assist.label')}
+        title={t('assist.label')}
+        aria-expanded={assisting}
+        // Keep the text focused: a blur would commit it.
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => setAssisting((on) => !on)}
+        data-testid="onpage-assist-open"
+      >
+        ✨
+      </button>
+      {assisting && (
+        <div ref={menu} onBlur={(e) => leaving(e) && finish(true)}>
+          <Suspense fallback={null}>
+            <AssistMenu
+              assist={assist}
+              anchor={ref}
+              text={read}
+              field={{ name: field.name, label: field.label, type: field.type }}
+              docRef={docRef}
+              path={path}
+              locale={session.locale}
+              onResult={applyAnswer}
+              t={t}
+            />
+          </Suspense>
+        </div>
+      )}
+    </>
   )
 }

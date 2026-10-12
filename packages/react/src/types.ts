@@ -1,6 +1,7 @@
 /** Public types of the editor UI. */
 import type { ComponentType } from 'react'
 import type {
+  AssistPort,
   DocRef,
   EditorSession,
   MediaLibrary,
@@ -167,6 +168,8 @@ export interface OnPageApi {
   notify: (text: string, bad?: boolean) => void
   /** Tell the site's `onEvent` handler what happened. */
   report: (event: OnPageEvent) => void
+  /** The site's writing assistant, if it has one (`assist`). */
+  assist?: AssistPort | undefined
   addGhost: (g: GhostInput & { key: RefKey; path: string }) => void
 }
 
