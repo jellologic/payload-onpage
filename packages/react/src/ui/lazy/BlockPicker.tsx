@@ -13,11 +13,11 @@ import {
   type SchemaBlock,
 } from '@payload-onpage/core'
 import { useEffect, useRef, useState } from 'react'
-import { insertRow } from '../rowOps.ts'
-import { useOnPage } from '../context.tsx'
-import type { TargetIndex } from '../types.ts'
-import { useEvent } from '../useEvent.ts'
-import { Dialog } from './Dialog.tsx'
+import { insertRow } from '../../rowOps.ts'
+import { useOnPage } from '../../context.tsx'
+import type { TargetIndex } from '../../types.ts'
+import { useEvent } from '../../useEvent.ts'
+import { Dialog } from '../Dialog.tsx'
 
 /** Wait this long on a card before previewing it, so sweeping across cards doesn't re-render each. */
 const PREVIEW_DELAY = 100

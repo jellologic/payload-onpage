@@ -40,6 +40,12 @@ Selects, dates, numbers, relationships, colors, images and rich text each get an
 
 ![Payload Lexical rich text edited inline, with a formatting toolbar for bold, italic, links, headings, lists and quotes](media/rich-text.png)
 
+## Page settings and publishing
+
+**Page settings** in the dock lists the page's own fields that aren't on the page: SEO title and description, dates, authors, toggles.
+
+**Publish** publishes every document on the page with unpublished changes. The **▾** beside it lets you choose which documents to publish, or **schedule** them for later where the collection allows it ([publishing](guides/publishing.md)).
+
 ## Preview the draft, on any device
 
 Switch to preview to see the page as visitors will, at phone, tablet or desktop width, then return to editing.

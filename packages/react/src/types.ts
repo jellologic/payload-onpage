@@ -29,6 +29,10 @@ export interface EditingState {
 export type Panel =
   | { kind: 'settings'; key: RefKey; path: string; title: string }
   | { kind: 'blocks'; key: RefKey; listPath: string; index: number }
+  /** The documents' own fields that aren't on the page (SEO, dates, references…). */
+  | { kind: 'page' }
+  /** Choose what to publish, or schedule it. */
+  | { kind: 'publish' }
   | null
 
 export interface Selection {

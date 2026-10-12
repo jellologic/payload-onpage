@@ -81,7 +81,7 @@ beforeAll(async () => {
       { slug: 'customers', auth: true, fields: [] },
       {
         slug: 'pages',
-        versions: { drafts: { autosave: { interval: 1500 } } },
+        versions: { drafts: { autosave: { interval: 1500 }, schedulePublish: true } },
         admin: { useAsTitle: 'title' },
         access: {
           read: () => true,
@@ -263,6 +263,48 @@ describe('schema endpoint', () => {
     expect((await call('GET', '/onpage/schema/collection/fragile', { as: 'admin' })).status).toBe(
       403,
     )
+  })
+})
+
+describe('schedule endpoint', () => {
+  const at = () => new Date(Date.now() + 3600_000).toISOString()
+  const body = (over: Record<string, unknown> = {}) => ({
+    kind: 'collection',
+    slug: 'pages',
+    id: ids.editorPage,
+    at: at(),
+    ...over,
+  })
+  it('queues a schedulePublish job for a document the user may publish', async () => {
+    const res = await call('POST', '/onpage/schedule', { as: 'editor', body: body() })
+    expect(res.status).toBe(200)
+    const out = await res.json()
+    expect(out.type).toBe('publish')
+    const job = await payload.findByID({ collection: 'payload-jobs', id: out.id })
+    expect(job).toMatchObject({
+      taskSlug: 'schedulePublish',
+      input: { type: 'publish', doc: { relationTo: 'pages', value: ids.editorPage } },
+    })
+    expect(new Date(job.waitUntil as string).toISOString()).toBe(out.waitUntil)
+  })
+  it("refuses other people's pages, past times, documents without scheduling, and cross-site posts", async () => {
+    const status = async (opts: Parameters<typeof call>[2]) =>
+      (await call('POST', '/onpage/schedule', opts)).status
+    expect(await status({ as: 'editor', body: body({ id: ids.adminPage }) })).toBe(403)
+    expect(await status({ as: 'viewer', body: body() })).toBe(403)
+    expect(await status({ body: body() })).toBe(403)
+    expect(await status({ as: 'admin', body: body({ at: '2001-01-01T00:00:00Z' }) })).toBe(400)
+    expect(await status({ as: 'admin', body: body({ at: 'soon' }) })).toBe(400)
+    expect(await status({ as: 'admin', body: body({ slug: 'locked', id: 1 }) })).toBe(400)
+    expect(await status({ as: 'admin', body: body(), origin: 'https://evil.test' })).toBe(403)
+  })
+  it('tells the editor which documents can be scheduled', async () => {
+    const pages = await (
+      await call('GET', '/onpage/schema/collection/pages', { as: 'admin' })
+    ).json()
+    const header = await (await call('GET', '/onpage/schema/global/header', { as: 'admin' })).json()
+    expect(pages.schedulePublish).toBe(true)
+    expect(header.schedulePublish).toBeUndefined()
   })
 })
 

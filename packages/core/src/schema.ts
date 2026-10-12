@@ -157,6 +157,8 @@ export interface DocumentSchema {
   locales?: string[]
   /** Autosave debounce from the collection's versions config, in ms. */
   autosaveInterval?: number
+  /** Publishing can be scheduled (`versions.drafts.schedulePublish`). */
+  schedulePublish?: boolean
   /** Collections that relationship fields point to: how to search and show them. */
   relations?: Record<string, { titleField: string; label: string }>
 }

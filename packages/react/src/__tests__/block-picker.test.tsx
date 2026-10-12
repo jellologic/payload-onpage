@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { DataSource, DocumentSchema, Renderer, SchemaBlock } from '@payload-onpage/core'
 import { hub } from '../hub.ts'
-import { groupBlocks } from '../ui/BlockPicker.tsx'
+import { groupBlocks } from '../ui/lazy/BlockPicker.tsx'
 
 const KEY = 'c:pages:1' as const
 

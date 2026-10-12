@@ -9,6 +9,15 @@ import type { TargetIndex } from './types.ts'
 /** Row bookkeeping, never a setting. */
 const SKIP = new Set(['id', 'blockType', 'blockName'])
 
+/**
+ * Never in page settings: the page's own address. Changing it from the page
+ * would leave the editor on a URL its draft no longer answers to.
+ */
+const PAGE_SKIP = new Set(['slug'])
+
+/** `path` + `name`, for a top-level path (`''`) too. */
+export const joinPath = (path: string, name: string) => (path ? `${path}.${name}` : name)
+
 /** Types shown in the panel when the page doesn't show them (choices and toggles always are). */
 const PANEL_FIELD_TYPES: ReadonlySet<SchemaFieldType> = new Set([
   'text',
@@ -26,8 +35,8 @@ export function settable(
   key: RefKey,
   targets: TargetIndex,
 ): boolean {
-  if (SKIP.has(field.name)) return false
-  const full = `${path}.${field.name}`
+  if (SKIP.has(field.name) || (!path && PAGE_SKIP.has(field.name))) return false
+  const full = joinPath(path, field.name)
   switch (field.type) {
     case 'select':
     case 'radio':

@@ -13,6 +13,7 @@ export const ROUTES = {
   exit: '/exit',
   previewLink: '/preview-link',
   preview: '/preview',
+  schedule: '/schedule',
 } as const
 
 /**

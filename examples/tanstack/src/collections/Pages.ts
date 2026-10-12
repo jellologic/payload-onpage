@@ -119,7 +119,8 @@ export const Pages: CollectionConfig = {
     preview: (doc) => (doc?.slug === 'home' ? '/' : `/${doc?.slug ?? ''}`),
   },
   access: { read: () => true },
-  versions: { drafts: { autosave: { interval: 2000 } } },
+  // schedulePublish: "Schedule for later" in the on-page publish menu, as in the admin.
+  versions: { drafts: { autosave: { interval: 2000 }, schedulePublish: true } },
   fields: [
     { name: 'title', type: 'text', required: true },
     { name: 'slug', type: 'text', required: true, unique: true, index: true },

@@ -6,7 +6,7 @@
  * and versions behave exactly as in the admin.
  */
 import type { DocRef } from './docref.ts'
-import { DEFAULTS, HEADER } from './constants.ts'
+import { DEFAULTS, HEADER, ROUTES } from './constants.ts'
 import { stegaClean } from './stega.ts'
 import type {
   DataSource,
@@ -15,6 +15,7 @@ import type {
   MediaLibrary,
   PreviewLink,
   SaveResult,
+  ScheduledPublish,
   SearchHit,
 } from './ports.ts'
 import type { DocumentSchema } from './schema.ts'
@@ -152,6 +153,25 @@ export function payloadRest(
           doc,
         }
       })
+    },
+    async schedulePublish(ref, o): Promise<ScheduledPublish> {
+      const res = await f(
+        `${api}${prefix}${ROUTES.schedule}`,
+        init({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: ref.kind,
+            slug: ref.slug,
+            id: ref.kind === 'collection' ? ref.id : undefined,
+            at: o.at.toISOString(),
+            type: o.type ?? 'publish',
+            locale: o.locale,
+          }),
+        }),
+      )
+      if (!res.ok) throw new Error(await errorMessage(res))
+      return (await res.json()) as ScheduledPublish
     },
     async createPreviewLink(ref, o): Promise<PreviewLink> {
       const res = await f(

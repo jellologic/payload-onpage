@@ -317,6 +317,7 @@ describe('onpage() plugin', () => {
       'post /onpage/exit',
       'post /onpage/preview-link',
       'get /onpage/preview',
+      'post /onpage/schedule',
     ])
     const pages = out.collections.find((c: any) => c.slug === 'pages')
     expect(pages.hooks.afterRead).toHaveLength(2)
