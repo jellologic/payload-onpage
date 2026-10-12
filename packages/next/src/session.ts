@@ -4,9 +4,12 @@
  * Editors: Next draft mode plus an `onpage` cookie saying which mode, bound to
  * a hash of their auth cookie, so signing out (or in as someone else) ends it.
  *
- * Preview links: the browser gets only a sealed grant (`onpage_preview`). The
- * proxy (./proxy) unseals it and injects draft mode into the request for the
- * shared page only. The raw Next.js draft secret never reaches the browser.
+ * Preview links: the browser gets a sealed grant (`onpage_preview`). The proxy
+ * (./proxy) unseals it and injects draft mode into the request for the shared
+ * page only. With `cdnBypass` (default on Vercel), the browser also gets Next's
+ * draft cookie scoped to that page's path and the link's expiry: Vercel's cache
+ * decides bypass from the browser's own cookies, before any proxy runs. The
+ * proxy refuses that cookie everywhere the grant doesn't cover.
  *
  * All helpers read `draftMode().isEnabled` first and touch cookies only when
  * draft mode is on. Next exempts that read from prerender bailout, so pages
@@ -16,16 +19,23 @@ import {
   CONTEXT_KEY,
   COOKIE,
   HEADER,
-  isOnPageMode,
-  sha256,
   type OnPageMode,
   type SessionAdapter,
 } from '@payload-onpage/core'
 import { cookies, draftMode, headers } from 'next/headers.js'
+import { fingerprint, readModeCookie } from './binding.ts'
 
 export interface NextSessionOptions {
   /** How long an editor's edit/preview mode lasts, in seconds. Default 12 hours. */
   maxAge?: number
+  /**
+   * Give preview-link viewers Next's draft cookie, scoped to the shared page's
+   * path and expiring with the link, so a CDN that serves cached pages unless
+   * the browser itself sends the draft cookie (Vercel) shows them the draft.
+   * Requires the proxy (`withOnPage`), which strips it on every other page.
+   * Default: on when deployed on Vercel (`process.env.VERCEL`).
+   */
+  cdnBypass?: boolean
 }
 
 type Jar = Awaited<ReturnType<typeof cookies>>
@@ -47,29 +57,19 @@ async function inDraft<T>(read: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-const HASH_LENGTH = 32
-const fingerprint = async (token: string) => (await sha256(token)).slice(0, HASH_LENGTH)
-
 /** `edit` | `view`, or `<mode>:<authCookie>:<hash>` when bound to a session. */
 async function modeValue(mode: OnPageMode, jar: Jar, bindTo?: string): Promise<string> {
   const token = bindTo ? jar.get(bindTo)?.value : undefined
   return token ? `${mode}:${bindTo}:${await fingerprint(token)}` : mode
 }
 
-/** The mode a cookie value grants in this request, or null (unknown, or the bound session is gone). */
 async function readMode(raw: string | undefined, jar: Jar): Promise<OnPageMode | null> {
-  if (!raw) return null
-  const [mode, bound, hash] = raw.split(':')
-  if (!isOnPageMode(mode)) return null
-  if (bound) {
-    const token = jar.get(bound)?.value
-    if (!token || (await fingerprint(token)) !== hash) return null
-  }
-  return mode
+  return (await readModeCookie(raw, (name) => jar.get(name)?.value))?.mode ?? null
 }
 
 export function nextSession(opts: NextSessionOptions = {}): SessionAdapter {
   const maxAge = opts.maxAge ?? 12 * 3600
+  const cdnBypass = opts.cdnBypass ?? (typeof process !== 'undefined' && !!process.env.VERCEL)
   return {
     async enable(mode, { secure, bindTo }) {
       ;(await draftMode()).enable()
@@ -77,19 +77,29 @@ export function nextSession(opts: NextSessionOptions = {}): SessionAdapter {
       jar.set(COOKIE.mode, await modeValue(mode, jar, bindTo), { ...cookieBase(secure), maxAge })
       jar.delete(COOKIE.preview)
     },
-    async enableLink({ secure, path: _path, expiresAt, seal }) {
+    async enableLink({ secure, path, expiresAt, seal }) {
       ;(await draftMode()).enable()
       const jar = await cookies()
       const draft = jar.get(COOKIE.nextDraft)?.value
       if (!draft) throw new Error('payload-onpage: Next.js did not set its draft-mode cookie')
-      // Keep the draft secret server-side: the browser only gets the sealed grant.
-      jar.delete(COOKIE.nextDraft)
+      if (cdnBypass) {
+        // Replaces the site-wide cookie draftMode() just set: this page, this link's lifetime.
+        jar.set(COOKIE.nextDraft, draft, { ...cookieBase(secure), path, expires: expiresAt })
+      } else {
+        // Keep the draft secret server-side: the browser only gets the sealed grant.
+        jar.delete(COOKIE.nextDraft)
+      }
       jar.delete(COOKIE.mode)
       jar.set(COOKIE.preview, await seal(draft), { ...cookieBase(secure), expires: expiresAt })
     },
-    async disable() {
-      ;(await draftMode()).disable()
+    async disable({ path } = {}) {
       const jar = await cookies()
+      if (path && jar.get(COOKIE.preview)) {
+        // A preview-link viewer: their draft cookie, if any, is scoped to the shared page.
+        jar.set(COOKIE.nextDraft, '', { ...cookieBase(false), path, maxAge: 0 })
+      } else {
+        ;(await draftMode()).disable()
+      }
       jar.delete(COOKIE.mode)
       jar.delete(COOKIE.preview)
     },

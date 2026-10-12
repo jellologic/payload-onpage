@@ -8,7 +8,7 @@ import { join } from 'node:path'
 
 const run = (cmd, args, opts = {}) =>
   execFileSync(cmd, args, { stdio: ['ignore', 'pipe', 'inherit'], encoding: 'utf8', ...opts })
-const order = ['core', 'react', 'lexical', 'plugin', 'next'] // dependencies first
+const order = ['core', 'react', 'lexical', 'plugin', 'next', 'tanstack-start'] // dependencies first
 
 // All packages are versioned together; refuse to publish a mixed set.
 const versions = new Set(

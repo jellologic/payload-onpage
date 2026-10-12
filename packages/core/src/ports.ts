@@ -158,8 +158,10 @@ export interface SessionAdapter {
   enable(mode: OnPageMode, opts: { secure: boolean; bindTo?: string }): Promise<void>
   /**
    * Preview links: read-only draft access to one page until `expiresAt`. The
-   * adapter passes the framework's draft secret to `seal`, and stores only the
-   * sealed result, so the browser never holds a usable draft credential.
+   * adapter passes the framework's draft secret to `seal` and stores the sealed
+   * result. Where a CDN decides cache bypass from the browser's own cookies
+   * (Vercel), an adapter may also give the browser the draft credential scoped
+   * to `path` and `expiresAt`; its proxy must then refuse it everywhere else.
    */
   enableLink(opts: {
     secure: boolean
@@ -167,6 +169,7 @@ export interface SessionAdapter {
     expiresAt: Date
     seal: (draftSecret: string) => Promise<string>
   }): Promise<void>
-  disable(): Promise<void>
+  /** Leave edit/preview mode. `path` is the page being left, for credentials scoped to it. */
+  disable(opts?: { path?: string }): Promise<void>
   getMode(): Promise<OnPageMode | null>
 }

@@ -83,6 +83,52 @@ describe('nextSession', () => {
     expect(last.get(COOKIE.preview)?.value).toBe('sealed(NEXT_SECRET)')
   })
 
+  it('cdnBypass: the draft cookie stays, scoped to the shared page and the link lifetime', async () => {
+    const expiresAt = new Date(Date.now() + 60_000)
+    await nextSession({ cdnBypass: true }).enableLink({
+      secure: true,
+      path: '/a',
+      expiresAt,
+      seal: async (secret) => `sealed(${secret})`,
+    })
+    const last = new Map(state.set.map((c) => [c.name, c]))
+    expect(last.get(COOKIE.nextDraft)?.value).toBe('NEXT_SECRET')
+    expect(last.get(COOKIE.nextDraft)?.opts).toMatchObject({
+      path: '/a',
+      expires: expiresAt,
+      httpOnly: true,
+      secure: true,
+    })
+    expect(last.get(COOKIE.preview)?.value).toBe('sealed(NEXT_SECRET)')
+  })
+
+  it('cdnBypass defaults on only when deployed on Vercel', async () => {
+    const link = {
+      secure: true,
+      path: '/a',
+      expiresAt: new Date(Date.now() + 1000),
+      seal: async () => 's',
+    }
+    vi.stubEnv('VERCEL', '1')
+    await nextSession().enableLink(link)
+    expect(new Map(state.set.map((c) => [c.name, c])).get(COOKIE.nextDraft)?.value).toBe(
+      'NEXT_SECRET',
+    )
+    vi.unstubAllEnvs()
+    state.set = []
+    await nextSession().enableLink(link)
+    expect(new Map(state.set.map((c) => [c.name, c])).get(COOKIE.nextDraft)?.value).toBe('')
+  })
+
+  it('a preview-link viewer leaving clears the cookie scoped to that page', async () => {
+    state.cookies.set(COOKIE.preview, 'sealed')
+    state.draft = true
+    await nextSession().disable({ path: '/a' })
+    const draft = state.set.find((c) => c.name === COOKIE.nextDraft)!
+    expect(draft.opts).toMatchObject({ path: '/a', maxAge: 0 })
+    expect(state.cookies.has(COOKIE.preview)).toBe(false)
+  })
+
   it('disable clears everything', async () => {
     await nextSession().enable('view', { secure: false })
     await nextSession().disable()

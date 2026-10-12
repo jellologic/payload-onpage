@@ -109,6 +109,16 @@ return NextResponse.next({
 
 **Check:** copy a preview link in the admin and open it in a private window. The draft shows with a "Shared preview" bar; other pages show published content.
 
+**On Vercel** (or any CDN that serves cached pages unless the browser itself sends Next's draft cookie), the viewer's browser also gets that cookie, scoped to the shared page and expiring with the link (`nextSession({ cdnBypass })`, on by default when `VERCEL` is set). The proxy strips it from every request the link doesn't cover. Next's draft cookie is one site-wide key, so also pass `allowDraft`: a copied cookie then unlocks nothing unless the request is an editor's or your own check admits it.
+
+```ts
+withOnPage(request, {
+  secret: process.env.PAYLOAD_SECRET,
+  // e.g. your own preview route's users: is this session an admin?
+  allowDraft: (request) => isAdminSession(request),
+})
+```
+
 ## 6. Verify nothing leaks to visitors
 
 ```bash
