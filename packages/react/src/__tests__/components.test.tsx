@@ -233,6 +233,48 @@ describe('PreviewToolbar', () => {
       'post',
     )
   })
+  it('link viewers comment when the site allows it, quoting the text they selected', async () => {
+    const posts: unknown[] = []
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/guest')) return new Response(JSON.stringify({ enabled: true }))
+      posts.push(JSON.parse(init?.body as string))
+      return new Response(JSON.stringify({ id: 1 }))
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      document.body.insertAdjacentHTML('beforeend', '<p id="quote-me">Big idea</p>')
+      render(<PreviewToolbar exitHref="/x" shared commentsHref="/api/onpage/comments" />)
+      const open = await screen.findByTestId('onpage-guest-comment-open')
+      const range = document.createRange()
+      range.selectNodeContents(document.getElementById('quote-me')!)
+      window.getSelection()!.removeAllRanges()
+      window.getSelection()!.addRange(range)
+      fireEvent.click(open)
+      const form = await screen.findByTestId('onpage-guest-comment')
+      expect(form.textContent).toContain('Big idea')
+      fireEvent.change(screen.getByTestId('onpage-guest-name'), { target: { value: 'Sam' } })
+      fireEvent.change(screen.getByTestId('onpage-guest-body'), { target: { value: 'Love it' } })
+      fireEvent.click(screen.getByTestId('onpage-guest-send'))
+      await screen.findByText('Thanks, your comment was sent')
+      expect(posts).toEqual([{ name: 'Sam', body: 'Love it', quote: 'Big idea' }])
+    } finally {
+      vi.unstubAllGlobals()
+      document.getElementById('quote-me')?.remove()
+    }
+  })
+  it("no Comment button when the site doesn't allow it", async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 404 })),
+    )
+    try {
+      render(<PreviewToolbar exitHref="/x" shared commentsHref="/api/onpage/comments" />)
+      await new Promise((r) => setTimeout(r, 20))
+      expect(screen.queryByTestId('onpage-guest-comment-open')).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
 })
 
 // ── the editor shell, end to end against a fake DataSource ───────────────────

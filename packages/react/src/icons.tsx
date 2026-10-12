@@ -71,3 +71,9 @@ export const GripIcon = () => (
     <circle cx="15" cy="18" r="1" />
   </svg>
 )
+
+export const BookmarkIcon = () => (
+  <svg {...svg}>
+    <path d="M19 21l-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </svg>
+)

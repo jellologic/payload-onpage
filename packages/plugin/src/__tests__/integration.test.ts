@@ -9,6 +9,7 @@ import {
   HEADER,
   readModeCookie,
   stegaDecode,
+  stegaEncode,
   type OnPageMode,
   type SessionAdapter,
 } from '@payload-onpage/core'
@@ -150,6 +151,7 @@ beforeAll(async () => {
         globals: ['header'],
         session,
         comments: { guests: true },
+        patterns: true,
         onReviewRequest: async (args) => {
           reviews.push({ ref: args.ref, note: args.note, url: args.url })
         },
@@ -488,6 +490,99 @@ describe('enter / mode / exit', () => {
       )
       expect(new URL(enter.headers.get('location')!).origin).toBe(ORIGIN)
     }
+  })
+})
+
+describe('new pages from the page', () => {
+  it('duplicates a page as a draft with a unique slug, and creates blank ones', async () => {
+    const dup = await call('POST', '/onpage/pages', {
+      as: 'editor',
+      body: { action: 'duplicate', slug: 'pages', id: ids.editorPage },
+    })
+    expect(dup.status).toBe(200)
+    const { id, path } = await dup.json()
+    const copy = await payload.findByID({ collection: 'pages', id, draft: true })
+    expect(copy).toMatchObject({
+      title: 'Editor page (copy)',
+      slug: 'editor-page-copy',
+      _status: 'draft',
+    })
+    expect(path).toBe('/editor-page-copy')
+    const a = await (
+      await call('POST', '/onpage/pages', {
+        as: 'editor',
+        body: { slug: 'pages', title: 'Über uns!' },
+      })
+    ).json()
+    const b = await (
+      await call('POST', '/onpage/pages', {
+        as: 'editor',
+        body: { slug: 'pages', title: 'Uber Uns' },
+      })
+    ).json()
+    expect([a.path, b.path]).toEqual(['/uber-uns', '/uber-uns-2'])
+  })
+  it("needs a signed-in editor, Payload's create access, a title, and an enabled collection", async () => {
+    const status = async (as: As, body: Record<string, unknown>) =>
+      (await call('POST', '/onpage/pages', { ...(as ? { as } : {}), body })).status
+    expect(await status(null, { slug: 'pages', title: 'x' })).toBe(403)
+    expect(await status('customer', { slug: 'pages', title: 'x' })).toBe(403)
+    expect(await status('editor', { slug: 'users', title: 'x' })).toBe(400)
+    expect(await status('editor', { slug: 'pages' })).toBe(400)
+    expect(await status('editor', { slug: 'pages', title: '   ' })).toBe(400)
+  })
+})
+
+describe('saved sections', () => {
+  it('saves a section without markers and lists them by allowed block type', async () => {
+    const marked = stegaEncode('Big idea', {
+      ref: 'c:pages:1',
+      path: 'layout.0.heading',
+      kind: 'text',
+    })
+    const save = await call('POST', '/onpage/patterns', {
+      as: 'editor',
+      body: { name: 'Launch hero', block: { id: 'x', blockType: 'hero', heading: marked } },
+    })
+    expect(save.status).toBe(200)
+    await call('POST', '/onpage/patterns', {
+      as: 'editor',
+      body: { name: 'CTA', block: { blockType: 'cta', label: 'Go' } },
+    })
+    const heroes = await (
+      await call('GET', '/onpage/patterns?blocks=hero', { as: 'editor' })
+    ).json()
+    expect(heroes.patterns).toEqual([
+      expect.objectContaining({
+        name: 'Launch hero',
+        blockType: 'hero',
+        data: { id: 'x', blockType: 'hero', heading: 'Big idea' },
+      }),
+    ])
+    const all = await (await call('GET', '/onpage/patterns', { as: 'editor' })).json()
+    expect(all.patterns.map((p: { name: string }) => p.name)).toEqual(['CTA', 'Launch hero'])
+  })
+  it('only for editors, and only blocks', async () => {
+    expect((await call('GET', '/onpage/patterns')).status).toBe(403)
+    expect(
+      (
+        await call('POST', '/onpage/patterns', {
+          body: { name: 'x', block: { blockType: 'hero' } },
+        })
+      ).status,
+    ).toBe(403)
+    expect(
+      (await call('POST', '/onpage/patterns', { as: 'editor', body: { name: 'x', block: 'nope' } }))
+        .status,
+    ).toBe(400)
+    expect(
+      (
+        await call('POST', '/onpage/patterns', {
+          as: 'editor',
+          body: { block: { blockType: 'hero' } },
+        })
+      ).status,
+    ).toBe(400)
   })
 })
 

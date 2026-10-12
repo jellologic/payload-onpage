@@ -26,7 +26,14 @@ import { belowList, GEOMETRY, inViewport, outlineBox, toolbarPosition } from '..
 import { useLayoutTick } from '../layout.ts'
 import { DragHandle } from './DragHandle.tsx'
 import { ToolbarButton } from './ToolbarButton.tsx'
-import { ArrowDownIcon, ArrowUpIcon, CloseIcon, DuplicateIcon, SettingsIcon } from '../icons.tsx'
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  BookmarkIcon,
+  CloseIcon,
+  DuplicateIcon,
+  SettingsIcon,
+} from '../icons.tsx'
 import { targetsAt } from '../targets.ts'
 import { insertRow, rowOps } from '../rowOps.ts'
 import { hasSettings } from '../settings.ts'
@@ -94,9 +101,10 @@ interface ActiveRow {
 }
 
 function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item' }) {
-  const { session, setSelected, setPanel, selected, targets, t } = useOnPage()
+  const { session, snap, setSelected, setPanel, selected, targets, t } = useOnPage()
   const [dragging, setDragging] = useState(false)
   const { key, info, el } = row
+  const canSaveSection = !!snap.docs[key]?.schema?.patterns && !!session.dataSource.savePattern
   const r = el.getBoundingClientRect()
   // Off screen, the toolbar hides; but not mid-drag, which would end the drag with it.
   if (!dragging && !inViewport(r, GEOMETRY.toolbar)) return null
@@ -150,6 +158,14 @@ function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item
         onClick={duplicate}
         testId={`onpage-${variant}-duplicate`}
       />
+      {variant === 'block' && canSaveSection && (
+        <ToolbarButton
+          label={t('row.saveSection')}
+          icon={<BookmarkIcon />}
+          onClick={() => setPanel({ kind: 'saveSection', key, path, title: label })}
+          testId="onpage-block-save"
+        />
+      )}
       {hasSettings(info.rowFields, path, key, targets) && (
         <ToolbarButton
           label={t('row.settings')}

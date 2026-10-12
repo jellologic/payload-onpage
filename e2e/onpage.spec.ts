@@ -528,6 +528,40 @@ test('comments: editors, review requests, and share-link viewers', async ({ cont
   await expect(guest.getByTestId('onpage-comment-resolve')).toHaveText('Reopen')
 })
 
+test('save a section and insert it again; duplicate the page', async ({ context }) => {
+  const page = await editPage(context)
+  // Save the hero (the first section) under a name.
+  await page
+    .locator('section')
+    .first()
+    .click({ position: { x: 5, y: 5 } })
+  await page.getByTestId('onpage-block-save').click()
+  const save = page.getByTestId('onpage-save-section')
+  await save.getByTestId('onpage-save-section-name').fill('Launch hero')
+  await save.getByTestId('onpage-save-section-save').click()
+  await expect(page.getByTestId('onpage-status')).toHaveText(/Saved/)
+  // Insert it below: the picker lists it under Saved sections.
+  const sections = page.locator('section')
+  const before = await sections.count()
+  await page
+    .locator('section')
+    .first()
+    .click({ position: { x: 5, y: 5 } })
+  await page.getByTestId('onpage-insert-below').click()
+  const saved = page.getByTestId('onpage-saved-sections')
+  await expect(saved).toContainText('Launch hero')
+  await saved.locator('button').filter({ hasText: 'Launch hero' }).click()
+  await expect(sections).toHaveCount(before + 1)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect(sections).toHaveCount(before)
+
+  // Duplicate the page: the copy opens, still in edit mode.
+  await page.getByTestId('onpage-page-settings-open').click()
+  await page.getByTestId('onpage-page-duplicate').click()
+  await page.waitForURL(/-copy/)
+  await expect(page.getByTestId('onpage-dock')).toBeVisible()
+})
+
 // Last: restoring a version rewinds the page's draft.
 test('history: what changed since published, and restoring a version', async ({ context }) => {
   const page = await editPage(context)

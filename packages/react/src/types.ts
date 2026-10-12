@@ -37,6 +37,8 @@ export type Panel =
   | { kind: 'versions' }
   /** Comments on the page, and review requests. */
   | { kind: 'comments' }
+  /** Save a section (a blocks row) to insert again later. */
+  | { kind: 'saveSection'; key: RefKey; path: string; title: string }
   | null
 
 export interface Selection {

@@ -7,6 +7,7 @@
  * text, images that aren't on the page. Changes apply immediately.
  */
 import {
+  errorText,
   fieldAtPath,
   getAt,
   relationTitle,
@@ -405,6 +406,78 @@ function DocFields({ docKey, fields }: { docKey: RefKey; fields: SchemaField[] }
   return <Fields docKey={docKey} fields={fields} path="" hidden={hidden} />
 }
 
+/** Duplicate the page, or start a new one in its collection; then open it. */
+function PageActions() {
+  const { session, snap, docKeys, notify, t } = useOnPage()
+  const [title, setTitle] = useState('')
+  const [busy, setBusy] = useState(false)
+  const id = useId()
+  const ds = session.dataSource
+  const page = docKeys.map((k) => snap.docs[k]).find((d) => d?.ref.kind === 'collection')
+  if (!page || (!ds.duplicatePage && !ds.createPage)) return null
+  const open = async (make: () => Promise<{ path: string | null } | undefined>) => {
+    setBusy(true)
+    try {
+      await session.flush()
+      const made = await make()
+      if (!made?.path) throw new Error(t('pages.noPath'))
+      notify(t('notify.pageCreated'))
+      window.location.assign(made.path)
+    } catch (e) {
+      notify(errorText(e), true)
+      setBusy(false)
+    }
+  }
+  return (
+    <fieldset className="po-group" data-testid="onpage-page-actions">
+      <legend className="po-h4">{t('pages.title')}</legend>
+      {ds.duplicatePage && (
+        <button
+          type="button"
+          className="po-btn"
+          disabled={busy}
+          onClick={() => void open(() => ds.duplicatePage!(page.ref, {}))}
+          data-testid="onpage-page-duplicate"
+        >
+          {t('pages.duplicate')}
+        </button>
+      )}
+      {ds.createPage && (
+        <form
+          className="po-row"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void open(() => ds.createPage!(page.ref.slug, { title: title.trim() }))
+          }}
+        >
+          <label htmlFor={id}>{t('pages.new')}</label>
+          <div className="po-alt-line">
+            <input
+              id={id}
+              className="po-input"
+              placeholder={t('pages.newTitle')}
+              value={title}
+              maxLength={200}
+              onChange={(e) => setTitle(e.target.value)}
+              aria-describedby={`${id}-hint`}
+              data-testid="onpage-page-new-title"
+            />
+            <button
+              type="submit"
+              className="po-btn"
+              disabled={busy || !title.trim()}
+              data-testid="onpage-page-create"
+            >
+              {t('pages.create')}
+            </button>
+          </div>
+          <small id={`${id}-hint`}>{t('pages.hint')}</small>
+        </form>
+      )}
+    </fieldset>
+  )
+}
+
 function PageSettingsPanel() {
   const { setPanel, t } = useOnPage()
   const docs = usePageSettings()
@@ -426,6 +499,7 @@ function PageSettingsPanel() {
           <DocFields key={state.key} docKey={state.key} fields={fields} />
         ),
       )}
+      <PageActions />
     </Dialog>
   )
 }

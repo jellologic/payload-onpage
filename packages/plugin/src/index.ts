@@ -19,6 +19,7 @@ import {
 import { deepMergeSimple, hasDraftsEnabled } from 'payload/shared'
 import { COMMENTS, commentsCollection } from './comments.ts'
 import { createEndpoints } from './endpoints.ts'
+import { PATTERNS, patternsCollection } from './patterns.ts'
 import { encodeOnRead, guardStaleWrite, stripMarkers } from './hooks.ts'
 import { normalizeEntries, type Entry, type OnPageOptions } from './options.ts'
 import { serializeFields } from './schema.ts'
@@ -179,6 +180,9 @@ export function onpage(options: OnPageOptions): OnPagePlugin {
           const entry = byKey.get(keyOf('collection', c.slug))
           return entry ? withCollectionAdmin(withCollectionHooks(c, entry)) : c
         }),
+        ...(options.patterns && !incoming.collections?.some((c) => c.slug === PATTERNS)
+          ? [patternsCollection(incoming.admin?.user ?? 'users')]
+          : []),
         ...(options.comments && !incoming.collections?.some((c) => c.slug === COMMENTS)
           ? [
               commentsCollection(

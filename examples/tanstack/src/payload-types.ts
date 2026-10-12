@@ -62,19 +62,20 @@ export type SupportedTimezones =
   | 'Pacific/Fiji';
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "LexicalNodes_E646CC79".
+ * via the `definition` "LexicalNodes_C14FAD86".
  */
-export type LexicalNodes_E646CC79 =
+export type LexicalNodes_C14FAD86 =
   | SerializedTextNode
   | SerializedTabNode
   | SerializedLineBreakNode
-  | SerializedParagraphNode<LexicalNodes_E646CC79>
+  | SerializedParagraphNode<LexicalNodes_C14FAD86>
   | SerializedHorizontalRuleNode
   | SerializedUploadNode<'media'>
-  | SerializedQuoteNode<LexicalNodes_E646CC79>
+  | SerializedQuoteNode<LexicalNodes_C14FAD86>
   | SerializedRelationshipNode<
       | 'pages'
       | 'users'
+      | 'onpage-patterns'
       | 'onpage-comments'
       | 'payload-kv'
       | 'payload-jobs'
@@ -82,11 +83,11 @@ export type LexicalNodes_E646CC79 =
       | 'payload-preferences'
       | 'payload-migrations'
     >
-  | SerializedAutoLinkNode<LexicalNodes_E646CC79, LexicalLinkFields>
-  | SerializedLinkNode<LexicalNodes_E646CC79, LexicalLinkFields>
-  | SerializedListNode<LexicalNodes_E646CC79>
-  | SerializedListItemNode<LexicalNodes_E646CC79>
-  | SerializedHeadingNode<LexicalNodes_E646CC79>;
+  | SerializedAutoLinkNode<LexicalNodes_C14FAD86, LexicalLinkFields>
+  | SerializedLinkNode<LexicalNodes_C14FAD86, LexicalLinkFields>
+  | SerializedListNode<LexicalNodes_C14FAD86>
+  | SerializedListItemNode<LexicalNodes_C14FAD86>
+  | SerializedHeadingNode<LexicalNodes_C14FAD86>;
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "LexicalNodes_3DE324E4".
@@ -109,6 +110,7 @@ export interface Config {
     pages: Page;
     media: Media;
     users: User;
+    'onpage-patterns': OnpagePattern;
     'onpage-comments': OnpageComment;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -122,6 +124,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'onpage-patterns': OnpagePatternsSelect<false> | OnpagePatternsSelect<true>;
     'onpage-comments': OnpageCommentsSelect<false> | OnpageCommentsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -301,7 +304,7 @@ export interface Media {
  * via the `definition` "Content".
  */
 export interface Content {
-  body?: LexicalRichText<LexicalNodes_E646CC79> | null;
+  body?: LexicalRichText<LexicalNodes_C14FAD86> | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'content';
@@ -324,6 +327,34 @@ export interface Features {
   id?: string | null;
   blockName?: string | null;
   blockType: 'features';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "onpage-patterns".
+ */
+export interface OnpagePattern {
+  id: number;
+  name: string;
+  blockType: string;
+  data:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  createdBy?: {
+    relationTo: 'users';
+    value: number | User;
+  } | null;
+  updatedBy?: {
+    relationTo: 'users';
+    value: number | User;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -503,6 +534,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'onpage-patterns';
+        value: number | OnpagePattern;
       } | null)
     | ({
         relationTo: 'onpage-comments';
@@ -691,6 +726,19 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "onpage-patterns_select".
+ */
+export interface OnpagePatternsSelect<T extends boolean = true> {
+  name?: T;
+  blockType?: T;
+  data?: T;
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -911,7 +959,7 @@ export interface CollectionsWidget {
 export interface CollectionQueryWidget {
   data?: {
     title?: string | null;
-    relatedCollection: 'pages' | 'media' | 'users' | 'onpage-comments';
+    relatedCollection: 'pages' | 'media' | 'users' | 'onpage-patterns' | 'onpage-comments';
     where?:
       | {
           [k: string]: unknown;
@@ -933,7 +981,7 @@ export interface CollectionQueryWidget {
  */
 export interface ActivityWidget {
   data?: {
-    excludedCollections?: ('pages' | 'media' | 'users' | 'onpage-comments')[] | null;
+    excludedCollections?: ('pages' | 'media' | 'users' | 'onpage-patterns' | 'onpage-comments')[] | null;
   };
   width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
 }

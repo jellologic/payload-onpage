@@ -18,6 +18,8 @@ export const ROUTES = {
   lock: '/lock',
   comments: '/comments',
   review: '/review',
+  pages: '/pages',
+  patterns: '/patterns',
 } as const
 
 /**

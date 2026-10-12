@@ -14,8 +14,10 @@ import type {
   FieldError,
   MediaItem,
   MediaLibrary,
+  NewPage,
   PageComment,
   PreviewLink,
+  SavedSection,
   SaveResult,
   ScheduledPublish,
   SearchHit,
@@ -143,6 +145,20 @@ export function payloadRest(
     const json = (await res.json().catch(() => ({}))) as { doc?: Doc; result?: Doc } & Doc
     const doc: Doc = json.doc ?? json.result ?? json
     return { ok: true, updatedAt: typeof doc.updatedAt === 'string' ? doc.updatedAt : undefined }
+  }
+
+  /** POST JSON to one of the plugin's endpoints; the parsed answer, or the server's error. */
+  const post = async <T>(route: string, body: unknown): Promise<T> => {
+    const res = await f(
+      `${api}${prefix}${route}`,
+      init({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }),
+    )
+    if (!res.ok) throw new Error(await errorMessage(res))
+    return (await res.json()) as T
   }
 
   return {
@@ -293,6 +309,27 @@ export function payloadRest(
       )
       if (!res.ok) throw new Error(await errorMessage(res))
       return (await res.json()) as { url: string; expiresAt: string }
+    },
+    async duplicatePage(ref, o): Promise<NewPage> {
+      if (ref.kind !== 'collection') throw new Error('Only collection documents can be copied')
+      return post<NewPage>(ROUTES.pages, {
+        action: 'duplicate',
+        slug: ref.slug,
+        id: ref.id,
+        title: o.title,
+      })
+    },
+    async createPage(collection, o): Promise<NewPage> {
+      return post<NewPage>(ROUTES.pages, { slug: collection, title: o.title })
+    },
+    async listPatterns(o): Promise<SavedSection[]> {
+      const q = o.blocks?.length ? `?blocks=${encodeURIComponent(o.blocks.join(','))}` : ''
+      const res = await f(`${api}${prefix}${ROUTES.patterns}${q}`, init())
+      if (!res.ok) throw new Error(await errorMessage(res))
+      return ((await res.json()) as { patterns?: SavedSection[] }).patterns ?? []
+    },
+    async savePattern(name, block) {
+      await post(ROUTES.patterns, { name, block: stegaCleanDeep(block) })
     },
     async hiddenFields(ref, doc): Promise<string[]> {
       const res = await f(

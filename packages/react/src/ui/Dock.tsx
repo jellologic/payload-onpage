@@ -104,6 +104,9 @@ export function Dock() {
     lockedBy,
   } = useOnPage()
   const pageSettings = usePageSettings()
+  const canMakePages =
+    !!(session.dataSource.duplicatePage || session.dataSource.createPage) &&
+    docKeys.some((k) => k.startsWith('c:'))
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   useTicker(5000)
   useEffect(() => {
@@ -303,7 +306,7 @@ export function Dock() {
           testId="onpage-redo"
         />
         <span className="po-sep" />
-        {pageSettings.length > 0 && (
+        {(pageSettings.length > 0 || canMakePages) && (
           <button
             type="button"
             className="po-btn"
