@@ -18,7 +18,7 @@ _The visual, WYSIWYG inline editor for Payload CMS: live draft preview, click-to
 - **Add sections visually:** the block picker shows your blocks' Payload thumbnails, and in client mode previews a section in place before you add it.
 - **Built-in field editors:** text, rich text (Lexical), images, select, date, number, relationship, color. Replace any of them, or add your own.
 - **Ports and adapters:** data source, media library, locator, renderer, session and field editors are all swappable.
-- **Fast:** visitors load about 0.3 KB, and the editor (about 29 KB gz) loads only for editors.
+- **Fast:** visitors load about 0.3 KB. The editor (about 30 KB, brotli) loads only for editors, and rich-text editing adds Lexical (about 70 KB) the first time an editor opens a rich-text field.
 - **Accessible:** keyboard editing, managed focus and WCAG AA contrast, checked with axe in CI.
 - **Secure by design:** Payload's own access checks, CSRF-safe endpoints, a stale-write guard, and share links that never expose Next's draft secret.
 
@@ -452,7 +452,7 @@ In edit mode, every displayable string a page reads carries an **invisible marke
 Never marked:
 
 - selects, numbers, dates, checkboxes, relationships, JSON, code
-- fields whose name has a machine-like segment: `url`, `href`, `link`, `path`, `email`, `phone`, `slug`, `key`, `token`, `anchor`, `id`, `class`, `style`, `icon`, `color`, `hex`. Matching is by camelCase or snake segment, so `ctaUrl` is skipped but `lifestyleTitle` isn't.
+- fields whose name has a machine-like segment: `url`, `href`, `link`, `path`, `email`, `phone`, `slug`, `key`, `token`, `anchor`, `id`, `class`, `style`, `icon`, `color`, `hex`. Matching is by camelCase or snake segment, so `ctaUrl` is skipped but `lifestyleTitle` isn't. It applies to each field's **own** name, not its parents': in a group named `link` (Payload's website template), `link.label` is marked and `link.url` isn't.
 - fields with a non-text editor (`admin.custom.onpage.editor: 'color'`)
 
 Narrow it further with the plugin's `encode` option:
@@ -474,7 +474,23 @@ onpage({
 
 ## Caveats
 
-- **Strings change in edit mode.** Comparing or slicing a marked string (`title === 'Home'`, `title.slice(0, 20)`) behaves differently. Use `stegaClean(value)` from `@payload-onpage/core`, or annotate that element instead.
+A marker is a run of invisible characters appended to the end of the string, so anything that changes the string, or uses it as anything other than text, can lose or expose it. Only in edit mode: visitors get the plain string.
+
+| What your component does with the string                                            | In edit mode                                                                                                        | Do this                                                                          |
+| ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Renders it as is (CSS `text-transform`, `line-clamp` included)                      | Maps                                                                                                                |                                                                                  |
+| Upper- or lowercases it in JS (`toUpperCase()`)                                     | Still maps. While you type, the stored text shows in its own case                                                   | Prefer CSS `text-transform`                                                      |
+| Truncates it (`slice`, `substring`, a `truncate()` helper)                          | When it cuts, the marker goes with the end: the text isn't clickable                                                | CSS `line-clamp` / `text-overflow`, or annotate the element with `e.field(path)` |
+| Splits it into words or letters (`split(' ')` into spans)                           | Only the last piece carries the marker                                                                              | Annotate the wrapper with `e.field(path)`                                        |
+| Measures or compares it (`.length`, `===`, `startsWith`, `includes`)                | Results change: the string is longer                                                                                | Compare `stegaClean(value)`                                                      |
+| Turns it into an id, slug or URL (`slugify`, `encodeURIComponent`, heading anchors) | Ids and links differ in edit mode, so in-page anchors break                                                         | `stegaClean(value)` first                                                        |
+| Puts it in an attribute (`aria-label`, `title`, `placeholder`, `href`)              | Not clickable from there (only text and `img[alt]` are scanned), and the attribute carries the invisible characters | `stegaClean(value)` for attributes                                               |
+| Uses it in `<title>`, meta, Open Graph or JSON-LD (`generateMetadata`)              | Invisible characters in the head                                                                                    | `stegaCleanDeep(doc)` in `generateMetadata`                                      |
+| Joins two fields in one text node (`${first} ${last}`)                              | Both fields map to the same element                                                                                 | Render each in its own element                                                   |
+| Formats dates, numbers or selects                                                   | Unaffected: those aren't marked                                                                                     |                                                                                  |
+
+`stegaClean` and `stegaCleanDeep` come from `@payload-onpage/core`; `e.field(path)` is an [annotation](../guides/annotations.md).
+
 - **Strings used as identifiers** (CSS classes, keys, ids) should come from fields that aren't marked; see the list above.
 - **Rows** are inferred when their fields render inside a common wrapper. For exact rows, or rows without text, use [annotations](../guides/annotations.md).
 
@@ -945,8 +961,13 @@ export const cloudinaryLibrary = (): MediaLibrary => ({
       hasMore: body.hasMore,
     }
   },
-  // Optional: enables "Upload…"
+  // Optional: enables "Upload…". The editor asks for the alt text first.
   async upload(file, { relationTo, alt }) {
+    /* … */
+  },
+  // Optional: enables editing the current image's alt text. Strip markers
+  // (stegaClean) if the value goes back to Payload.
+  async updateAlt(id, { relationTo, alt }) {
     /* … */
   },
 })
@@ -978,7 +999,23 @@ Every string the on-page editor shows is in `defaultMessages` (`@payload-onpage/
 <OnPage messages={{ 'dock.publish': 'Publicar', 'dock.saved': 'Borrador guardado {ago}' }} />
 ```
 
-Relative times use `Intl.RelativeTimeFormat` in the browser's language.
+Pass `uiLocale`, the language of your `messages`, so plurals, relative times ("2 minutes ago") and dates match them. It defaults to `"en"`, the language of the built-in strings:
+
+```tsx
+<OnPage uiLocale="pl" messages={polish} />
+```
+
+A message with `{count}` can have a plural form for each [plural category](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/PluralRules/select) of that language. The plain key is the fallback:
+
+```ts
+const polish = {
+  'dock.documents': '{count} dokumentów',
+  'dock.documents.one': '{count} dokument',
+  'dock.documents.few': '{count} dokumenty',
+}
+```
+
+Keyboard shortcuts in hints (`⌘Z`, `Ctrl+Z`) follow the editor's platform.
 
 ## Admin strings
 
@@ -1014,22 +1051,22 @@ _Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/ne
 
 # Troubleshooting
 
-| Symptom                                                                                    | Cause                                                                                                                    | Fix                                                                                                                                                  |
-| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No **Edit on page** button in the admin                                                    | Plugin not registered, the collection isn't listed, or the user can't update the document                                | Check `onpage({ collections })`; the button hides without update permission. Regenerate the import map (`payload generate:importmap`).               |
-| "Edit on page" opens the page but there's no dock                                          | `<OnPage />` not mounted, or not inside the frontend layout                                                              | Mount it in the frontend root layout ([getting started](getting-started.md#3-mount-the-editor)).                                                     |
-| Dock shows "Nothing editable on this page"                                                 | Reads don't pass `onpageContext()`, and nothing is annotated                                                             | Spread `...(await onpageContext())` into the draft reads that feed the page.                                                                         |
-| The dock covers your site's own fixed bottom bar (cart, cookie banner)                     | The dock sits 16px from the bottom by default                                                                            | Raise it with the `--po-dock-bottom` CSS variable, e.g. `html:has(.cart-bar) { --po-dock-bottom: 88px }`. The preview toolbar and notices follow it. |
-| Text isn't clickable but other text is                                                     | The string is transformed before rendering (sliced, formatted, uppercased in JS), or it's a machine-named field          | Render the raw value, or annotate the element (`e.field(path)`). See [auto-mapping caveats](concepts/auto-mapping.md#caveats).                       |
-| A comparison like `title === 'Home'` fails in edit mode                                    | Markers are appended to strings                                                                                          | Compare `stegaClean(title)`.                                                                                                                         |
-| Share link shows published content                                                         | No proxy, a different secret in the proxy, or the matcher excludes the page                                              | Add `createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })` with the same secret as Payload; check `config.matcher`.                             |
-| Redirects or links point to the wrong host                                                 | `serverURL` unset behind a proxy                                                                                         | Set `serverURL` in the Payload config.                                                                                                               |
-| "Changed by someone else"                                                                  | Another editor (or the admin) saved the document after you loaded it                                                     | **Reload latest** (your unsaved edits are dropped) or **Discard**.                                                                                   |
-| Editing ends after signing out in another tab                                              | By design: edit mode is bound to the auth cookie                                                                         | Sign in again and press **Edit on page**.                                                                                                            |
-| Two Lexical copies / rich-text errors                                                      | Lexical version differs from Payload's                                                                                   | Install the Lexical version Payload's `@payloadcms/richtext-lexical` uses (`~0.50.0` for Payload 3.90).                                              |
-| The editor never appears; the console shows "useOnPage must be used inside <OnPageEditor>" | Two copies of `@payload-onpage/react` installed                                                                          | Dedupe (`npm ls @payload-onpage/react`). The hub is shared across copies, but contexts aren't.                                                       |
-| 403 "Cross-site request refused" from enter/exit                                           | A link or form posts from another origin                                                                                 | Use the built-in buttons; enter/mode/exit accept same-origin POSTs only.                                                                             |
-| Next 15 build: `Cannot find module 'libsql'` (SQLite adapter)                              | Next 15 treats `libsql` as an external server package; with nested installs (Bun, pnpm) it isn't resolvable from the app | Add `libsql` as a direct dependency of the app (the example does).                                                                                   |
+| Symptom                                                                                    | Cause                                                                                                                     | Fix                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No **Edit on page** button in the admin                                                    | Plugin not registered, the collection isn't listed, or the user can't update the document                                 | Check `onpage({ collections })`; the button hides without update permission. Regenerate the import map (`payload generate:importmap`).               |
+| "Edit on page" opens the page but there's no dock                                          | `<OnPage />` not mounted, or not inside the frontend layout                                                               | Mount it in the frontend root layout ([getting started](getting-started.md#3-mount-the-editor)).                                                     |
+| Dock shows "Nothing editable on this page"                                                 | Reads don't pass `onpageContext()`, and nothing is annotated                                                              | Spread `...(await onpageContext())` into the draft reads that feed the page.                                                                         |
+| The dock covers your site's own fixed bottom bar (cart, cookie banner)                     | The dock sits 16px from the bottom by default                                                                             | Raise it with the `--po-dock-bottom` CSS variable, e.g. `html:has(.cart-bar) { --po-dock-bottom: 88px }`. The preview toolbar and notices follow it. |
+| Text isn't clickable but other text is                                                     | The string is changed before rendering (truncated, split into words), used in an attribute, or it's a machine-named field | Render the raw value, or annotate the element (`e.field(path)`). See [auto-mapping caveats](concepts/auto-mapping.md#caveats).                       |
+| A comparison like `title === 'Home'` fails in edit mode, or in-page anchors break          | Markers are appended to strings                                                                                           | Compare, slugify or measure `stegaClean(title)`. The full list is in [auto-mapping caveats](concepts/auto-mapping.md#caveats).                       |
+| Share link shows published content                                                         | No proxy, a different secret in the proxy, or the matcher excludes the page                                               | Add `createOnPageProxy({ secret: process.env.PAYLOAD_SECRET })` with the same secret as Payload; check `config.matcher`.                             |
+| Redirects or links point to the wrong host                                                 | `serverURL` unset behind a proxy                                                                                          | Set `serverURL` in the Payload config.                                                                                                               |
+| "Changed by someone else"                                                                  | Another editor (or the admin) saved the document after you loaded it                                                      | **Reload latest** (your unsaved edits are dropped) or **Discard**.                                                                                   |
+| Editing ends after signing out in another tab                                              | By design: edit mode is bound to the auth cookie                                                                          | Sign in again and press **Edit on page**.                                                                                                            |
+| Two Lexical copies / rich-text errors                                                      | Lexical version differs from Payload's                                                                                    | Install the Lexical version Payload's `@payloadcms/richtext-lexical` uses (`~0.50.0` for Payload 3.90).                                              |
+| The editor never appears; the console shows "useOnPage must be used inside <OnPageEditor>" | Two copies of `@payload-onpage/react` installed                                                                           | Dedupe (`npm ls @payload-onpage/react`). The hub is shared across copies, but contexts aren't.                                                       |
+| 403 "Cross-site request refused" from enter/exit                                           | A link or form posts from another origin                                                                                  | Use the built-in buttons; enter/mode/exit accept same-origin POSTs only.                                                                             |
+| Next 15 build: `Cannot find module 'libsql'` (SQLite adapter)                              | Next 15 treats `libsql` as an external server package; with nested installs (Bun, pnpm) it isn't resolvable from the app  | Add `libsql` as a direct dependency of the app (the example does).                                                                                   |
 
 ---
 
@@ -1070,6 +1107,49 @@ _Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/ne
 <!-- docs/upgrading.md -->
 
 # Upgrading
+
+## Versioning in 0.x
+
+All `@payload-onpage/*` packages are released together, at the same version. Until 1.0:
+
+- **Minor** (0.5 → 0.6) may change public APIs. Each change is listed here with what to do.
+- **Patch** (0.5.0 → 0.5.1) fixes bugs and security issues. It doesn't change APIs you call. It can still add an option, tighten a check (a security fix), or ask editors to re-enter edit mode.
+- **Public API** is what each package's entry points export and the docs describe: the plugin options, framework helpers, ports (`DataSource`, `SessionAdapter`, …), and `@payload-onpage/core`'s explicit export list. Anything else, such as CSS classes and `data-*` attributes other than the documented `data-testid`s, may change in any release.
+
+Keep all `@payload-onpage/*` packages on the same version.
+
+## 0.5.0 → 0.5.1
+
+A security release. No code changes for most sites.
+
+| Change                                                                                                                                                         | What to do                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The editor's `onpage` mode cookie is sealed with the plugin secret. Mode cookies set by 0.5.0 aren't accepted                                                  | Editors press **Edit on page** again once after the upgrade                                                                                                |
+| TanStack Start: reads verify that seal with `tanstackSession({ secret })`, and show no drafts without it                                                       | Make sure `tanstackSession({ secret })` gets the plugin's secret (Payload's `secret` by default)                                                           |
+| Next.js on Vercel: the proxy is strict by default. A draft cookie is kept only on a preview link's page, or for an editor who entered through **Edit on page** | If your own preview route turns on draft mode (Payload's website template does), pass `allowDraft: (request) => isPayloadUser(request, { secret })`        |
+| The documented proxy matcher changed, so page paths with dots are guarded                                                                                      | Copy the new matcher from [Getting started](getting-started.md#5-add-the-proxy-required-for-preview-links)                                                 |
+| `SessionAdapter.enable(mode, opts)` receives `opts.sealMode`                                                                                                   | Custom adapters only: store `await createModeCookie(mode, { sealMode, expiresAt, bindTo, token })`, and read with `readModeCookie(raw, getCookie, secret)` |
+| Fields with `admin.readOnly` are no longer editable on the page. Field access is evaluated against the document being edited                                   | Nothing                                                                                                                                                    |
+| `secret` can be a keyring, `[new, old]`                                                                                                                        | Optional: see [Rotating the secret](concepts/security.md#rotating-the-secret)                                                                              |
+| The plugin's peer range accepts Payload 4 betas                                                                                                                | Nothing                                                                                                                                                    |
+
+## 0.4 → 0.5
+
+| Change                                                                                                      | What to do                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| The block picker shows Payload's block thumbnails and groups, and previews blocks in place in client mode   | Nothing. Optionally add `admin.images.thumbnail` and sample content: see [Block thumbnails and previews](guides/block-picker.md) |
+| `SchemaBlock` gains optional `thumbnail`, `group`, `example` and `insertExample`; core exports `previewRow` | Custom data sources that build schemas themselves may fill them in                                                               |
+
+## 0.3 → 0.4
+
+| Change                                                                                                                                                              | What to do                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| The schema endpoint answers 403 when update access is definitively denied, or when an access check throws                                                           | Nothing, unless an access function throws on purpose                                              |
+| `/mode` requires the user to be able to edit at least one enabled document                                                                                          | Nothing                                                                                           |
+| The CSRF guard refuses `sec-fetch-site: none` (a request no page started, such as one from a bookmark)                                                              | Use the built-in buttons                                                                          |
+| An empty `secret` option fails when the config is built                                                                                                             | Omit `secret` to use Payload's                                                                    |
+| `SEAL_PURPOSE.editBinding` removed                                                                                                                                  | Nothing (it was unused)                                                                           |
+| 0.4.1: preview links on Vercel. `nextSession({ cdnBypass })`, on by default on Vercel, and the proxy's `allowDraft`. `SessionAdapter.disable()` receives `{ path }` | Custom session adapters: accept `disable({ path })`, and clear any credential scoped to that path |
 
 ## 0.2 → 0.3
 

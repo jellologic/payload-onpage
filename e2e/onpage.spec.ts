@@ -263,6 +263,31 @@ test('editor UI has no serious accessibility violations', async ({ context }) =>
   ).toEqual([])
 })
 
+test('image editor: alt text for the current image, and before an upload', async ({ context }) => {
+  const page = await editPage(context)
+  await page.locator('section img').first().click()
+  const current = page.getByTestId('onpage-media-alt-current')
+  await expect(current).toBeVisible()
+  expect(clean(await current.inputValue())).toBe(await current.inputValue()) // no markers
+  // A new file waits for its alt text (cancelled here, so nothing is uploaded).
+  await page
+    .locator('[data-testid="onpage-media-picker"] input[type=file]')
+    .setInputFiles({ name: 'IMG_2034.png', mimeType: 'image/png', buffer: Buffer.from('x') })
+  await expect(page.getByTestId('onpage-media-alt')).toBeFocused()
+  const results = await new AxeBuilder({ page }).include('[data-onpage-ui]').analyze()
+  expect(
+    results.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+      .map(
+        (v) =>
+          `${v.id}: ${v.nodes.map((n) => `${n.target.join(' ')} ${n.any[0]?.message ?? ''}`).join(' | ')}`,
+      ),
+  ).toEqual([])
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  await expect(page.getByTestId('onpage-media-alt')).toHaveCount(0)
+  await expect(current).toBeVisible()
+})
+
 test('share links: draft on the shared page only, no draft credential in the browser', async ({
   context,
   browser,

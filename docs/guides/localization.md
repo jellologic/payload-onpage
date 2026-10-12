@@ -15,7 +15,23 @@ Every string the on-page editor shows is in `defaultMessages` (`@payload-onpage/
 <OnPage messages={{ 'dock.publish': 'Publicar', 'dock.saved': 'Borrador guardado {ago}' }} />
 ```
 
-Relative times use `Intl.RelativeTimeFormat` in the browser's language.
+Pass `uiLocale`, the language of your `messages`, so plurals, relative times ("2 minutes ago") and dates match them. It defaults to `"en"`, the language of the built-in strings:
+
+```tsx
+<OnPage uiLocale="pl" messages={polish} />
+```
+
+A message with `{count}` can have a plural form for each [plural category](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/PluralRules/select) of that language. The plain key is the fallback:
+
+```ts
+const polish = {
+  'dock.documents': '{count} dokumentów',
+  'dock.documents.one': '{count} dokument',
+  'dock.documents.few': '{count} dokumenty',
+}
+```
+
+Keyboard shortcuts in hints (`⌘Z`, `Ctrl+Z`) follow the editor's platform.
 
 ## Admin strings
 

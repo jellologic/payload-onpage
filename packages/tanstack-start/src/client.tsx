@@ -24,6 +24,8 @@ export interface OnPageMountProps {
   dataSource?: DataSource | undefined
   /** Override editor UI strings (see `defaultMessages` in @payload-onpage/react). */
   messages?: Messages | undefined
+  /** The language of `messages`, for plurals, dates and times in the editor UI. Default "en". */
+  uiLocale?: string | undefined
 }
 
 const Editor = lazy(() => import('./editor.tsx').then((m) => ({ default: m.TanstackEditor })))

@@ -100,6 +100,8 @@ export interface MediaLibrary {
     signal?: Opt<AbortSignal>
   }): Promise<{ items: MediaItem[]; hasMore: boolean }>
   upload?(file: File, opts: { relationTo: string; alt?: Opt<string> }): Promise<MediaItem>
+  /** Change an image's alt text (on the media document, so every page using it gets it). */
+  updateAlt?(id: MediaItem['id'], opts: { relationTo: string; alt: string }): Promise<MediaItem>
 }
 
 /**

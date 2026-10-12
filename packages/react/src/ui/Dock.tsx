@@ -13,6 +13,7 @@ import { relativeTime, type Translate } from '../messages.ts'
 import { PostButton } from './PostButton.tsx'
 import { ToolbarButton } from './ToolbarButton.tsx'
 import { RedoIcon, UndoIcon } from '../icons.tsx'
+import { shortcut } from '../dom.ts'
 import type { Flash } from '../types.ts'
 
 const title = (d: DocumentState) => d.schema?.labels.singular ?? d.ref.slug
@@ -45,7 +46,8 @@ function dockStatus(s: DockState, t: Translate): Flash {
     }
   if (s.saving) return { text: t('dock.saving') }
   if (s.rendering) return { text: t('dock.updating') }
-  if (s.lastSaved) return { text: t('dock.saved', { ago: relativeTime(s.lastSaved) }) }
+  if (s.lastSaved)
+    return { text: t('dock.saved', { ago: relativeTime(s.lastSaved, Date.now(), t.locale) }) }
   return { text: t('dock.editing') }
 }
 
@@ -122,7 +124,14 @@ export function Dock() {
     try {
       const { url, expiresAt } = await createLink(primary.ref, { locale: session.locale })
       await navigator.clipboard.writeText(url)
-      notify(t('notify.linkCopied', { date: new Date(expiresAt).toLocaleString() }))
+      notify(
+        t('notify.linkCopied', {
+          date: new Date(expiresAt).toLocaleString(t.locale, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          }),
+        }),
+      )
     } catch (e) {
       notify(t('notify.linkFailed', { message: errorText(e) }), true)
     }
@@ -183,7 +192,7 @@ export function Dock() {
         <span className="po-sep" />
         <ToolbarButton
           label={t('dock.undo')}
-          hint={`${t('dock.undo')} (⌘Z)`}
+          hint={`${t('dock.undo')} (${shortcut('Z')})`}
           icon={<UndoIcon />}
           disabled={!snap.canUndo}
           onClick={() => session.undo()}
@@ -191,7 +200,7 @@ export function Dock() {
         />
         <ToolbarButton
           label={t('dock.redo')}
-          hint={`${t('dock.redo')} (⇧⌘Z)`}
+          hint={`${t('dock.redo')} (${shortcut('Z', { shift: true })})`}
           icon={<RedoIcon />}
           disabled={!snap.canRedo}
           onClick={() => session.redo()}
