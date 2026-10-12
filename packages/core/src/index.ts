@@ -133,6 +133,7 @@ export {
   type ModeCookie,
   type PreviewGrant,
   type SealMode,
+  type SealSecret,
 } from './seal.ts'
 export { CONTEXT_KEY, COOKIE, DEFAULTS, HEADER, ROUTES } from './constants.ts'
 export { assertNever, errorText } from './util.ts'

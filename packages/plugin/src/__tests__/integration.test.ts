@@ -19,7 +19,7 @@ import {
   type Payload,
   type SanitizedConfig,
 } from 'payload'
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { onpage } from '../index.ts'
 import { verifyPreviewToken } from '../tokens.ts'
 
@@ -267,6 +267,22 @@ describe('schema endpoint', () => {
 })
 
 describe('enter / mode / exit', () => {
+  it("warns when the editor's auth cookie isn't sent (the mode can't be bound)", async () => {
+    const warn = vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
+    try {
+      await call('POST', '/onpage/mode?mode=edit&path=/', { as: 'admin' }) // header auth only
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('"payload-token"'))
+      warn.mockClear()
+      await call('POST', '/onpage/mode?mode=edit&path=/', {
+        as: 'admin',
+        headers: { cookie: `payload-token=${tokens.admin}` },
+      })
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('only accepts same-origin POSTs (CSRF)', async () => {
     expect((await call('GET', enterPath(ids.adminPage), { as: 'admin' })).status).toBe(404) // no GET route
     expect(

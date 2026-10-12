@@ -27,6 +27,7 @@ import {
   type DocRef,
   type DocumentSchema,
   type PreviewGrant,
+  type SealSecret,
   type SessionAdapter,
 } from '@payload-onpage/core'
 import {
@@ -65,12 +66,29 @@ export interface EndpointContext {
 
 const DAY = 24 * 3600
 
-const secretOf = (req: PayloadRequest, options: OnPageOptions): string =>
+const secretOf = (req: PayloadRequest, options: OnPageOptions): SealSecret =>
   options.secret ?? req.payload.config.secret
 
 /** Name of the auth cookie an editor's mode is bound to. */
 const authCookieOf = (req: PayloadRequest, options: OnPageOptions): string =>
   options.authCookie ?? `${req.payload.config.cookiePrefix || 'payload'}-token`
+
+/**
+ * Seal and bind options for `session.enable`. Without the auth cookie in the
+ * request (header or API-key auth, a renamed cookie) the mode can't be bound,
+ * so signing out wouldn't end it: allowed, but logged.
+ */
+const enableOptions = (req: PayloadRequest, options: OnPageOptions) => {
+  const bindTo = authCookieOf(req, options)
+  const sent = (req.headers.get('cookie') ?? '')
+    .split(';')
+    .some((c) => c.trim().startsWith(`${bindTo}=`))
+  if (!sent)
+    req.payload.logger.warn(
+      `payload-onpage: no "${bindTo}" cookie on this request, so edit mode isn't bound to the editor's session and won't end when they sign out. Set the plugin's \`authCookie\` option if your auth cookie has another name.`,
+    )
+  return { secure: isSecure(req), bindTo, sealMode: modeSealer(secretOf(req, options)) }
+}
 
 /** A locale value from a body, if it's one Payload knows. */
 const knownLocale = (req: PayloadRequest, value: unknown): TypedLocale | undefined =>
@@ -178,11 +196,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
       const path = safePath(q.get('path')) ?? (await resolvePath(req, ref, entry, locale))
       if (!path) return text('This document has no page to open', 404)
       const mode = q.get('mode')
-      await session.enable(isOnPageMode(mode) ? mode : 'edit', {
-        secure: isSecure(req),
-        bindTo: authCookieOf(req, options),
-        sealMode: modeSealer(secretOf(req, options)),
-      })
+      await session.enable(isOnPageMode(mode) ? mode : 'edit', enableOptions(req, options))
       return redirectTo(req, path)
     },
   }
@@ -198,11 +212,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
       if (!(await canEditAnything(req))) return text('You cannot edit any document', 403)
       const q = req.searchParams
       const next = q.get('mode')
-      await session.enable(isOnPageMode(next) ? next : 'edit', {
-        secure: isSecure(req),
-        bindTo: authCookieOf(req, options),
-        sealMode: modeSealer(secretOf(req, options)),
-      })
+      await session.enable(isOnPageMode(next) ? next : 'edit', enableOptions(req, options))
       return redirectTo(req, q.get('path'))
     },
   }

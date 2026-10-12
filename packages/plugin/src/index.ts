@@ -42,7 +42,11 @@ export function onpage(options: OnPageOptions): OnPagePlugin {
       throw new InvalidConfiguration(
         'payload-onpage: pass `session` (e.g. nextSession() from @payload-onpage/next/session). The enter, mode, exit and preview endpoints need it.',
       )
-    if (options.secret !== undefined && !options.secret)
+    const secrets =
+      options.secret === undefined || typeof options.secret === 'string'
+        ? [options.secret]
+        : options.secret
+    if (options.secret !== undefined && (!secrets.length || secrets.some((s) => !s)))
       throw new InvalidConfiguration(
         "payload-onpage: `secret` must not be empty. Omit it to use Payload's `secret`.",
       )

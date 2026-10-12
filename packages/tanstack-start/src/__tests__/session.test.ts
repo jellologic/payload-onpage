@@ -14,6 +14,7 @@ const state = vi.hoisted(() => ({
   cookies: new Map<string, string>(),
   set: [] as Array<{ name: string; value: string; opts?: Record<string, unknown> | undefined }>,
   deleted: [] as string[],
+  headers: new Map<string, string>(),
   path: '/a',
 }))
 vi.mock('@tanstack/react-start/server', () => ({
@@ -27,6 +28,7 @@ vi.mock('@tanstack/react-start/server', () => ({
     state.cookies.delete(name)
   },
   getRequestUrl: () => new URL(`http://test${state.path}`),
+  setResponseHeader: (name: string, value: string) => state.headers.set(name, value),
 }))
 
 const {
@@ -46,6 +48,7 @@ beforeEach(() => {
   state.cookies.clear()
   state.set = []
   state.deleted = []
+  state.headers.clear()
   state.path = '/a'
   tanstackSession({ secret: SECRET })
 })
@@ -163,6 +166,7 @@ describe('tanstackSession', () => {
     expect(await getOnPageMode()).toBeNull()
     expect(await isSharedPreview()).toBe(false)
     expect(await isDraftEnabled()).toBe(false)
+    expect(state.headers.has('Cache-Control')).toBe(false) // visitors' pages stay cacheable
     expect(await onpageContext()).toEqual({})
   })
 })
@@ -184,7 +188,9 @@ describe('shared preview grants', () => {
   it('a live grant for this path enables drafts (view-only, no markers)', async () => {
     state.cookies.set(COOKIE.preview, await grant())
     expect(await isSharedPreview()).toBe(true)
+    expect(state.headers.get('Cache-Control')).toBeUndefined()
     expect(await isDraftEnabled()).toBe(true)
+    expect(state.headers.get('Cache-Control')).toBe('private, no-store')
     expect(await getOnPageMode()).toBeNull()
     expect(await onpageContext()).toEqual({})
   })

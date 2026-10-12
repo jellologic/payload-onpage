@@ -135,6 +135,35 @@ describe('isLivePreviewGrant', () => {
   ])('refuses %s', (_, g) => expect(isLivePreviewGrant(g, now)).toBe(false))
 })
 
+describe('secret rotation (keyring)', () => {
+  it('seals with the first secret and unseals with any', async () => {
+    const old = await seal({ a: 1 }, 'old', SEAL_PURPOSE.previewLink)
+    const ring = ['new', 'old'] as const
+    expect(await unseal(old, ring, SEAL_PURPOSE.previewLink)).toEqual({ a: 1 })
+    const fresh = await seal({ b: 2 }, ring, SEAL_PURPOSE.previewLink)
+    expect(await unseal(fresh, 'new', SEAL_PURPOSE.previewLink)).toEqual({ b: 2 })
+    expect(await unseal(fresh, 'old', SEAL_PURPOSE.previewLink)).toBeNull()
+    // Dropping the old secret retires what it sealed.
+    expect(await unseal(old, ['new'], SEAL_PURPOSE.previewLink)).toBeNull()
+  })
+  it('refuses an empty keyring', async () => {
+    await expect(seal({}, [], SEAL_PURPOSE.previewLink)).rejects.toThrow(/secret is required/)
+    await expect(seal({}, [''], SEAL_PURPOSE.previewLink)).rejects.toThrow(/secret is required/)
+    const t = await seal({}, 'x', SEAL_PURPOSE.previewLink)
+    expect(await unseal(t, [], SEAL_PURPOSE.previewLink)).toBeNull()
+  })
+  it('mode cookies survive a rotation', async () => {
+    const raw = await createModeCookie('edit', {
+      sealMode: modeSealer('old'),
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    expect(await readModeCookie(raw, () => undefined, ['new', 'old'])).toEqual({
+      mode: 'edit',
+      bound: false,
+    })
+  })
+})
+
 describe('mode cookie', () => {
   const secret = 'test-secret'
   const sealMode = modeSealer(secret)

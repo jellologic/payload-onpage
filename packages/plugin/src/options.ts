@@ -1,4 +1,4 @@
-import type { DocRef, EncodeFilter, SessionAdapter } from '@payload-onpage/core'
+import type { DocRef, EncodeFilter, SealSecret, SessionAdapter } from '@payload-onpage/core'
 import type { CollectionSlug, GlobalSlug, PayloadRequest } from 'payload'
 
 export interface OnPageDocOptions {
@@ -47,10 +47,13 @@ export interface OnPageOptions {
     id: string
   }) => boolean | Promise<boolean>
   /**
-   * Secret for preview links and the preview cookie. Default: Payload's `secret`
-   * (`PAYLOAD_SECRET`). The Next.js proxy must be given the same value.
+   * Secret for preview links, the preview cookie and the editor's mode cookie.
+   * Default: Payload's `secret` (`PAYLOAD_SECRET`). The Next.js proxy (or
+   * `tanstackSession`) must be given the same value. To rotate it, pass
+   * `[newSecret, oldSecret]` here and there: the first seals, either unseals,
+   * so open links and sessions keep working until they expire.
    */
-  secret?: string
+  secret?: SealSecret
   /** Auth cookie an editor's session is bound to. Default `${cookiePrefix}-token` ("payload-token"). */
   authCookie?: string
   /** Endpoint prefix under the API route. Default "/onpage". */

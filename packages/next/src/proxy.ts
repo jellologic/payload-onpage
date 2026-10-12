@@ -30,14 +30,15 @@ import {
   samePath,
   unseal,
   type ModeCookie,
+  type SealSecret,
 } from '@payload-onpage/core'
 import { NextResponse, type NextMiddleware, type NextRequest } from 'next/server.js'
 
 const onVercel = () => typeof process !== 'undefined' && !!process.env.VERCEL
 
 export interface OnPageProxyOptions {
-  /** Same secret as the plugin (default: Payload's `secret`, i.e. PAYLOAD_SECRET). */
-  secret: string | undefined
+  /** Same secret as the plugin (default: Payload's `secret`, i.e. PAYLOAD_SECRET), or the same `[new, old]` keyring while rotating it. */
+  secret: SealSecret | undefined
   /**
    * Strict draft guard. Next's draft cookie is one site-wide key, so once a
    * preview-link viewer's browser holds it (`cdnBypass`), anyone who copies it

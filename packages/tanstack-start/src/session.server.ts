@@ -26,9 +26,16 @@ import {
   SEAL_PURPOSE,
   unseal,
   type OnPageMode,
+  type SealSecret,
   type SessionAdapter,
 } from '@payload-onpage/core'
-import { deleteCookie, getCookie, getRequestUrl, setCookie } from '@tanstack/react-start/server'
+import {
+  deleteCookie,
+  getCookie,
+  getRequestUrl,
+  setCookie,
+  setResponseHeader,
+} from '@tanstack/react-start/server'
 import { HINT_COOKIE } from './hint.ts'
 
 export interface TanStackSessionOptions {
@@ -36,9 +43,10 @@ export interface TanStackSessionOptions {
    * Same secret as the plugin (Payload's `secret`, i.e. PAYLOAD_SECRET, unless
    * the plugin's `secret` option is set). Required: reads verify the editor's
    * mode cookie and preview-link grants with it, so without it nobody sees
-   * drafts (editors included).
+   * drafts (editors included). While rotating it, pass the plugin's same
+   * `[new, old]` keyring.
    */
-  secret?: string | undefined
+  secret?: SealSecret | undefined
   /** How long an editor's edit/preview mode lasts, in seconds. Default 12 hours. */
   maxAge?: number | undefined
 }
@@ -58,7 +66,7 @@ const hintBase = (secure: boolean): CookieOptions =>
  * preview grants in reads. Module state is safe here: reads run in the same
  * server process that imports the Payload config.
  */
-let previewSecret: string | undefined
+let previewSecret: SealSecret | undefined
 
 /**
  * The sealed grant's `draft` field. It must be non-empty for the grant to be
@@ -167,12 +175,16 @@ export async function isSharedPreviewFor(pathname: string): Promise<boolean> {
 /**
  * Should this request render drafts? Editors with a live bound session see
  * drafts site-wide; preview-link viewers see the shared page's draft only.
- * Safe to call anywhere (false outside a request).
+ * When it says yes, the response is marked `Cache-Control: private, no-store`
+ * so no CDN or shared cache keeps the draft. Safe to call anywhere (false
+ * outside a request).
  */
 export async function isDraftEnabled(): Promise<boolean> {
   try {
-    if ((await readMode(getCookie(COOKIE.mode))) !== null) return true
-    return await liveGrant()
+    const draft = (await readMode(getCookie(COOKIE.mode))) !== null || (await liveGrant())
+    // Start has no framework draft mode keeping drafts out of shared caches: mark it here.
+    if (draft) setResponseHeader('Cache-Control', 'private, no-store')
+    return draft
   } catch {
     return false
   }

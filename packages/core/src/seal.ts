@@ -60,8 +60,23 @@ const fromB64url = (s: string): Uint8Array | null => {
   }
 }
 
-/** Encrypt and authenticate `data` (JSON) for `purpose`. */
-export async function seal(data: unknown, secret: string, purpose: string): Promise<string> {
+/**
+ * One secret, or a keyring for rotating it: `[current, ...previous]`. The first
+ * seals; any of them unseals, so links and cookies sealed before a rotation
+ * keep working until they expire.
+ */
+export type SealSecret = string | readonly string[]
+
+const secretsOf = (secret: SealSecret): readonly string[] =>
+  (typeof secret === 'string' ? [secret] : secret).filter(Boolean)
+
+/** Encrypt and authenticate `data` (JSON) for `purpose`, with the current secret. */
+export async function seal(
+  data: unknown,
+  secretOrRing: SealSecret,
+  purpose: string,
+): Promise<string> {
+  const secret = secretsOf(secretOrRing)[0]
   if (!secret) throw new Error('payload-onpage: a secret is required to seal data')
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const ct = new Uint8Array(
@@ -80,22 +95,25 @@ export async function seal(data: unknown, secret: string, purpose: string): Prom
 /** Decrypt a sealed value; null if it was tampered with, sealed for another purpose or secret, or malformed. */
 export async function unseal<T>(
   token: string | null | undefined,
-  secret: string,
+  secret: SealSecret,
   purpose: string,
 ): Promise<T | null> {
-  if (!token || !secret || token.length > 8192) return null
+  if (!token || token.length > 8192) return null
   const bytes = fromB64url(token)
   if (!bytes || bytes.length < 13 + 16) return null
-  try {
-    const pt = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: bytes.slice(0, 12) },
-      await key(secret, purpose),
-      bytes.slice(12),
-    )
-    return JSON.parse(dec.decode(pt)) as T
-  } catch {
-    return null
+  for (const s of secretsOf(secret)) {
+    try {
+      const pt = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: bytes.slice(0, 12) },
+        await key(s, purpose),
+        bytes.slice(12),
+      )
+      return JSON.parse(dec.decode(pt)) as T
+    } catch {
+      // Not this secret: try the next one.
+    }
   }
+  return null
 }
 
 /** SHA-256 hex digest (WebCrypto). */
@@ -145,7 +163,7 @@ interface ModeSeal {
 
 /** A `SealMode` for `secret`: what the plugin hands session adapters, and the proxy uses for viewers. */
 export const modeSealer =
-  (secret: string): SealMode =>
+  (secret: SealSecret): SealMode =>
   (plain, expiresAt) =>
     seal(
       { v: plain, exp: Math.floor(expiresAt.getTime() / 1000) } satisfies ModeSeal,
@@ -194,7 +212,7 @@ export interface ModeCookie {
 export async function readModeCookie(
   raw: string | null | undefined,
   cookie: (name: string) => string | undefined,
-  secret: string | null,
+  secret: SealSecret | null,
   now = Date.now(),
 ): Promise<ModeCookie | null> {
   if (!raw) return null

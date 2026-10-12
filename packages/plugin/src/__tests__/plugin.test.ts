@@ -374,6 +374,14 @@ describe('onpage() plugin', () => {
       /must not be empty/,
     )
     expect(() => onpage({ collections: ['pages'], session })(config)).not.toThrow()
+    // A rotation keyring: neither empty nor holding an empty secret.
+    for (const secret of [[], ['new', '']])
+      expect(() => onpage({ collections: ['pages'], session, secret })(config)).toThrow(
+        /must not be empty/,
+      )
+    expect(() =>
+      onpage({ collections: ['pages'], session, secret: ['new', 'old'] })(config),
+    ).not.toThrow()
   })
 
   it("merges its translations under the site's, which win", () => {
