@@ -186,12 +186,15 @@ const THUMB_WIDTH = 240
 /**
  * A thumbnail URL: Payload's `thumbnailURL` (the collection's adminThumbnail),
  * else the smallest generated size that is still wide enough, whatever the
- * sizes are named, else the original.
+ * sizes are named (`sizes` in Payload 3, `variants` in Payload 4), else the original.
  */
 function thumbOf(doc: Doc): string | undefined {
   if (typeof doc.thumbnailURL === 'string' && doc.thumbnailURL) return doc.thumbnailURL
   const sizes = Object.values(
-    (doc.sizes ?? {}) as Record<string, { url?: string | null; width?: number | null } | undefined>,
+    (doc.variants ?? doc.sizes ?? {}) as Record<
+      string,
+      { url?: string | null; width?: number | null } | undefined
+    >,
   )
     .filter(
       (s): s is { url: string; width?: number | null } => typeof s?.url === 'string' && !!s.url,

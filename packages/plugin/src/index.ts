@@ -16,7 +16,7 @@ import {
   type Config,
   type GlobalConfig,
 } from 'payload'
-import { deepMergeSimple } from 'payload/shared'
+import { deepMergeSimple, hasDraftsEnabled } from 'payload/shared'
 import { createEndpoints } from './endpoints.ts'
 import { encodeOnRead, guardStaleWrite, stripMarkers } from './hooks.ts'
 import { normalizeEntries, type Entry, type OnPageOptions } from './options.ts'
@@ -194,6 +194,21 @@ export function onpage(options: OnPageOptions): OnPagePlugin {
         if (process.env.NODE_ENV === 'production' && !payload.config.serverURL) {
           payload.logger.warn(
             'payload-onpage: set `serverURL` in production so redirects, preview links and Secure cookies use the public origin.',
+          )
+        }
+        // Without drafts, every autosave is a live write: say so once, at startup.
+        const live = entries
+          .filter((e) => {
+            const cfg =
+              e.kind === 'global'
+                ? payload.config.globals.find((g) => g.slug === e.slug)
+                : payload.config.collections.find((c) => c.slug === e.slug)
+            return cfg && !hasDraftsEnabled(cfg)
+          })
+          .map((e) => `${e.kind} "${e.slug}"`)
+        if (live.length) {
+          payload.logger.warn(
+            `payload-onpage: ${live.join(', ')} ${live.length > 1 ? 'have' : 'has'} no drafts, so on-page edits to ${live.length > 1 ? 'them' : 'it'} go live as they autosave. Add \`versions: { drafts: true }\` to keep edits as drafts until published.`,
           )
         }
         await incoming.onInit?.(payload)

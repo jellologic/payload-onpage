@@ -4,11 +4,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const nav = vi.hoisted(() => ({
   invalidate: vi.fn(async () => {}),
+  listeners: [] as Array<{ event: string; fn: (e: unknown) => void }>,
   pathname: '/about',
   searchStr: '?x=1',
 }))
 vi.mock('@tanstack/react-router', () => ({
-  useRouter: () => ({ invalidate: nav.invalidate }),
+  useRouter: () => ({
+    invalidate: nav.invalidate,
+    subscribe: (event: string, fn: (e: unknown) => void) => {
+      const l = { event, fn }
+      nav.listeners.push(l)
+      return () => nav.listeners.splice(nav.listeners.indexOf(l), 1)
+    },
+  }),
   useLocation: () => ({ pathname: nav.pathname, searchStr: nav.searchStr }),
 }))
 const getOnPageState = vi.fn()
@@ -97,5 +105,25 @@ describe('TanstackPreview', () => {
   it('link viewers get no Edit button', () => {
     render(<TanstackPreview mode="view" shared />)
     expect(screen.queryByTestId('onpage-edit')).toBeNull()
+  })
+  it('link viewers navigate with full page loads, so the server checks each page', () => {
+    const assign = vi.fn()
+    vi.stubGlobal('location', { ...window.location, assign })
+    try {
+      const { unmount } = render(<TanstackPreview mode="view" shared />)
+      const navigate = (e: unknown) =>
+        nav.listeners.filter((l) => l.event === 'onBeforeNavigate').forEach((l) => l.fn(e))
+      navigate({ pathChanged: false, toLocation: { href: '/about?tab=2' } })
+      expect(assign).not.toHaveBeenCalled()
+      navigate({ pathChanged: true, toLocation: { href: '/pricing' } })
+      expect(assign).toHaveBeenCalledWith('/pricing')
+      unmount()
+      expect(nav.listeners).toHaveLength(0)
+      // Editors keep client-side navigation.
+      render(<TanstackPreview mode="view" />)
+      expect(nav.listeners).toHaveLength(0)
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

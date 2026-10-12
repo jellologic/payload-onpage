@@ -1,6 +1,6 @@
 /** The lazily loaded part of the TanStack Start adapter: the editor and the preview toolbar, wired to Start and Payload. */
-import { useMemo } from 'react'
-import { useLocation } from '@tanstack/react-router'
+import { useEffect, useMemo } from 'react'
+import { useLocation, useRouter } from '@tanstack/react-router'
 import { DEFAULTS, ROUTES, type DocRef } from '@payload-onpage/core'
 import { payloadRest, payloadUploads } from '@payload-onpage/core/payload'
 import { OnPageEditor, PreviewToolbar, inPreviewFrame, type Links } from '@payload-onpage/react'
@@ -65,8 +65,26 @@ export function TanstackEditor(props: OnPageMountProps) {
   )
 }
 
+/**
+ * A preview link covers one page, checked against the request URL. After
+ * hydration, loaders run as server functions whose request URL isn't the page,
+ * so a client-side navigation would load published content under a "Shared
+ * preview" bar. Shared viewers get full page loads instead: each page is
+ * rendered by the server for its own path, and the mount re-checks the grant.
+ */
+function useFullPageNavigation(enabled: boolean) {
+  const router = useRouter()
+  useEffect(() => {
+    if (!enabled) return
+    return router.subscribe('onBeforeNavigate', ({ pathChanged, toLocation }) => {
+      if (pathChanged) window.location.assign(toLocation.href)
+    })
+  }, [enabled, router])
+}
+
 export function TanstackPreview(props: OnPageMountProps) {
   const links = useLinks(props)
+  useFullPageNavigation(!!props.shared)
   return (
     <PreviewToolbar
       exitHref={links.exit}

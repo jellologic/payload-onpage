@@ -154,9 +154,16 @@ describe('adapter request init', () => {
         sizes: { mid: { url: '/b-400.png', width: 400 } },
       },
       { id: 3, url: '/c.png' },
+      // Payload 4 calls them variants.
+      { id: 4, url: '/d.png', variants: { card: { url: '/d-300.png', width: 300 } } },
     ]
     const { f } = fetchSpy(() => json({ docs }))
     const { items } = await payloadUploads({ fetch: f }).search({ query: '', relationTo: 'media' })
-    expect(items.map((i) => i.thumbnailUrl)).toEqual(['/a-400.png', '/b-admin.png', '/c.png'])
+    expect(items.map((i) => i.thumbnailUrl)).toEqual([
+      '/a-400.png',
+      '/b-admin.png',
+      '/c.png',
+      '/d-300.png',
+    ])
   })
 })

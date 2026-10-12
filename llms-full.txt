@@ -234,12 +234,17 @@ return NextResponse.next({
 **On Vercel** (or any CDN that serves cached pages unless the browser itself sends Next's draft cookie), the viewer's browser also gets that cookie, scoped to the shared page and expiring with the link (`nextSession({ cdnBypass })`, on by default when `VERCEL` is set). Next's draft cookie is one site-wide key that lasts until the next deploy, so on Vercel the proxy is strict by default: a request keeps it only on the page its link covers, or for an editor still signed in as the session that entered edit mode. A copied cookie unlocks nothing else. If your own preview route also turns on draft mode, admit its users with `allowDraft`:
 
 ```ts
-withOnPage(request, {
-  secret: process.env.PAYLOAD_SECRET,
-  // e.g. your own preview route's users: is this session an admin?
-  allowDraft: (request) => isAdminSession(request),
+import { createOnPageProxy, isPayloadUser } from '@payload-onpage/next/proxy'
+
+const secret = process.env.PAYLOAD_SECRET
+export const proxy = createOnPageProxy({
+  secret,
+  // Your own preview route's users: a valid Payload login (signature, expiry, collection).
+  allowDraft: (request) => isPayloadUser(request, { secret }),
 })
 ```
+
+Starting from Payload's website template? See [Payload's website template](guides/website-template.md).
 
 ## 6. Verify nothing leaks to visitors
 
@@ -1035,23 +1040,25 @@ _Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/ne
 
 # Compatibility
 
-|                      | Supported                                                                                      | Tested in CI                             |
-| -------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Payload (Next.js)    | `^3.90.2` (earlier 3.x releases have published security advisories)                            | 3.90                                     |
-| Payload (Start)      | `4.0.0-beta.0` (beta: pin it; TanStack support needs Payload 4's `@payloadcms/tanstack-start`) | 4.0.0-beta.0                             |
-| Next.js (App Router) | `^15.4.11 \|\| ^16.3.8` (patched releases within Payload's range)                              | 15.4, 16.4                               |
-| TanStack Start       | `@tanstack/react-start` `1.168.60` + `@tanstack/react-router` `1.170.41` (beta-era pins)       | 1.168.60 / 1.170.41 (+ example build)    |
-| React                | `^19.0.0`                                                                                      | 19.2, and the React bundled with Next 15 |
-| Node.js              | `>=20.9`                                                                                       | 20, 22, 24                               |
-| Lexical (Next.js)    | `~0.50.0` (matches Payload 3.90's `@payloadcms/richtext-lexical`)                              | 0.50                                     |
-| Lexical (Start)      | `~0.52.0` (matches Payload 4 beta's `@payloadcms/richtext-lexical`)                            | 0.52                                     |
-| Databases            | Any Payload adapter: the plugin uses Payload's API only                                        | SQLite (tests, examples)                 |
+|                      | Supported                                                                                                | Tested in CI                                        |
+| -------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Payload (Next.js)    | `^3.90.2` (earlier 3.x releases have published security advisories)                                      | 3.90                                                |
+| Payload (Start)      | `4.0.0-beta.0` and later betas (pin it; TanStack support needs Payload 4's `@payloadcms/tanstack-start`) | 4.0.0-beta.0; nightly on the newest beta and canary |
+| Next.js (App Router) | `^15.4.11 \|\| ^16.3.8` (patched releases within Payload's range)                                        | 15.4, 16.4                                          |
+| TanStack Start       | `@tanstack/react-start` `1.168.60` + `@tanstack/react-router` `1.170.41` (beta-era pins)                 | 1.168.60 / 1.170.41 (+ example build)               |
+| React                | `^19.0.0`                                                                                                | 19.2, and the React bundled with Next 15            |
+| Node.js              | `>=20.9` (Payload 4 itself needs `>=24.15`)                                                              | 20, 22, 24                                          |
+| Lexical (Next.js)    | `~0.50.0` (matches Payload 3.90's `@payloadcms/richtext-lexical`)                                        | 0.50                                                |
+| Lexical (Start)      | `~0.52.0` (matches Payload 4 beta's `@payloadcms/richtext-lexical`)                                      | 0.52                                                |
+| Databases            | Any Payload adapter: the plugin uses Payload's API only                                                  | SQLite (tests, examples)                            |
 
 Both frameworks run the same e2e suite in CI (`basic` on Next.js, `tanstack` on Start).
 
 **Next 15 vs 16:** the proxy file is `middleware.ts` (export `middleware`) on 15 and `proxy.ts` (export `proxy`) on 16. Everything else is identical.
 
 **Start + Payload 3:** not supported. The Start adapter and its session read path target Payload 4.
+
+**Next.js + Payload 4:** not tested yet. Payload 4 needs Next.js 16.4 or later. The plugin's peer range accepts Payload 4, and the plugin reads Payload 4's block slugs (`blocks: ['cta']`) and upload `variants`.
 
 **Pages Router:** not supported. The session adapter and refresh renderer target the App Router. The ports allow other adapters.
 

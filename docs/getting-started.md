@@ -116,12 +116,17 @@ return NextResponse.next({
 **On Vercel** (or any CDN that serves cached pages unless the browser itself sends Next's draft cookie), the viewer's browser also gets that cookie, scoped to the shared page and expiring with the link (`nextSession({ cdnBypass })`, on by default when `VERCEL` is set). Next's draft cookie is one site-wide key that lasts until the next deploy, so on Vercel the proxy is strict by default: a request keeps it only on the page its link covers, or for an editor still signed in as the session that entered edit mode. A copied cookie unlocks nothing else. If your own preview route also turns on draft mode, admit its users with `allowDraft`:
 
 ```ts
-withOnPage(request, {
-  secret: process.env.PAYLOAD_SECRET,
-  // e.g. your own preview route's users: is this session an admin?
-  allowDraft: (request) => isAdminSession(request),
+import { createOnPageProxy, isPayloadUser } from '@payload-onpage/next/proxy'
+
+const secret = process.env.PAYLOAD_SECRET
+export const proxy = createOnPageProxy({
+  secret,
+  // Your own preview route's users: a valid Payload login (signature, expiry, collection).
+  allowDraft: (request) => isPayloadUser(request, { secret }),
 })
 ```
+
+Starting from Payload's website template? See [Payload's website template](guides/website-template.md).
 
 ## 6. Verify nothing leaks to visitors
 

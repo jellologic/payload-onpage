@@ -309,13 +309,16 @@ export function serializeFields(
         }
         break
       case 'blocks': {
-        const refs = (f.blockReferences ?? [])
+        // Payload 3 lists shared blocks in `blockReferences`; Payload 4 allows their
+        // slugs in `blocks` itself. Either way a slug names a block in config.blocks.
+        const listed: ReadonlyArray<Block | string> = [...f.blocks, ...(f.blockReferences ?? [])]
+        const blocks = listed
           .map((b) => (typeof b === 'string' ? ctx.blocks?.find((x) => x.slug === b) : b))
           .filter((b): b is Block => !!b)
         field = {
           ...base,
           type: 'blocks',
-          blocks: [...f.blocks, ...refs].map((b) =>
+          blocks: blocks.map((b) =>
             serializeBlock(b, blockPermissions(ctx.permissions, f.name, b.slug), ctx),
           ),
           ...rows(f.labels, f.minRows, f.maxRows),

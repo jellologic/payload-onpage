@@ -21,6 +21,7 @@ function req(
         codes: { config: {}, customIDType: 'text' },
       },
       db: { defaultIDType: 'number' },
+      logger: { warn: vi.fn() },
       findByID: vi.fn(async () => (opts.doc === undefined ? { id: 1, slug: 'about' } : opts.doc)),
       findGlobal: vi.fn(async () => ({ tagline: 'x' })),
     },
@@ -54,6 +55,35 @@ describe('resolvePath', () => {
         { kind: 'global', slug: 'header', options: {} },
       ),
     ).toBe('/')
+  })
+  it("uses a preview route's page path, never the route and its secret (website template)", async () => {
+    const entry = { kind: 'collection', slug: 'pages', options: {} } as const
+    const template = req({
+      preview: (doc) =>
+        `/next/preview?slug=${String(doc.slug)}&collection=pages&path=${encodeURIComponent(`/${String(doc.slug)}`)}&previewSecret=s3cret`,
+    })
+    expect(await resolvePath(template, page, entry)).toBe('/about')
+    expect(template.payload.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('preview route (/next/preview)'),
+    )
+    // No page path to use: no page, rather than a link to the secret route.
+    expect(
+      await resolvePath(req({ preview: () => '/api/preview?token=abc' }), page, entry),
+    ).toBeNull()
+    expect(
+      await resolvePath(
+        req({ preview: () => '/next/preview?previewSecret=x&path=%2Fa%3Ftoken%3Dy' }),
+        page,
+        entry,
+      ),
+    ).toBeNull()
+    // An explicit url option is checked the same way.
+    expect(
+      await resolvePath(req(), page, {
+        ...entry,
+        options: { url: () => '/next/preview?path=/x&secret=1' },
+      }),
+    ).toBe('/x')
   })
   it('refuses other origins, missing documents and unsafe paths', async () => {
     expect(

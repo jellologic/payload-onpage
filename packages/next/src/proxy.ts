@@ -126,3 +126,4 @@ export function createOnPageProxy(opts: OnPageProxyOptions): NextMiddleware {
     return NextResponse.next({ request: { headers: await withOnPage(request, opts) } })
   }
 }
+export { isPayloadUser, type PayloadUserOptions } from './payload-user.ts'
