@@ -15,6 +15,19 @@ Every string the on-page editor shows is in `defaultMessages` (`@payload-onpage/
 <OnPage messages={{ 'dock.publish': 'Publicar', 'dock.saved': 'Borrador guardado {ago}' }} />
 ```
 
+Spanish, French and German ship with the editor:
+
+```tsx
+'use client'
+import { OnPageMount, type OnPageMountProps } from '@payload-onpage/next/client'
+import { es } from '@payload-onpage/react/locales/es' // or fr, de
+
+export const Mount = (p: OnPageMountProps) => <OnPageMount {...p} messages={es} uiLocale="es" />
+// <OnPage mount={Mount} />
+```
+
+Spread one to change a few strings (`{ ...es, 'dock.publish': 'Publicar ya' }`). For another language, pass your own `messages`.
+
 Pass `uiLocale`, the language of your `messages`, so plurals, relative times ("2 minutes ago") and dates match them. It defaults to `"en"`, the language of the built-in strings:
 
 ```tsx
@@ -32,6 +45,10 @@ const polish = {
 ```
 
 Keyboard shortcuts in hints (`⌘Z`, `Ctrl+Z`) follow the editor's platform.
+
+## Right-to-left
+
+With a right-to-left `uiLocale` (Arabic, Hebrew, Persian, Urdu…), the editor's own UI is laid out right to left. Toolbars and popovers follow the page instead: on a right-to-left page (`dir="rtl"`), a section's toolbar sits at its top-left, and popovers line up with an element's right edge. The inline text editor takes each element's direction.
 
 ## Admin strings
 

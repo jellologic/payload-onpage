@@ -10,6 +10,7 @@ const SERVER =
 /** End-to-end tests against examples/${EXAMPLE} with a fresh SQLite database. Run `bun run build` first. */
 export default defineConfig({
   testDir: '.',
+  globalSetup: './global-setup.ts',
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,

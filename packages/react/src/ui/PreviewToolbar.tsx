@@ -8,7 +8,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useEditorStyles, useIsClient } from '../useIsClient.ts'
 import { createPortal } from 'react-dom'
-import { UI } from '../dom.ts'
+import { isRtlLocale, UI } from '../dom.ts'
 import { createTranslate, type Messages } from '../messages.ts'
 import { PostButton } from './PostButton.tsx'
 
@@ -92,7 +92,7 @@ export function PreviewToolbar({
   }
 
   return createPortal(
-    <div className="po-layer" {...{ [UI]: '' }}>
+    <div className="po-layer" dir={isRtlLocale(t.locale) ? 'rtl' : 'ltr'} {...{ [UI]: '' }}>
       {device && (
         <div className="po-frame-bg" data-testid="onpage-device-frame">
           <button
