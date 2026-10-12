@@ -231,6 +231,65 @@ describe('EditorSession', () => {
     expect(saves.filter((x) => x.key === 'c:pages:1')).toHaveLength(1)
   })
 
+  it('keep mine: re-applies unsaved fields on the latest version, keeping fields only they changed', async () => {
+    const docs: Record<string, Doc> = base()
+    let conflictOnce = true
+    const saves: Array<{ data: Doc; updatedAt?: string | undefined }> = []
+    const ds: DataSource = {
+      loadSchema: async () => pageSchema,
+      loadDocument: async () => structuredClone(docs['c:pages:1']!),
+      saveDraft: async (_r, data, o) => {
+        saves.push({ data, updatedAt: o.updatedAt })
+        if (conflictOnce) return ((conflictOnce = false), { ok: false, status: 409 })
+        return { ok: true, updatedAt: 'v2' }
+      },
+      publish: async () => ({ ok: true }),
+    }
+    const s = new EditorSession({ dataSource: ds, autosaveDelay: 0 })
+    await s.open({ kind: 'collection', slug: 'pages', id: 1 })
+    s.setValue('c:pages:1', 'title', 'Mine')
+    await s.flush()
+    expect(s.get('c:pages:1')!.save.status).toBe('conflict')
+    // Edits made during the conflict are kept too.
+    s.setValue('c:pages:1', 'title', 'Mine, later')
+    // Meanwhile someone changed the layout (and saved at v1).
+    docs['c:pages:1'] = {
+      ...docs['c:pages:1']!,
+      updatedAt: 'v1',
+      layout: [{ id: 'r1', blockType: 'hero', heading: 'Theirs', image: 9 }],
+    }
+    await s.keepMine('c:pages:1')
+    const doc = s.get('c:pages:1')!.doc!
+    expect(doc.title).toBe('Mine, later')
+    expect((doc.layout as Array<{ heading: string }>)[0]!.heading).toBe('Theirs')
+    expect(saves.at(-1)).toEqual({ data: { title: 'Mine, later' }, updatedAt: 'v1' })
+    expect(s.get('c:pages:1')!.save.status).toBe('saved')
+  })
+
+  it('records the fields a failed save or publish names, and clears them when it succeeds', async () => {
+    let fail = true
+    const fields = [{ path: 'title', message: 'Required' }]
+    const ds: DataSource = {
+      loadSchema: async () => pageSchema,
+      loadDocument: async () => structuredClone(base()['c:pages:1']),
+      saveDraft: async () =>
+        fail ? { ok: false, status: 400, message: 'invalid', fields } : { ok: true },
+      publish: async () => ({ ok: false, status: 400, message: 'invalid', fields }),
+    }
+    const s = new EditorSession({ dataSource: ds, autosaveDelay: 0 })
+    await s.open({ kind: 'collection', slug: 'pages', id: 1 })
+    s.setValue('c:pages:1', 'title', '')
+    await s.flush()
+    expect(s.get('c:pages:1')!.invalid).toEqual(fields)
+    fail = false
+    await s.retry('c:pages:1')
+    await s.flush()
+    expect(s.get('c:pages:1')!.invalid).toBeUndefined()
+    const res = await s.publish()
+    expect(res.fields).toEqual(fields)
+    expect(s.get('c:pages:1')!.invalid).toEqual(fields)
+  })
+
   it('publishes edited documents only, and discard restores published values', async () => {
     const { ds, published, saves } = fakeSource(base())
     const seen: string[] = []

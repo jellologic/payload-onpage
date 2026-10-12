@@ -117,6 +117,20 @@ export interface Flash {
  * only when the editor is reconfigured, so components that only act (toolbars,
  * custom UI, client-mode documents) don't re-render on every keystroke.
  */
+/**
+ * What happened in the editor, for logging and error reporting (`onEvent`).
+ * Messages are the server's or the network's, untranslated.
+ */
+export type OnPageEvent =
+  | { type: 'saved'; ref: DocRef }
+  | { type: 'saveFailed'; ref: DocRef; message: string }
+  | { type: 'conflict'; ref: DocRef }
+  | { type: 'loadFailed'; ref: DocRef; message: string }
+  | { type: 'published'; refs: DocRef[] }
+  | { type: 'publishFailed'; message: string }
+  | { type: 'scheduled'; refs: DocRef[]; at: string }
+  | { type: 'error'; where: 'render' | 'publish' | 'schedule' | 'share' | 'media'; error: unknown }
+
 export interface OnPageApi {
   session: EditorSession
   renderer: Renderer
@@ -145,6 +159,8 @@ export interface OnPageApi {
   rerender: (refs: DocRef[]) => Promise<void>
   /** Show a short message in the dock: translated text (`notify(t('notify.published'))`), or an error's text. */
   notify: (text: string, bad?: boolean) => void
+  /** Tell the site's `onEvent` handler what happened. */
+  report: (event: OnPageEvent) => void
   addGhost: (g: GhostInput & { key: RefKey; path: string }) => void
 }
 
@@ -157,6 +173,8 @@ export interface OnPageState {
   selected: Selection | null
   /** Documents shown on the current page (the session may hold others from earlier pages). */
   docKeys: RefKey[]
+  /** Someone else holds Payload's lock on these documents: their names. */
+  lockedBy: Readonly<Record<RefKey, string>>
   /** The page is re-rendering after a save (refresh mode). */
   rendering: boolean
   /** The dock's current message. */

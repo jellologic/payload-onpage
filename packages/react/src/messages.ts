@@ -12,6 +12,9 @@ export const defaultMessages = {
   'dock.saveFailed': '{doc}: {message}',
   'dock.nothing': 'Nothing editable on this page',
   'dock.conflict': '{doc}: changed by someone else',
+  'dock.lockedBy': '{name} is editing this {doc}',
+  'dock.lockedHint':
+    'Your changes can’t be saved until they leave it, or their lock expires (5 minutes without activity).',
   'dock.saving': 'Saving draft…',
   'dock.updating': 'Updating page…',
   'dock.saved': 'Draft saved {ago}',
@@ -21,6 +24,8 @@ export const defaultMessages = {
   'dock.localeNotice':
     'Editing {locale}: text changes apply to this language only; adding, moving or removing sections changes every language.',
   'dock.reload': 'Reload latest',
+  'dock.keepMine': 'Keep my changes',
+  'dock.keepMineHint': 'Load their version and re-apply your edits on top of it',
   'dock.retry': 'Retry',
   'dock.undo': 'Undo',
   'dock.redo': 'Redo',
@@ -47,6 +52,7 @@ export const defaultMessages = {
     'Publishes the latest saved draft at that time. Payload’s job queue must be running (jobs.autoRun or a cron).',
   'dock.publishing': 'Publishing…',
   'notify.published': 'Published ✓',
+  'notify.merged': 'Your changes were re-applied on the latest version',
   'notify.scheduled': 'Scheduled to publish {date}',
   'notify.scheduleFailed': 'Couldn’t schedule: {message}',
   'notify.nothingToPublish': 'Nothing to publish',

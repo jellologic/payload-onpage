@@ -4,7 +4,7 @@
  */
 import { lazy, Suspense } from 'react'
 import type { DataSource, Locator, MediaLibrary, OnPageMode } from '@payload-onpage/core'
-import type { FieldEditorDef, Messages } from '@payload-onpage/react'
+import type { FieldEditorDef, Messages, OnPageEvent } from '@payload-onpage/react'
 
 export interface OnPageMountProps {
   mode: OnPageMode
@@ -22,6 +22,8 @@ export interface OnPageMountProps {
   locator?: Locator | undefined
   media?: MediaLibrary | undefined
   dataSource?: DataSource | undefined
+  /** Saves, conflicts, publishes and failures, for logging or error reporting (client-only). */
+  onEvent?: ((event: OnPageEvent) => void) | undefined
   /** Override editor UI strings (see `defaultMessages` in @payload-onpage/react). */
   messages?: Messages | undefined
   /** The language of `messages`, for plurals, dates and times in the editor UI. Default "en". */

@@ -11,7 +11,7 @@ import { AutosaveQueue, type SaveState } from './autosave.ts'
 import { refKey, type DocRef, type RefKey } from './docref.ts'
 import { buildPatch, changedKeys } from './fields.ts'
 import { setAt } from './path.ts'
-import type { DataSource, Doc } from './ports.ts'
+import type { DataSource, Doc, FieldError } from './ports.ts'
 import type { DocumentSchema } from './schema.ts'
 import { stegaCleanDeep } from './stega.ts'
 import { errorText } from './util.ts'
@@ -27,6 +27,8 @@ export interface DocumentState {
   save: SaveState
   /** Edited in this session since load or the last publish/discard. */
   edited: boolean
+  /** Fields the server called invalid in the last failed save or publish. */
+  invalid?: FieldError[] | undefined
 }
 
 /** A document that can be edited: loaded, with its schema and data. */
@@ -67,6 +69,8 @@ export interface PublishResult {
   ok: boolean
   message?: string | undefined
   published: DocRef[]
+  /** The fields a validation error named (the document is in `invalid` too). */
+  fields?: FieldError[] | undefined
 }
 
 /** Schemas are per collection or global, not per document. */
@@ -130,7 +134,11 @@ export class EditorSession {
   /** After a publish: no unpublished edits, and the local copy says so. */
   private markPublished(key: RefKey) {
     const doc = this.docs.get(key)?.doc
-    this.patchState(key, { edited: false, doc: doc ? { ...doc, _status: 'published' } : null })
+    this.patchState(key, {
+      edited: false,
+      invalid: undefined,
+      doc: doc ? { ...doc, _status: 'published' } : null,
+    })
   }
 
   private patchState(key: RefKey, patch: Partial<DocumentState>) {
@@ -250,7 +258,11 @@ export class EditorSession {
     q = new AutosaveQueue({
       delay: this.autosaveDelay ?? state.schema?.autosaveInterval ?? 800,
       onState: (save) => {
-        this.patchState(key, { save })
+        this.patchState(key, {
+          save,
+          ...(save.status === 'error' ? { invalid: save.fields } : {}),
+          ...(save.status === 'saved' ? { invalid: undefined } : {}),
+        })
         if (save.status === 'saved') this.onSaved?.(state.ref, save.seq)
       },
       send: async (patch) => {
@@ -395,12 +407,15 @@ export class EditorSession {
         } catch (e) {
           return { ok: false, message: `${label}: ${errorText(e)}`, published }
         }
-        if (!res.ok)
+        if (!res.ok) {
+          this.patchState(key, { invalid: res.fields })
           return {
             ok: false,
             message: res.message ?? `${label}: publish failed (${res.status})`,
             published,
+            ...(res.fields ? { fields: res.fields } : {}),
           }
+        }
         if (res.updatedAt) this.updatedAt.set(key, res.updatedAt)
         this.markPublished(key)
         published.push(state.ref)
@@ -434,6 +449,32 @@ export class EditorSession {
         await this.queues.get(key)?.flush()
         this.markPublished(key)
       }
+    })
+  }
+
+  /**
+   * After a conflict: load the latest draft and re-apply this editor's unsaved
+   * changes on top of it, field by field. Fields only someone else changed
+   * keep their version; fields both changed take this editor's. Undoable.
+   */
+  keepMine(key: RefKey): Promise<void> {
+    return this.serial(async () => {
+      const state = this.docs.get(key)
+      const queue = this.queues.get(key)
+      const mine = queue?.unsaved
+      if (!isReady(state) || !mine) return
+      const ours = state.doc
+      const latest = await this.dataSource.loadDocument(state.ref, {
+        draft: true,
+        locale: this.locale,
+        depth: 2,
+      })
+      this.adopt(key, latest)
+      queue.reset()
+      const merged = { ...stegaCleanDeep(latest) }
+      for (const k of Object.keys(mine)) merged[k] = ours[k]
+      this.apply(key, () => merged)
+      await queue.flush()
     })
   }
 

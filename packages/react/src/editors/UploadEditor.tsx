@@ -21,7 +21,7 @@ import { Dialog } from '../ui/Dialog.tsx'
 import { useDebouncedSearch } from './useDebouncedSearch.ts'
 
 export function UploadEditor({ field, value, commit, close, t }: FieldEditorProps<RelationField>) {
-  const { media } = useOnPage()
+  const { media, report } = useOnPage()
   const relationTo =
     (Array.isArray(field.relationTo) ? field.relationTo[0] : field.relationTo) ?? 'media'
   const [uploading, setUploading] = useState(false)
@@ -71,6 +71,7 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
     try {
       choose(await media.upload(pending.file, { relationTo, alt: alt.trim() }))
     } catch (e) {
+      report({ type: 'error', where: 'media', error: e })
       setUploadError(errorText(e))
     } finally {
       setUploading(false)
@@ -82,6 +83,7 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
     try {
       choose(await media.updateAlt(currentId, { relationTo, alt: editedAlt.trim() }))
     } catch (e) {
+      report({ type: 'error', where: 'media', error: e })
       setUploadError(errorText(e))
     } finally {
       setUploading(false)

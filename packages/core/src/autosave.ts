@@ -5,7 +5,7 @@
  * `reset()`. Transient failures (network, 429, 5xx) retry with backoff; other
  * failures (validation, permissions) stop immediately with the server's message.
  */
-import type { SaveResult } from './ports.ts'
+import type { FieldError, SaveResult } from './ports.ts'
 import { errorText } from './util.ts'
 
 export type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error' | 'conflict'
@@ -14,6 +14,8 @@ export interface SaveState {
   status: SaveStatus
   lastSavedAt?: number | undefined
   message?: string | undefined
+  /** The fields the last failed save's validation error named. */
+  fields?: FieldError[] | undefined
   /** Increments with every successful save. */
   seq: number
 }
@@ -32,6 +34,8 @@ const isTransient = (status: number | undefined) => !status || status === 429 ||
 
 export class AutosaveQueue {
   private pending: Record<string, unknown> | null = null
+  /** The changes a conflict stopped, kept so the editor can re-apply them on the latest version. */
+  private conflicted: Record<string, unknown> | null = null
   private timer: unknown = null
   private inFlight: Promise<void> | null = null
   private attempt = 0
@@ -63,7 +67,10 @@ export class AutosaveQueue {
 
   /** Queue fields to save; later values for the same key replace earlier ones. */
   schedule(patch: Record<string, unknown>) {
-    if (this.state.status === 'conflict') return
+    if (this.state.status === 'conflict') {
+      this.conflicted = { ...(this.conflicted ?? {}), ...patch }
+      return
+    }
     this.pending = { ...(this.pending ?? {}), ...patch }
     this.setState({ status: this.inFlight ? 'saving' : 'pending' })
     this.arm(this.delay)
@@ -106,12 +113,14 @@ export class AutosaveQueue {
           status: this.pending ? 'pending' : 'saved',
           lastSavedAt: Date.now(),
           message: undefined,
+          fields: undefined,
           seq: this.state.seq + 1,
         })
         if (this.pending) this.arm(0)
         return
       }
       if (result.status === 409) {
+        this.conflicted = { ...patch, ...(this.pending ?? {}) }
         this.pending = null
         this.setState({ status: 'conflict', message: result.message })
         return
@@ -127,6 +136,7 @@ export class AutosaveQueue {
         this.setState({
           status: 'error',
           message: result.message ?? `Save failed (${result.status})`,
+          fields: result.fields,
         })
       }
     })()
@@ -138,8 +148,14 @@ export class AutosaveQueue {
     if (this.timer) this.clearTimer(this.timer)
     this.timer = null
     this.pending = null
+    this.conflicted = null
     this.attempt = 0
-    this.setState({ status: 'idle', message: undefined })
+    this.setState({ status: 'idle', message: undefined, fields: undefined })
+  }
+
+  /** The top-level fields a conflict kept from saving (null without a conflict). */
+  get unsaved(): Readonly<Record<string, unknown>> | null {
+    return this.state.status === 'conflict' ? this.conflicted : null
   }
 
   /** Retry after an error, keeping the unsent changes. */

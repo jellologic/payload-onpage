@@ -18,7 +18,7 @@ import { getOnPageMode, isSharedPreview } from './session.ts'
 export * from './session.ts'
 
 /** Client-only options can't cross the server/client boundary; pass them from your own `mount`. */
-type ClientOnly = 'mode' | 'shared' | 'editors' | 'locator' | 'media' | 'dataSource'
+type ClientOnly = 'mode' | 'shared' | 'editors' | 'locator' | 'media' | 'dataSource' | 'onEvent'
 
 export interface OnPageProps extends Omit<OnPageMountProps, ClientOnly> {
   /**

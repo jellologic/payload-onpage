@@ -61,8 +61,21 @@ function useTicker(ms: number) {
 }
 
 export function Dock() {
-  const { session, snap, links, rendering, notify, rerender, docKeys, flash, t, panel, setPanel } =
-    useOnPage()
+  const {
+    session,
+    snap,
+    links,
+    rendering,
+    notify,
+    report,
+    rerender,
+    docKeys,
+    flash,
+    t,
+    panel,
+    setPanel,
+    lockedBy,
+  } = useOnPage()
   const pageSettings = usePageSettings()
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   useTicker(5000)
@@ -73,6 +86,7 @@ export function Dock() {
   }, [confirmDiscard])
 
   const docs = docKeys.map((k) => snap.docs[k]).filter((d): d is DocumentState => !!d)
+  const locked = docs.find((d) => lockedBy[d.key])
   const ready = docs.filter((d) => d.status === 'ready')
   const failed = docs.find((d) => d.status === 'error')
   const conflict = docs.find((d) => d.save.status === 'conflict')
@@ -95,10 +109,15 @@ export function Dock() {
   const publish = async () => {
     try {
       const res = await session.publish({ keys: docKeys })
+      if (res.published.length) report({ type: 'published', refs: res.published })
       if (res.published.length) await rerender(res.published)
       if (res.ok) notify(t(res.published.length ? 'notify.published' : 'notify.nothingToPublish'))
-      else notify(t('notify.publishFailed', { message: res.message ?? '' }), true)
+      else {
+        report({ type: 'publishFailed', message: res.message ?? '' })
+        notify(t('notify.publishFailed', { message: res.message ?? '' }), true)
+      }
     } catch (e) {
+      report({ type: 'error', where: 'publish', error: e })
       notify(t('notify.publishFailed', { message: errorText(e) }), true)
     }
   }
@@ -109,6 +128,15 @@ export function Dock() {
     try {
       await session.discard({ keys: docKeys })
       notify(t('notify.discarded'))
+    } catch (e) {
+      notify(errorText(e), true)
+    }
+  }
+  const keepMine = async (d: DocumentState) => {
+    try {
+      await session.keepMine(d.key)
+      await rerender([d.ref])
+      notify(t('notify.merged'))
     } catch (e) {
       notify(errorText(e), true)
     }
@@ -136,6 +164,7 @@ export function Dock() {
         }),
       )
     } catch (e) {
+      report({ type: 'error', where: 'share', error: e })
       notify(t('notify.linkFailed', { message: errorText(e) }), true)
     }
   }
@@ -162,15 +191,27 @@ export function Dock() {
           {flash?.text ?? status.text}
         </span>
         {conflict && (
-          <button
-            type="button"
-            className="po-btn"
-            disabled={busy}
-            onClick={() => void reload(conflict)}
-            data-testid="onpage-reload"
-          >
-            {t('dock.reload')}
-          </button>
+          <>
+            <button
+              type="button"
+              className="po-btn"
+              disabled={busy}
+              onClick={() => void keepMine(conflict)}
+              title={t('dock.keepMineHint')}
+              data-testid="onpage-keep-mine"
+            >
+              {t('dock.keepMine')}
+            </button>
+            <button
+              type="button"
+              className="po-btn"
+              disabled={busy}
+              onClick={() => void reload(conflict)}
+              data-testid="onpage-reload"
+            >
+              {t('dock.reload')}
+            </button>
+          </>
         )}
         {retryable && (
           <button
@@ -181,6 +222,16 @@ export function Dock() {
           >
             {t('dock.retry')}
           </button>
+        )}
+        {locked && (
+          <span
+            className="po-chip-lock"
+            role="note"
+            title={t('dock.lockedHint')}
+            data-testid="onpage-locked"
+          >
+            {t('dock.lockedBy', { name: lockedBy[locked.key] ?? '', doc: title(locked) })}
+          </span>
         )}
         {docs.length > 1 && (
           <span

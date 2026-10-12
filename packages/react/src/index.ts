@@ -22,6 +22,7 @@ export type {
   Links,
   OnPageApi,
   OnPageContextValue,
+  OnPageEvent,
   OnPageState,
   PanelKind,
   TargetIndex,

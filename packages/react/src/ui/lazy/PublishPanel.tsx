@@ -16,7 +16,7 @@ const localInputValue = (d: Date) =>
   new Date(d.getTime() - d.getTimezoneOffset() * 60_000).toISOString().slice(0, 16)
 
 export function PublishPanel() {
-  const { session, snap, docKeys, setPanel, notify, rerender, t } = useOnPage()
+  const { session, snap, docKeys, setPanel, notify, report, rerender, t } = useOnPage()
   const docs = docKeys.map((k) => snap.docs[k]).filter(isReady)
   const [chosen, setChosen] = useState<ReadonlySet<RefKey>>(
     () => new Set(docs.filter((d) => session.hasUnpublished(d.key)).map((d) => d.key)),
@@ -42,12 +42,17 @@ export function PublishPanel() {
     setBusy(true)
     try {
       const res = await session.publish({ keys: selected.map((d) => d.key) })
+      if (res.published.length) report({ type: 'published', refs: res.published })
       if (res.published.length) await rerender(res.published)
       if (res.ok) {
         notify(t(res.published.length ? 'notify.published' : 'notify.nothingToPublish'))
         close()
-      } else notify(t('notify.publishFailed', { message: res.message ?? '' }), true)
+      } else {
+        report({ type: 'publishFailed', message: res.message ?? '' })
+        notify(t('notify.publishFailed', { message: res.message ?? '' }), true)
+      }
     } catch (e) {
+      report({ type: 'error', where: 'publish', error: e })
       notify(t('notify.publishFailed', { message: errorText(e) }), true)
     } finally {
       setBusy(false)
@@ -61,6 +66,7 @@ export function PublishPanel() {
     try {
       await session.flush() // schedule what's on screen: the latest draft must be saved
       for (const d of schedulable) await schedule(d.ref, { at: when, locale: session.locale })
+      report({ type: 'scheduled', refs: schedulable.map((d) => d.ref), at: when.toISOString() })
       notify(
         t('notify.scheduled', {
           date: when.toLocaleString(t.locale, { dateStyle: 'medium', timeStyle: 'short' }),
@@ -68,6 +74,7 @@ export function PublishPanel() {
       )
       close()
     } catch (e) {
+      report({ type: 'error', where: 'schedule', error: e })
       notify(t('notify.scheduleFailed', { message: errorText(e) }), true)
     } finally {
       setBusy(false)

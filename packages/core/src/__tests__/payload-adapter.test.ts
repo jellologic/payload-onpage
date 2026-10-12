@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { HEADER } from '../constants.ts'
-import { errorMessage, payloadRest, payloadUploads } from '../payload.ts'
+import { errorMessage, fieldErrors, payloadRest, payloadUploads } from '../payload.ts'
 import { stegaEncode } from '../stega.ts'
 
 const json = (body: unknown, status = 200) =>
@@ -151,6 +151,41 @@ describe('payloadUploads', () => {
     expect(calls[0]!.url).toBe('/api/media/3?depth=0')
     expect(calls[0]!.init?.method).toBe('PATCH')
     expect(JSON.parse(calls[0]!.init?.body as string)).toEqual({ alt: 'New' })
+  })
+})
+
+describe('validation errors', () => {
+  it("reads every field Payload's ValidationError names, and keeps them on a failed save", async () => {
+    const body = {
+      errors: [
+        {
+          name: 'ValidationError',
+          message: 'The following fields are invalid: Title, Heading',
+          data: {
+            errors: [
+              { label: 'Title', message: 'This field is required.', path: 'title' },
+              { label: 'Heading', message: 'Too long', path: 'layout.0.heading' },
+            ],
+          },
+        },
+      ],
+    }
+    const res = new Response(JSON.stringify(body), { status: 400 })
+    expect(await fieldErrors(res)).toEqual([
+      { path: 'title', message: 'This field is required.' },
+      { path: 'layout.0.heading', message: 'Too long' },
+    ])
+    expect(await errorMessage(res)).toBe(
+      'The following fields are invalid: Title, Heading: This field is required.',
+    )
+    const { f } = fetchSpy(() => json(body, 400))
+    expect(
+      await payloadRest({ fetch: f }).saveDraft({ kind: 'collection', slug: 'p', id: 1 }, {}, {}),
+    ).toMatchObject({
+      ok: false,
+      status: 400,
+      fields: [{ path: 'title' }, { path: 'layout.0.heading' }],
+    })
   })
 })
 

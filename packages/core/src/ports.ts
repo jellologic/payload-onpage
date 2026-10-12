@@ -29,7 +29,15 @@ export type SaveResult =
       /** HTTP-like status: 409 means someone else saved first, 0 a network failure. */
       status: number
       message?: string | undefined
+      /** The fields a validation error names, when the server says (Payload's ValidationError). */
+      fields?: FieldError[] | undefined
     }
+
+/** One invalid field: its data path (`layout.2.heading`) and the server's message. */
+export interface FieldError {
+  path: string
+  message: string
+}
 
 /** Options callers often fill from other optional values, so `undefined` is accepted. */
 type Opt<T> = T | undefined
@@ -79,6 +87,12 @@ export interface DataSource {
    * document as the editor has it now. Optional; asked when the schema has `conditions`.
    */
   hiddenFields?(ref: DocRef, doc: Doc): Promise<string[]>
+  /**
+   * Take (or refresh) Payload's document lock for this editor, or release it.
+   * `lockedBy` names someone else who holds a live lock (then nothing is
+   * taken, and their lock blocks saves). Optional.
+   */
+  lock?(ref: DocRef, action: 'take' | 'release'): Promise<{ lockedBy: string | null }>
 }
 
 export interface ScheduledPublish {
