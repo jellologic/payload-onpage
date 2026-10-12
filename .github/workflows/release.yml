@@ -31,14 +31,25 @@ jobs:
           commit: 'chore: version packages'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # Nothing left to version: is this version still unreleased?
+      # Nothing left to version: is this version still unreleased? Every package
+      # is checked (not just core), and the GitHub Release too, so re-running
+      # finishes a release that was interrupted part-way.
       - id: pending
         if: steps.changesets.outputs.hasChangesets == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           v=$(node -p "require('./packages/core/package.json').version")
-          if npm view "@payload-onpage/core@$v" version >/dev/null 2>&1; then
-            echo "v$v is already on npm"
+          missing=""
+          for dir in packages/*/; do
+            name=$(node -p "require('./${dir}package.json').name")
+            npm view "$name@$v" version >/dev/null 2>&1 || missing="$missing $name"
+          done
+          gh release view "v$v" >/dev/null 2>&1 || missing="$missing (GitHub Release v$v)"
+          if [ -z "$missing" ]; then
+            echo "v$v is already released"
           else
+            echo "v$v still to release:$missing"
             echo "version=$v" >> "$GITHUB_OUTPUT"
           fi
 
