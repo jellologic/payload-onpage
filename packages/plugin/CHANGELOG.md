@@ -1,5 +1,15 @@
 # @payload-onpage/plugin
 
+## 0.4.0
+
+### Patch Changes
+
+- [`cfd55ea`](https://github.com/jellologic/payload-onpage/commit/cfd55eaf03184af534fe0fee8ca2e5122d05e5e7) Thanks [@jellologic](https://github.com/jellologic)! - `onpage()` now accepts Payload v3 and v4 configs (it is typed as a generic config passthrough), so the same plugin registers on both the Next.js (Payload 3) and TanStack Start (Payload 4 beta) setups. No behavior change.
+
+- [`cfd55ea`](https://github.com/jellologic/payload-onpage/commit/cfd55eaf03184af534fe0fee8ca2e5122d05e5e7) Thanks [@jellologic](https://github.com/jellologic)! - Security hardening from an adversarial review of the plugin. The editor schema endpoint now returns 403 when collection/global update access is definitively denied (including when an access check throws, which previously served the schema unfiltered); `/mode` requires editing at least one enabled document; the CSRF guard refuses `sec-fetch-site: none`; `enter` and `preview-link` authenticate before parsing refs; the admin new-tab form uses `rel="noopener"`; an empty `secret` option fails at config time; and the marker cleaner drops `__proto__` keys. Removes the unused `SEAL_PURPOSE.editBinding` export.
+- Updated dependencies [[`cfd55ea`](https://github.com/jellologic/payload-onpage/commit/cfd55eaf03184af534fe0fee8ca2e5122d05e5e7)]:
+  - @payload-onpage/core@0.4.0
+
 ## 0.3.2
 
 ### Patch Changes

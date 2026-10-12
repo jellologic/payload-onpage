@@ -1,5 +1,14 @@
 # @payload-onpage/next
 
+## 0.4.0
+
+### Patch Changes
+
+- Updated dependencies [[`cfd55ea`](https://github.com/jellologic/payload-onpage/commit/cfd55eaf03184af534fe0fee8ca2e5122d05e5e7), [`cfd55ea`](https://github.com/jellologic/payload-onpage/commit/cfd55eaf03184af534fe0fee8ca2e5122d05e5e7)]:
+  - @payload-onpage/lexical@0.4.0
+  - @payload-onpage/core@0.4.0
+  - @payload-onpage/react@0.4.0
+
 ## 0.3.2
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@payload-onpage/core",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "description": "payload-onpage core: document refs, schema, field operations, stega codec, autosave and the editor session, plus the port interfaces adapters implement.",
   "license": "MIT",
   "type": "module",
