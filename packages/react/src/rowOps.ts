@@ -49,6 +49,12 @@ export function rowOps(session: EditorSession, key: RefKey, info: RowInfo) {
       apply((a) => moveItem(a, index, index + dir))
       return rowAt(key, listPath, index + dir)
     },
+    /** Move the row to position `to` (drag and drop). */
+    moveTo(to: number): Selection | null {
+      if (!Number.isInteger(to) || to === index || to < 0 || to >= length) return null
+      apply((a) => moveItem(a, index, to))
+      return rowAt(key, listPath, to)
+    },
     duplicate(): Selection | null {
       if (!canDuplicate) return null
       apply((a) => insertItem(a, index + 1, cloneRow(a[index], rowFields)))

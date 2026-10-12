@@ -161,6 +161,8 @@ export interface DocumentSchema {
   schedulePublish?: boolean
   /** Some fields have `admin.condition`: ask `DataSource.hiddenFields` which are hidden. */
   conditions?: boolean
+  /** Collections rich-text links can point to (the site's pages); they're in `relations` too. */
+  linkTargets?: string[]
   /** Collections that relationship fields point to: how to search and show them. */
   relations?: Record<string, { titleField: string; label: string }>
 }

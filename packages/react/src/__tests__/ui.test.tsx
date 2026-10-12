@@ -160,6 +160,36 @@ describe('row toolbar, settings and block picker', () => {
     )
   })
 
+  it("lists a section's links the page doesn't show: add, edit, remove", async () => {
+    const withLinks: DocumentSchema = structuredClone(schema)
+    const layout = withLinks.fields.find((f) => f.name === 'layout')
+    if (layout?.type !== 'blocks') throw new Error('layout')
+    layout.blocks[0]!.fields.push({
+      name: 'links',
+      type: 'array',
+      label: 'Links',
+      labels: { singular: 'Link', plural: 'Links' },
+      fields: [{ name: 'label', type: 'text', label: 'Label' }],
+    })
+    const { ds, saves } = source({ loadSchema: async () => withLinks })
+    await mountEditor(ds, html)
+    fireEvent.click(document.querySelector('section')!)
+    fireEvent.click(await screen.findByTestId('onpage-block-settings'))
+    await screen.findByTestId('onpage-setting-list-layout.0.links')
+    fireEvent.click(screen.getByTestId('onpage-setting-add-layout.0.links'))
+    await waitFor(() =>
+      expect(saves.at(-1)).toMatchObject({ layout: [{ links: [expect.any(Object)] }] }),
+    )
+    const label = await screen.findByLabelText('Label')
+    fireEvent.change(label, { target: { value: 'Docs' } })
+    fireEvent.blur(label)
+    await waitFor(() =>
+      expect(saves.at(-1)).toMatchObject({ layout: [{ links: [{ label: 'Docs' }] }] }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Link 1' }))
+    await waitFor(() => expect(saves.at(-1)).toMatchObject({ layout: [{ links: [] }] }))
+  })
+
   it('duplicate and delete, with undo', async () => {
     const { ds, saves } = source()
     await mountEditor(ds, html)

@@ -44,6 +44,9 @@ export function settable(
       return true
     case 'group':
       return field.fields.some((f) => settable(f, full, key, targets))
+    case 'array':
+      // A list the page doesn't show (a hero's links, a card's tags): edit its rows here.
+      return !targets.find(key, full) && !targets.find(key, `${full}.0`)
     default:
       // Shown on the page? Edit it there.
       return PANEL_FIELD_TYPES.has(field.type) && !targets.find(key, full)

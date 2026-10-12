@@ -153,6 +153,32 @@ test('rich text', async ({ context }) => {
   await expect(p).toContainText('Rich ')
 })
 
+test('rich text: link a word to another page of the site', async ({ context }) => {
+  const page = await editPage(context)
+  const p = page.locator('.content p').first()
+  await p.scrollIntoViewIfNeeded()
+  await p.dblclick({ position: { x: 20, y: 8 } }) // opens the editor and selects a word
+  await expect(page.locator('.po-rt-surface')).toBeFocused()
+  await page
+    .locator('.po-rt-surface p')
+    .first()
+    .dblclick({ position: { x: 20, y: 8 } })
+  await page.getByTestId('onpage-rt-link').click()
+  await page.getByTestId('onpage-rt-link-mode-page').click()
+  await page.getByTestId('onpage-rt-link-search').fill('About')
+  await page.locator('[data-testid^="onpage-rt-link-hit-"]').first().click()
+  await page.getByTestId('onpage-rt-done').click()
+  // Saved as Payload stores internal links: linkType internal and a doc reference.
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const res = await fetch('/api/pages/1?draft=true&depth=0')
+        return JSON.stringify(await res.json()).includes('"linkType":"internal"')
+      }),
+    )
+    .toBe(true)
+})
+
 test('keyboard: Enter edits, ⌥↓ moves a row, ⌘Z undoes', async ({ context }) => {
   const page = await editPage(context)
   const titles = page.locator('.features li h3')
@@ -166,6 +192,30 @@ test('keyboard: Enter edits, ⌥↓ moves a row, ⌘Z undoes', async ({ context 
   await page.keyboard.press('Enter')
   await expect(page.getByTestId('onpage-inline-text')).toBeVisible()
   await page.keyboard.press('Escape')
+})
+
+test('drag a feature card to another place, then undo', async ({ context }) => {
+  const page = await editPage(context)
+  const titles = page.locator('.features li h3')
+  const names = async () => (await titles.allTextContents()).map(clean)
+  const before = await names()
+  // Select the first card; its toolbar has the drag handle.
+  await page
+    .locator('.features li')
+    .first()
+    .click({ position: { x: 4, y: 4 } })
+  const handle = page.getByTestId('onpage-item-drag')
+  await expect(handle).toBeVisible()
+  const from = (await handle.boundingBox())!
+  const last = (await page.locator('.features li').last().boundingBox())!
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(last.x + last.width - 4, last.y + last.height / 2, { steps: 8 })
+  await expect(page.getByTestId('onpage-drop-line')).toBeVisible()
+  await page.mouse.up()
+  await expect.poll(names).toEqual([...before.slice(1), before[0]])
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(names).toEqual(before)
 })
 
 test('client mode updates live while typing', async ({ context }) => {

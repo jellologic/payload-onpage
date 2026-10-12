@@ -32,15 +32,19 @@ const lazyEditor = (config) => {
   return config
 }
 
-// Panels in react/dist/ui/lazy load on first use (prefetched when idle): the editor
-// budgets measure the first download; the on-demand chunk has its own budget.
+// Panels in react/dist/ui/lazy load on first use (prefetched when idle), and the rich-text
+// editor loads when a rich-text field is opened: the editor budgets measure the first
+// download; the on-demand chunks have their own budgets.
 const onDemandPanels = (config) => {
   config.plugins = [
     ...(config.plugins ?? []),
     {
       name: 'on-demand-panels',
       setup: (b) =>
-        b.onResolve({ filter: /\/lazy\/panels\.js$/ }, (a) => ({ path: a.path, external: true })),
+        b.onResolve({ filter: /(\/lazy\/panels|\/InlineRichText)\.js$/ }, (a) => ({
+          path: a.path,
+          external: true,
+        })),
     },
   ]
   return config
@@ -100,6 +104,14 @@ module.exports = [
     path: 'packages/react/dist/ui/lazy/panels.js',
     import: '{ OnDemandPanel }',
     limit: '10 KB',
+    ignore,
+  },
+  {
+    // Measured on its own (with what it shares with the editor); Lexical itself is excluded.
+    name: 'Rich-text editor (on demand)',
+    path: 'packages/lexical/dist/InlineRichText.js',
+    import: '{ InlineRichText }',
+    limit: '8 KB',
     ignore,
   },
   {

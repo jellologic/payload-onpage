@@ -153,7 +153,18 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
 
       const i18n = { i18n: req.i18n }
       const relations: NonNullable<DocumentSchema['relations']> = {}
-      for (const target of relationTargets(fields)) {
+      // Rich text can link to the site's pages: the collections enabled here.
+      const hasRichText = (list: typeof fields): boolean =>
+        list.some(
+          (f) =>
+            f.type === 'richText' ||
+            ((f.type === 'group' || f.type === 'array') && hasRichText(f.fields)) ||
+            (f.type === 'blocks' && f.blocks.some((b) => hasRichText(b.fields))),
+        )
+      const linkTargets = hasRichText(fields)
+        ? ctx.entries.filter((e) => e.kind === 'collection').map((e) => e.slug)
+        : []
+      for (const target of [...relationTargets(fields), ...linkTargets]) {
         const c = entityConfig(req, 'collection', target)
         if (c)
           relations[target] = {
@@ -185,6 +196,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
         ...(hasAutosaveEnabled(cfg) ? { autosaveInterval: getAutosaveInterval(cfg) } : {}),
         ...(useAsTitle ? { useAsTitle } : {}),
         ...(Object.keys(relations).length ? { relations } : {}),
+        ...(linkTargets.length ? { linkTargets } : {}),
         ...(localization
           ? { defaultLocale: localization.defaultLocale, locales: localization.localeCodes }
           : {}),

@@ -46,7 +46,7 @@ import {
   UNDO_COMMAND,
   type LexicalEditor,
 } from 'lexical'
-import { newRowId, safeLinkUrl, type ScalarField } from '@payload-onpage/core'
+import { newRowId, safeLinkUrl, type RefKey, type ScalarField } from '@payload-onpage/core'
 import {
   HIDDEN,
   caretAt,
@@ -54,13 +54,20 @@ import {
   placeOver,
   typographyOf,
   useEvent,
+  useOnPageOptional,
   useTrackElement,
   type FieldEditorProps,
   type Translate,
   RedoIcon,
   UndoIcon,
 } from '@payload-onpage/react/editor-kit'
-import { $createPayloadLinkNode, $isPayloadLinkNode, type PayloadLinkNode } from './nodes.tsx'
+import { LinkPicker, type InternalLink } from './LinkPicker.tsx'
+import {
+  $createPayloadLinkNode,
+  $isPayloadLinkNode,
+  type PayloadLinkFields,
+  type PayloadLinkNode,
+} from './nodes.tsx'
 import { RICH_TEXT_NODES } from './nodeList.ts'
 import { fromEditorState, hasOpaque, plainText, toEditorState } from './convert.ts'
 
@@ -144,6 +151,29 @@ function currentLinkUrl(editor: LexicalEditor): string | undefined {
 function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection | null): boolean {
   const url = rawUrl.trim()
   if (url && !safeLinkUrl(url)) return false
+  setLink(editor, url ? { url, newTab: /^https?:/.test(url), linkType: 'custom' } : null, saved)
+  return true
+}
+
+/** Link the selection to a page of the site, as Payload stores it: `linkType: 'internal'` and `doc`. */
+function applyInternalLink(editor: LexicalEditor, link: InternalLink, saved: BaseSelection | null) {
+  setLink(
+    editor,
+    {
+      linkType: 'internal',
+      doc: { relationTo: link.relationTo, value: link.value },
+      newTab: false,
+    },
+    saved,
+  )
+}
+
+/** Set (or with null, remove) the link around the selection. */
+function setLink(
+  editor: LexicalEditor,
+  fields: PayloadLinkFields | null,
+  saved: BaseSelection | null,
+) {
   editor.update(() => {
     // Focus moved to the URL field; put back the selection it was opened for.
     if (saved) $setSelection(saved.clone())
@@ -154,30 +184,28 @@ function applyLink(editor: LexicalEditor, rawUrl: string, saved: BaseSelection |
       .map((n) => $findMatchingParent(n, $isPayloadLinkNode))
       .find((n): n is PayloadLinkNode => n !== null)
     if (existing) {
-      if (!url) {
+      if (!fields) {
         for (const child of existing.getChildren()) existing.insertBefore(child)
         existing.remove()
       } else {
-        existing.setFields({ ...existing.getFields(), url })
+        // Switching kinds drops the other kind's target (no stale url on a page link, or doc on a URL).
+        const { url: _u, doc: _d, ...rest } = existing.getFields()
+        existing.setFields({ ...rest, ...fields })
       }
       return
     }
-    if (!url) return
+    if (!fields) return
     let link: PayloadLinkNode | null = null
     for (const node of nodes) {
       if (!$isTextNode(node) || $findMatchingParent(node, $isPayloadLinkNode)) continue
       if (!link || node.getPreviousSibling() !== link) {
         // Payload's own link node carries an id; so do ours.
-        link = $createPayloadLinkNode(
-          { url, newTab: /^https?:/.test(url), linkType: 'custom' },
-          newRowId(),
-        )
+        link = $createPayloadLinkNode({ ...fields }, newRowId())
         node.insertBefore(link)
       }
       link.append(node)
     }
   })
-  return true
 }
 
 /** A toolbar button that keeps the editor's selection (and syncs a keyboard selection first). */
@@ -214,10 +242,14 @@ function ToolButton({
   )
 }
 
-function Toolbar({ onDone, t }: { onDone: () => void; t: Translate }) {
+function Toolbar({ onDone, t, docKey }: { onDone: () => void; t: Translate; docKey: RefKey }) {
   const [editor] = useLexicalComposerContext()
   const [state, setState] = useState<ToolbarState>(EMPTY_TOOLBAR)
   const [linkDraft, setLinkDraft] = useState<string | null>(null)
+  const [linkMode, setLinkMode] = useState<'url' | 'page'>('url')
+  // Optional: the editor also runs outside an OnPageEditor (tests, custom hosts).
+  const api = useOnPageOptional()
+  const canLinkPages = !!api?.session.getSnapshot().docs[docKey]?.schema?.linkTargets?.length
   const savedSelection = useRef<BaseSelection | null>(null)
   const [linkError, setLinkError] = useState(false)
   const openLink = () => {
@@ -344,37 +376,69 @@ function Toolbar({ onDone, t }: { onDone: () => void; t: Translate }) {
       />
       <ToolButton label={t('rt.done')} title={t('rt.done')} onAction={onDone} id="done" />
       {linkDraft !== null && (
-        <span style={{ display: 'inline-flex', gap: 4, marginLeft: 6 }}>
-          <input
-            className="po-input"
-            style={{ width: 260, height: 28 }}
-            value={linkDraft}
-            aria-invalid={linkError || undefined}
-            title={linkError ? t('rt.linkInvalid') : undefined}
-            ref={(el) => el?.focus()}
-            placeholder={t('rt.linkPlaceholder')}
-            onChange={(e) => setLinkDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault()
-                saveLink()
-              } else if (e.key === 'Escape') {
-                e.preventDefault()
-                e.stopPropagation()
+        <span style={{ display: 'inline-flex', gap: 4, marginLeft: 6, alignItems: 'center' }}>
+          {canLinkPages && (
+            <span className="po-seg" role="radiogroup" aria-label={t('rt.link')}>
+              {(['url', 'page'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={linkMode === m}
+                  className={`po-btn${linkMode === m ? ' is-on' : ''}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => setLinkMode(m)}
+                  data-testid={`onpage-rt-link-mode-${m}`}
+                >
+                  {t(m === 'url' ? 'rt.linkUrl' : 'rt.linkPage')}
+                </button>
+              ))}
+            </span>
+          )}
+          {linkMode === 'page' && canLinkPages ? (
+            <LinkPicker
+              docKey={docKey}
+              t={t}
+              onPick={(link) => {
+                applyInternalLink(editor, link, savedSelection.current)
                 setLinkDraft(null)
-              }
-            }}
-            data-testid="onpage-rt-link-input"
-          />
-          <button
-            type="button"
-            className="po-btn"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={saveLink}
-            data-testid="onpage-rt-link-apply"
-          >
-            {t('rt.linkApply')}
-          </button>
+                editor.focus()
+              }}
+            />
+          ) : (
+            <>
+              <input
+                className="po-input"
+                style={{ width: 260, height: 28 }}
+                value={linkDraft}
+                aria-invalid={linkError || undefined}
+                title={linkError ? t('rt.linkInvalid') : undefined}
+                ref={(el) => el?.focus()}
+                placeholder={t('rt.linkPlaceholder')}
+                onChange={(e) => setLinkDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    saveLink()
+                  } else if (e.key === 'Escape') {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setLinkDraft(null)
+                  }
+                }}
+                data-testid="onpage-rt-link-input"
+              />
+              <button
+                type="button"
+                className="po-btn"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={saveLink}
+                data-testid="onpage-rt-link-apply"
+              >
+                {t('rt.linkApply')}
+              </button>
+            </>
+          )}
         </span>
       )}
     </div>
@@ -422,6 +486,7 @@ function Bridge({
 }
 
 export function InlineRichText({
+  docKey,
   field,
   value,
   element,
@@ -528,7 +593,7 @@ export function InlineRichText({
           theme: { text: { bold: 'po-b', italic: 'po-i', underline: 'po-u' } },
         }}
       >
-        <Toolbar onDone={() => finish(true)} t={t} />
+        <Toolbar onDone={() => finish(true)} t={t} docKey={docKey} />
         <RichTextPlugin
           contentEditable={
             <ContentEditable

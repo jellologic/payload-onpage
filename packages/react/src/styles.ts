@@ -109,6 +109,11 @@ html[data-onpage-editing] [data-onpage-invalid]{outline:2px solid #dc2626!import
 .po-center{text-align:center;margin-top:12px}
 .po-actions{display:flex;gap:6px}
 .po-chip-lock{background:#fde68a;color:#422006;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;white-space:nowrap}
+.po-drag{cursor:grab;touch-action:none}
+.po-drag:active{cursor:grabbing}
+.po-drop{position:fixed;background:#3b63e0;border-radius:2px;pointer-events:none;box-shadow:0 0 0 2px #fff}
+.po-array-row{border:1px solid #e2e8f0;border-radius:6px;padding:8px;margin:0 0 8px}
+.po-array-head{display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:12px;margin:0 0 6px}
 .po-split{min-width:22px;padding:0 4px;margin-left:-4px}
 .po-schedule{margin-top:14px}
 .po-alt{display:flex;flex-direction:column;gap:10px}

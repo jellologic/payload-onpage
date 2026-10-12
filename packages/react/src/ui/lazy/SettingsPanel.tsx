@@ -18,6 +18,9 @@ import {
   type ScalarField,
   type SchemaField,
   isReady,
+  newArrayRow,
+  resolveRow,
+  type ArrayField,
   type RefKey,
 } from '@payload-onpage/core'
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
@@ -28,6 +31,8 @@ import { selectedValues } from '../../editors/SelectEditor.tsx'
 import { canEdit } from '../../registry.ts'
 import { joinPath, settable } from '../../settings.ts'
 import { usePageSettings } from '../usePageSettings.ts'
+import { ArrowDownIcon, ArrowUpIcon, CloseIcon } from '../../icons.tsx'
+import { insertRow, rowOps } from '../../rowOps.ts'
 import { Dialog } from '../Dialog.tsx'
 import { docTitle } from '../titles.ts'
 
@@ -289,6 +294,8 @@ function Fields({
         .filter((f) => settable(f, path, docKey, targets) && !hidden.has(joinPath(path, f.name)))
         .map((f) => {
           const full = joinPath(path, f.name)
+          if (f.type === 'array')
+            return <ArrayRows key={f.name} docKey={docKey} path={full} field={f} hidden={hidden} />
           if (f.type === 'group') {
             return (
               <fieldset key={f.name} className="po-group">
@@ -300,6 +307,95 @@ function Fields({
           return <Row key={f.name} docKey={docKey} path={full} field={f} />
         })}
     </>
+  )
+}
+
+/** The rows of a list the page doesn't show, each with its own settings; add, move, remove. */
+function ArrayRows({
+  docKey,
+  path,
+  field,
+  hidden,
+}: {
+  docKey: RefKey
+  path: string
+  field: ArrayField
+  hidden: ReadonlySet<string>
+}) {
+  const { session, snap, t } = useOnPage()
+  const state = snap.docs[docKey]
+  if (!isReady(state)) return null
+  const value = getAt(state.doc, path)
+  const rows: unknown[] = Array.isArray(value) ? value : []
+  const item = field.labels?.singular ?? field.label
+  const canAdd = field.maxRows === undefined || rows.length < field.maxRows
+  const add = () => insertRow(session, docKey, path, rows.length, newArrayRow(field))
+  return (
+    <fieldset className="po-group po-array" data-testid={`onpage-setting-list-${path}`}>
+      <legend className="po-h4">{field.label}</legend>
+      {rows.map((row, i) => {
+        const rowPath = `${path}.${i}`
+        const info = resolveRow(state.schema, state.doc, rowPath)
+        const ops = info && rowOps(session, docKey, info)
+        const rowId = row && typeof row === 'object' && 'id' in row ? row.id : undefined
+        const id =
+          typeof rowId === 'string' || typeof rowId === 'number' ? String(rowId) : String(i)
+        return (
+          <div key={id} className="po-array-row">
+            <div className="po-array-head">
+              <span>
+                {item} {i + 1}
+              </span>
+              {ops && (
+                <span className="po-actions">
+                  <button
+                    type="button"
+                    className="po-btn"
+                    aria-label={t('row.moveUp')}
+                    title={t('row.moveUp')}
+                    disabled={!ops.canMove(-1)}
+                    onClick={() => ops.move(-1)}
+                  >
+                    <ArrowUpIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="po-btn"
+                    aria-label={t('row.moveDown')}
+                    title={t('row.moveDown')}
+                    disabled={!ops.canMove(1)}
+                    onClick={() => ops.move(1)}
+                  >
+                    <ArrowDownIcon />
+                  </button>
+                  <button
+                    type="button"
+                    className="po-btn"
+                    aria-label={t('common.removeItem', { item: `${item} ${i + 1}` })}
+                    title={t('common.remove')}
+                    disabled={!ops.canRemove}
+                    onClick={() => ops.remove()}
+                  >
+                    <CloseIcon />
+                  </button>
+                </span>
+              )}
+            </div>
+            <Fields docKey={docKey} fields={field.fields} path={rowPath} hidden={hidden} />
+          </div>
+        )
+      })}
+      {canAdd && (
+        <button
+          type="button"
+          className="po-btn"
+          onClick={add}
+          data-testid={`onpage-setting-add-${path}`}
+        >
+          + {t('row.addItem', { item })}
+        </button>
+      )}
+    </fieldset>
   )
 }
 
