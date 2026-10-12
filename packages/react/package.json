@@ -1,6 +1,6 @@
 {
   "name": "@payload-onpage/react",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "payload-onpage React editor: overlay, toolbars, field editors, annotations and client mode.",
   "license": "MIT",
   "type": "module",
