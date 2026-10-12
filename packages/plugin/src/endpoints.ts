@@ -206,8 +206,9 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     handler: async (req) => {
       const refused = rejectCrossSite(req)
       if (refused) return refused
-      await session.disable()
-      return redirectTo(req, req.searchParams.get('path'))
+      const path = safePath(req.searchParams.get('path'))
+      await session.disable(path ? { path: pathnameOf(path) } : undefined)
+      return redirectTo(req, path)
     },
   }
 

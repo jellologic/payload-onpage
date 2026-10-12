@@ -1,6 +1,6 @@
-import { COOKIE, HEADER, SEAL_PURPOSE, seal } from '@payload-onpage/core'
+import { COOKIE, HEADER, SEAL_PURPOSE, seal, sha256 } from '@payload-onpage/core'
 import { NextRequest } from 'next/server.js'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { withOnPage } from '../proxy.ts'
 
 const secret = 'proxy-secret'
@@ -63,5 +63,62 @@ describe('withOnPage (proxy)', () => {
       { secret },
     )
     expect(h.get('cookie')).not.toContain('forged')
+  })
+
+  it("strips a preview viewer's draft cookie on pages the grant does not cover", async () => {
+    const cookie = `${COOKIE.nextDraft}=NEXT_DRAFT_SECRET; ${COOKIE.preview}=${await grant()}; theme=dark`
+    const elsewhere = await withOnPage(req('/drafts/secret', cookie), { secret })
+    expect(elsewhere.get('cookie')).not.toContain(COOKIE.nextDraft)
+    expect(elsewhere.get('cookie')).toContain('theme=dark')
+    const expired = `${COOKIE.nextDraft}=NEXT_DRAFT_SECRET; ${COOKIE.preview}=${await grant({ exp: 1 })}`
+    expect((await withOnPage(req('/', expired), { secret })).get('cookie')).not.toContain(
+      COOKIE.nextDraft,
+    )
+  })
+
+  describe('strict guard (allowDraft)', () => {
+    const copied = `${COOKIE.nextDraft}=NEXT_DRAFT_SECRET`
+    it('a copied draft cookie with no grant unlocks nothing', async () => {
+      const h = await withOnPage(req('/drafts/secret', copied), { secret, allowDraft: () => false })
+      expect(h.get('cookie')).not.toContain(COOKIE.nextDraft)
+    })
+    it('keeps it for an editor whose bound session is still signed in', async () => {
+      const bound = `edit:auth:${(await sha256('TOKEN')).slice(0, 32)}`
+      const allowDraft = () => false
+      const signedIn = await withOnPage(
+        req('/x', `${copied}; ${COOKIE.mode}=${bound}; auth=TOKEN`),
+        { secret, allowDraft },
+      )
+      expect(signedIn.get('cookie')).toContain(COOKIE.nextDraft)
+      const signedOut = await withOnPage(req('/x', `${copied}; ${COOKIE.mode}=${bound}`), {
+        secret,
+        allowDraft,
+      })
+      expect(signedOut.get('cookie')).not.toContain(COOKIE.nextDraft)
+      expect(signedOut.get('cookie')).not.toContain(COOKIE.mode)
+    })
+    it('asks allowDraft otherwise, and fails closed when it throws', async () => {
+      expect(
+        (await withOnPage(req('/x', copied), { secret, allowDraft: async () => true })).get(
+          'cookie',
+        ),
+      ).toContain(COOKIE.nextDraft)
+      const thrown = await withOnPage(req('/x', copied), {
+        secret,
+        allowDraft: () => {
+          throw new Error('db down')
+        },
+      })
+      expect(thrown.get('cookie')).not.toContain(COOKIE.nextDraft)
+    })
+    it('never asks when the grant covers the page', async () => {
+      const allowDraft = vi.fn(() => false)
+      const h = await withOnPage(req('/', `${copied}; ${COOKIE.preview}=${await grant()}`), {
+        secret,
+        allowDraft,
+      })
+      expect(h.get(HEADER.shared)).toBe('1')
+      expect(allowDraft).not.toHaveBeenCalled()
+    })
   })
 })
