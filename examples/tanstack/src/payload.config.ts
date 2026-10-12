@@ -39,6 +39,11 @@ export default buildConfig({
       collections: ['pages'],
       globals: ['header'],
       session: tanstackSession({ secret: PAYLOAD_SECRET }),
+      // Comments on pages and review requests; share-link viewers can comment too.
+      comments: { guests: true },
+      // A real site would email or message its reviewers here.
+      onReviewRequest: ({ req, note, url }) =>
+        req.payload.logger.info(`Review requested${note ? `: ${note}` : ''} ${url}`),
     }),
   ],
   onInit: seed,

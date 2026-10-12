@@ -7,6 +7,7 @@ import {
   type DataSource,
   type DocumentSchema,
   type MediaLibrary,
+  type PageComment,
 } from '@payload-onpage/core'
 import { OnPageClient } from '../OnPageClient.tsx'
 import { OnPageEditor } from '../editor/OnPageEditor.tsx'
@@ -414,6 +415,79 @@ describe('history panel', () => {
     await waitFor(() => expect(restoreVersion).toHaveBeenCalledWith(expect.anything(), 'v1'))
     fireEvent.click(screen.getByTestId('onpage-versions-highlight'))
     await waitFor(() => expect(span.hasAttribute('data-onpage-changed')).toBe(false))
+  })
+})
+
+describe('comments panel', () => {
+  it('lists, adds (about the selection), resolves, and asks for a review', async () => {
+    const stored: PageComment[] = [
+      {
+        id: 1,
+        body: 'Old',
+        kind: 'comment',
+        resolved: true,
+        createdAt: new Date().toISOString(),
+        author: 'Ada',
+        guest: false,
+      },
+      {
+        id: 2,
+        body: 'Love it',
+        quote: 'Big',
+        kind: 'comment',
+        resolved: false,
+        createdAt: new Date().toISOString(),
+        author: 'Sam',
+        guest: true,
+      },
+    ]
+    const addComment = vi.fn<NonNullable<DataSource['addComment']>>(async () => {})
+    const resolveComment = vi.fn<NonNullable<DataSource['resolveComment']>>(async () => {})
+    const requestReview = vi.fn<NonNullable<DataSource['requestReview']>>(async () => ({
+      url: 'u',
+      expiresAt: 'e',
+    }))
+    const { ds } = source({
+      loadSchema: async () => ({ ...schema, comments: true, canPublish: false }),
+      listComments: async () => stored,
+      addComment,
+      resolveComment,
+      requestReview,
+    })
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`)
+    // Can't publish: Publish is off, and the dock counts the open comment.
+    expect(screen.getByTestId<HTMLButtonElement>('onpage-publish').disabled).toBe(true)
+    await waitFor(() =>
+      expect(screen.getByTestId('onpage-comments-open').textContent).toBe('Comments (1)'),
+    )
+    act(() => hub.get()!.setSelected({ key: 'c:pages:1', path: 'title' }))
+    fireEvent.click(screen.getByTestId('onpage-comments-open'))
+    const items = await screen.findAllByTestId('onpage-comment')
+    expect(items.map((i) => i.textContent)).toEqual([
+      expect.stringContaining('Love it'), // open first
+      expect.stringContaining('Old'),
+    ])
+    expect(items[0]!.textContent).toContain('via share link')
+    fireEvent.change(screen.getByTestId('onpage-comment-text'), { target: { value: 'Shorter' } })
+    fireEvent.click(screen.getByTestId('onpage-comment-add'))
+    await waitFor(() =>
+      expect(addComment).toHaveBeenCalledWith(expect.objectContaining({ slug: 'pages' }), {
+        body: 'Shorter',
+        path: 'title', // about the selected field
+      }),
+    )
+    fireEvent.click(screen.getAllByTestId('onpage-comment-resolve')[0]!)
+    await waitFor(() => expect(resolveComment).toHaveBeenCalledWith(2, true))
+    fireEvent.change(screen.getByTestId('onpage-review-note'), {
+      target: { value: 'Check the hero' },
+    })
+    fireEvent.click(screen.getByTestId('onpage-review-request'))
+    await waitFor(() =>
+      expect(requestReview).toHaveBeenCalledWith(expect.anything(), {
+        note: 'Check the hero',
+        locale: undefined,
+      }),
+    )
   })
 })
 

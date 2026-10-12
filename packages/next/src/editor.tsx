@@ -80,6 +80,7 @@ export function NextPreview(props: OnPageMountProps) {
       shared={props.shared}
       messages={props.messages}
       uiLocale={props.uiLocale}
+      commentsHref={props.shared ? `${routesOf(props).base}${ROUTES.comments}` : undefined}
     />
   )
 }

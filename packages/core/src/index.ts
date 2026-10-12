@@ -108,6 +108,7 @@ export {
   type OnPageMode,
   type PreviewLink,
   type Renderer,
+  type PageComment,
   type ScheduledPublish,
   type VersionSummary,
   type SaveResult,

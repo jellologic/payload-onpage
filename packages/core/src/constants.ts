@@ -16,6 +16,8 @@ export const ROUTES = {
   schedule: '/schedule',
   conditions: '/conditions',
   lock: '/lock',
+  comments: '/comments',
+  review: '/review',
 } as const
 
 /**

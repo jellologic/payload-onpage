@@ -135,6 +135,8 @@ export interface PreviewGrant {
   exp: number
   /** The draft credential for that page (adapter-specific: Next's draft-mode secret on Next.js, a constant marker where reads verify the grant directly). */
   draft: string
+  /** The preview link's id (its `jti`), for per-link limits. */
+  id?: string
 }
 
 /** A well-formed grant that hasn't expired. Anything else, including a missing `exp`, is refused. */

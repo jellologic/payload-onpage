@@ -118,6 +118,16 @@ html[data-onpage-editing] [data-onpage-invalid]{outline:2px solid #dc2626!import
 .po-versions{list-style:none;margin:10px 0 0;padding:0}
 .po-versions li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:12px}
 .po-chip-live{background:#fecaca;color:#450a0a}
+.po-textarea{min-height:64px;resize:vertical;width:100%;box-sizing:border-box}
+.po-comments{list-style:none;margin:10px 0;padding:0}
+.po-comments li{border-bottom:1px solid #e2e8f0;padding:8px 0;font-size:12px}
+.po-comments li.is-resolved{opacity:.65}
+.po-comments p{margin:4px 0;white-space:pre-wrap}
+.po-comments blockquote{margin:4px 0;padding-left:8px;border-left:3px solid #cbd5e1;color:#334155}
+.po-comment-head{display:flex;gap:4px;align-items:baseline}
+.po-link{all:unset;color:#1d4ed8;text-decoration:underline;cursor:pointer;font-size:12px}
+.po-review{margin-top:14px;border-top:1px solid #e2e8f0;padding-top:10px}
+.po-quote{margin:0 0 10px;padding-left:8px;border-left:3px solid #cbd5e1;color:#334155;font-size:12px}
 .po-split{min-width:22px;padding:0 4px;margin-left:-4px}
 .po-schedule{margin-top:14px}
 .po-alt{display:flex;flex-direction:column;gap:10px}

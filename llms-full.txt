@@ -579,6 +579,10 @@ Fields the user can't update are left out of the editor schema (field-level acce
 - **Opening a link replaces the current mode.** The link is a plain GET so it can be shared anywhere, which also means a page on another site can open it. A signed-in editor who follows someone else's link leaves edit mode for that preview (and can press **Edit on page** again). No data is exposed.
 - **The proxy is required** for share links on Next.js. Without it, links fail closed: viewers see published content. (On Start, the session's `secret` plays the same role: without it, grants never validate.)
 
+### Comments from share links
+
+With `comments: { guests: true }`, a share-link viewer can add a comment, but only on the document their sealed grant covers. The plugin reads that document from the grant, never from the request, and refuses expired or forged grants. Viewers can't read or resolve comments. Text is bounded (2,000 characters; a 500-character quote; an 80-character name) and stored as plain text, and each link can post at most 20 comments an hour. Comments are off unless you turn them on.
+
 ### Revoking a link
 
 Keep revoked link ids in a collection and refuse them:

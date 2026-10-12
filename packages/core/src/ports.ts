@@ -97,6 +97,34 @@ export interface DataSource {
   listVersions?(ref: DocRef, opts: { limit?: Opt<number> }): Promise<VersionSummary[]>
   /** Make a version the current draft again (it isn't published). Optional. */
   restoreVersion?(ref: DocRef, versionId: string | number): Promise<void>
+  /** Comments on a document, newest first (the plugin's `comments` option). Optional. */
+  listComments?(ref: DocRef): Promise<PageComment[]>
+  /** Comment on a document, or on one of its fields (`path`). Optional. */
+  addComment?(ref: DocRef, comment: { body: string; path?: Opt<string> }): Promise<void>
+  /** Mark a comment resolved, or open it again. Optional. */
+  resolveComment?(id: PageComment['id'], resolved: boolean): Promise<void>
+  /** Ask reviewers to look at a page: the site is notified with a share link. Optional. */
+  requestReview?(
+    ref: DocRef,
+    opts: { note?: Opt<string>; locale?: Opt<string> },
+  ): Promise<{ url: string; expiresAt: string }>
+}
+
+/** A comment on a page, from an editor or a share-link viewer. */
+export interface PageComment {
+  id: string | number
+  body: string
+  /** The field it's about. */
+  path?: string | undefined
+  /** Text the commenter selected. */
+  quote?: string | undefined
+  kind: 'comment' | 'review'
+  resolved: boolean
+  /** ISO. */
+  createdAt: string
+  author?: string | undefined
+  /** From a share-link viewer. */
+  guest: boolean
 }
 
 /** One saved version of a document. */

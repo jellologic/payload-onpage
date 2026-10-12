@@ -6,6 +6,7 @@
  */
 import { useOnPage } from '../../context.tsx'
 import { BlockPicker } from './BlockPicker.tsx'
+import { CommentsPanel } from './CommentsPanel.tsx'
 import { PublishPanel } from './PublishPanel.tsx'
 import { SettingsPanel } from './SettingsPanel.tsx'
 import { VersionsPanel } from './VersionsPanel.tsx'
@@ -17,6 +18,8 @@ export function OnDemandPanel() {
       return <PublishPanel />
     case 'versions':
       return <VersionsPanel />
+    case 'comments':
+      return <CommentsPanel />
     case 'blocks':
       return <BlockPicker />
     case 'settings':

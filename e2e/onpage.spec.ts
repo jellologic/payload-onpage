@@ -481,6 +481,53 @@ test('preview mode for editors, then exit', async ({ context }) => {
   await expect(page.getByTestId('onpage-dock')).toHaveCount(0)
 })
 
+test('comments: editors, review requests, and share-link viewers', async ({ context, browser }) => {
+  const page = await editPage(context)
+  await page.getByTestId('onpage-comments-open').click()
+  const panel = page.getByTestId('onpage-comments')
+  await panel.getByTestId('onpage-comment-text').fill('Shorter heading, please')
+  await panel.getByTestId('onpage-comment-add').click()
+  await expect(panel.getByTestId('onpage-comment').first()).toContainText('Shorter heading, please')
+  const axe = await new AxeBuilder({ page }).include('[data-onpage-ui]').analyze()
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+    [],
+  )
+  await panel.getByTestId('onpage-review-note').fill('Ready for a look')
+  await panel.getByTestId('onpage-review-request').click()
+  await expect(page.getByTestId('onpage-status')).toHaveText(/Review requested/)
+  await expect(panel.getByTestId('onpage-comment').first()).toContainText('Ready for a look')
+
+  // Someone with the share link comments, quoting text they selected.
+  const link = await page.evaluate(async () => {
+    const res = await fetch('/api/onpage/preview-link', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'collection', slug: 'pages', id: 1 }),
+    })
+    return ((await res.json()) as { url: string }).url
+  })
+  const anon = await browser.newContext()
+  const viewer = await anon.newPage()
+  await viewer.goto(link)
+  await viewer.locator('h1').first().selectText()
+  await viewer.getByTestId('onpage-guest-comment-open').click()
+  const form = viewer.getByTestId('onpage-guest-comment')
+  await form.getByTestId('onpage-guest-name').fill('Sam')
+  await form.getByTestId('onpage-guest-body').fill('Love it')
+  await form.getByTestId('onpage-guest-send').click()
+  await expect(viewer.getByTestId('onpage-preview-toolbar')).toContainText('your comment was sent')
+  await anon.close()
+
+  // The editor sees it (reopen the panel to refresh), and resolves it.
+  await page.getByTestId('onpage-comments-open').click()
+  await page.getByTestId('onpage-comments-open').click()
+  const guest = panel.getByTestId('onpage-comment').filter({ hasText: 'Love it' })
+  await expect(guest).toContainText('Sam')
+  await expect(guest).toContainText('via share link')
+  await guest.getByTestId('onpage-comment-resolve').click()
+  await expect(guest.getByTestId('onpage-comment-resolve')).toHaveText('Reopen')
+})
+
 // Last: restoring a version rewinds the page's draft.
 test('history: what changed since published, and restoring a version', async ({ context }) => {
   const page = await editPage(context)

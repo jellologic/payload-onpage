@@ -1,5 +1,6 @@
 import type { DocRef, EncodeFilter, SealSecret, SessionAdapter } from '@payload-onpage/core'
 import type { CollectionSlug, GlobalSlug, PayloadRequest } from 'payload'
+import type { CommentsOptions } from './comments.ts'
 
 export interface OnPageDocOptions {
   /** Top-level fields editable on the page. Default: every top-level field the user may update. */
@@ -58,6 +59,27 @@ export interface OnPageOptions {
   authCookie?: string
   /** Endpoint prefix under the API route. Default "/onpage". */
   routePrefix?: `/${string}`
+  /**
+   * Comments on pages, and review requests, stored in an `onpage-comments`
+   * collection (adds it to your config: generate a migration). With
+   * `{ guests: true }`, share-link viewers can comment on the page they were
+   * sent, too. Default off.
+   */
+  comments?: boolean | CommentsOptions | undefined
+  /**
+   * Called when an editor asks for a review of a page (needs `comments`):
+   * notify your reviewers (email, Slack…). `url` is a fresh share link to the
+   * page; the request is also kept as a comment.
+   */
+  onReviewRequest?:
+    | ((args: {
+        req: PayloadRequest
+        ref: DocRef
+        note: string
+        url: string
+        expiresAt: string
+      }) => void | Promise<void>)
+    | undefined
   enabled?: boolean
 }
 
