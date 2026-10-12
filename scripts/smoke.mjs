@@ -21,7 +21,7 @@ for (const pkg of ['core', 'plugin', 'react', 'lexical', 'next']) {
       .filter((f) => f.endsWith(ext) && !f.endsWith(`.d${ext}`))
       .map((f) => {
         const stem = f.slice(0, -ext.length)
-        return [sub.replace('*', stem), { default: target.default.replace('*', stem) }]
+        return [sub.replaceAll('*', stem), { default: target.default.replaceAll('*', stem) }]
       })
   })
   for (const [sub, target] of entries) {
