@@ -1,5 +1,16 @@
 # @payload-onpage/plugin
 
+## 0.5.0
+
+### Minor Changes
+
+- [#18](https://github.com/jellologic/payload-onpage/pull/18) [`9dca50e`](https://github.com/jellologic/payload-onpage/commit/9dca50e72997076f2e39a5b02cf635171786dd0c) Thanks [@jellologic](https://github.com/jellologic)! - Block picker: shows each block's Payload thumbnail (`admin.images.thumbnail`, or the older `imageURL`) and groups blocks by `admin.group`. On documents rendered in client mode (`<OnPageClient>`), pointing at a block previews it in place on the page before it's added, using optional sample content from `admin.custom.onpage.example`; set `insertExample: true` beside it to start new blocks from that content. New in core: `previewRow()` and the `SchemaImage` type; `SchemaBlock` gains `thumbnail`, `group`, `example` and `insertExample`.
+
+### Patch Changes
+
+- Updated dependencies [[`9dca50e`](https://github.com/jellologic/payload-onpage/commit/9dca50e72997076f2e39a5b02cf635171786dd0c)]:
+  - @payload-onpage/core@0.5.0
+
 ## 0.4.1
 
 ### Patch Changes
