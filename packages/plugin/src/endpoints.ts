@@ -101,7 +101,11 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
       if (!entry || !cfg) throw new NotFound(req.t)
       if (!(await canUseOnPage(req, options))) throw new Forbidden(req.t)
 
-      const perms = await documentPermissions(req, { kind, slug })
+      // With the document's id, field rules that depend on the document (`({ doc })`)
+      // are evaluated against it, so the editor offers exactly what a save will keep.
+      const id = req.searchParams.get('id')
+      const ref = kind === 'collection' && id ? readRef(req, { kind, slug, id }) : null
+      const perms = await documentPermissions(req, ref ?? { kind, slug })
       if (isUpdateDenied(perms)) throw new Forbidden(req.t)
       const pending: Promise<void>[] = []
       const all = serializeFields(cfg.fields, {

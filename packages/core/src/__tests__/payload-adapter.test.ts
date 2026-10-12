@@ -66,6 +66,9 @@ describe('payloadRest', () => {
     expect(calls[0]!.url).toBe('/api/onpage/schema/global/header?locale=en')
     await ds.loadDocument({ kind: 'collection', slug: 'pages', id: 1 }, { draft: true })
     expect(calls[1]!.url).toBe('/api/pages/1?draft=true&depth=2')
+    // A collection document's schema is asked for by id (field rules can depend on it).
+    await ds.loadSchema({ kind: 'collection', slug: 'pages', id: 7 }, {})
+    expect(calls.pop()!.url).toBe('/api/onpage/schema/collection/pages?id=7')
     expect(await ds.search!('users', { query: 'Ad', titleField: 'name' })).toEqual([
       { id: 2, title: 'Ada', doc: { id: 2, name: 'Ada' } },
       { id: 3, title: '3', doc: { id: 3 } },

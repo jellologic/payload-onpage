@@ -101,6 +101,12 @@ beforeAll(async () => {
           { name: 'body', type: 'textarea' },
           { name: 'author', type: 'relationship', relationTo: 'users' },
           { name: 'price', type: 'number', access: { update: ({ req }) => isAdmin(req.user) } },
+          // A rule that depends on the document: frozen on the admin's page.
+          {
+            name: 'featured',
+            type: 'checkbox',
+            access: { update: ({ doc }) => doc?.slug !== 'admin-page' },
+          },
         ],
       },
       {
@@ -217,7 +223,7 @@ describe('schema endpoint', () => {
     const editor = await (
       await call('GET', '/onpage/schema/collection/pages', { as: 'editor' })
     ).json()
-    expect(editor.editable).toEqual(['title', 'slug', 'body', 'author'])
+    expect(editor.editable).toEqual(['title', 'slug', 'body', 'author', 'featured'])
     expect(editor.drafts).toBe(true)
     expect(editor.autosaveInterval).toBe(1500)
     expect(editor.relations).toEqual({ users: { titleField: 'id', label: 'User' } })
@@ -226,6 +232,21 @@ describe('schema endpoint', () => {
     ).json()
     expect(admin.editable).toContain('price')
     expect((await call('GET', '/onpage/schema/global/header', { as: 'admin' })).status).toBe(200)
+  })
+  it('with an id, evaluates field rules against that document', async () => {
+    const schemaFor = async (id: string | number) =>
+      (
+        await (
+          await call('GET', `/onpage/schema/collection/pages?id=${id}`, { as: 'admin' })
+        ).json()
+      ).editable
+    expect(await schemaFor(ids.adminPage)).not.toContain('featured')
+    expect(await schemaFor(ids.editorPage)).toContain('featured')
+    // Row-level rules too: an editor gets no schema for someone else's page.
+    expect(
+      (await call('GET', `/onpage/schema/collection/pages?id=${ids.adminPage}`, { as: 'editor' }))
+        .status,
+    ).toBe(403)
   })
   it('denies the schema when update access is definitively false or throws', async () => {
     // Row-level editors still get the schema (their rule needs a document to evaluate).
