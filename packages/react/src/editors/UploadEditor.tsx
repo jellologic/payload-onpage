@@ -45,7 +45,7 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
   // A file waiting for its alt text, with a preview URL.
   const [pending, setPending] = useState<{ file: File; url: string } | null>(null)
   const [alt, setAlt] = useState('')
-  useEffect(() => (pending ? () => URL.revokeObjectURL(pending.url) : undefined), [pending])
+  useEffect(() => (pending?.url ? () => URL.revokeObjectURL(pending.url) : undefined), [pending])
   // The alt step appears after the dialog opened, so `data-autofocus` doesn't reach it.
   const altInput = useRef<HTMLInputElement>(null)
   useEffect(() => {
@@ -61,7 +61,9 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
   const pick = (file: File) => {
     setUploadError(null)
     setAlt('')
-    setPending({ file, url: URL.createObjectURL(file) })
+    // A preview only for images, and only from a blob: URL the browser made for this file.
+    const url = file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
+    setPending({ file, url: /^blob:/.test(url) ? url : '' })
   }
   const upload = async () => {
     if (!media?.upload || !pending) return
@@ -155,7 +157,7 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
           }}
           data-testid="onpage-media-alt-form"
         >
-          <img src={pending.url} alt="" />
+          {pending.url && <img src={pending.url} alt="" />}
           <div className="po-row">
             <label htmlFor={altId}>{t('media.alt')}</label>
             <input
