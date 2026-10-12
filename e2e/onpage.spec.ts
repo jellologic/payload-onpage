@@ -252,9 +252,13 @@ test.describe('in a short window', () => {
 test('client mode updates live while typing', async ({ context }) => {
   const page = await editPage(context, '/admin/collections/pages/2')
   const h1 = page.locator('h1').first()
-  await h1.click()
   const inline = page.getByTestId('onpage-inline-text')
-  await expect(inline).toBeFocused()
+  // This page registers its document as it renders (client mode), after the
+  // header global loaded: a click before then only says "Loading…".
+  await expect(async () => {
+    await h1.click()
+    await expect(inline).toBeFocused({ timeout: 1000 })
+  }).toPass()
   // Put the caret at the very end, whatever the platform's End key does.
   await inline.evaluate((el) => {
     const range = document.createRange()
