@@ -36,7 +36,10 @@
     "cms",
     "react",
     "lexical",
-    "rich-text"
+    "rich-text",
+    "click-to-edit",
+    "payload-4",
+    "content-editing"
   ],
   "exports": {
     ".": {
