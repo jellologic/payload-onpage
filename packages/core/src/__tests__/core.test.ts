@@ -15,6 +15,7 @@ import schemaFixture from './fixtures/schema.json'
 import {
   buildPatch,
   changedKeys,
+  changedPaths,
   cloneRow,
   defaultsFor,
   fieldAtPath,
@@ -123,6 +124,64 @@ describe('schema-aware field ops', () => {
     const next = setAt(doc, 'sections.0.heading', 'Hello')
     expect(changedKeys(doc as any, next as any, ['title', 'sections'])).toEqual(['sections'])
     expect(changedKeys(doc as any, { ...doc } as any, ['sections'])).toEqual([])
+  })
+})
+
+describe('changedPaths', () => {
+  const fields: SchemaField[] = [
+    { name: 'title', type: 'text', label: 'T' },
+    { name: 'author', type: 'relationship', label: 'A', relationTo: 'users' },
+    {
+      name: 'meta',
+      type: 'group',
+      label: 'M',
+      fields: [{ name: 'description', type: 'textarea', label: 'D' }],
+    },
+    {
+      name: 'layout',
+      type: 'blocks',
+      label: 'L',
+      blocks: [
+        {
+          slug: 'hero',
+          labels: { singular: 'H', plural: 'H' },
+          fields: [{ name: 'heading', type: 'text', label: 'H' }],
+        },
+        {
+          slug: 'cta',
+          labels: { singular: 'C', plural: 'C' },
+          fields: [{ name: 'label', type: 'text', label: 'L' }],
+        },
+      ],
+    },
+  ]
+  const published = {
+    title: 'Home',
+    author: 7,
+    meta: { description: 'old' },
+    layout: [
+      { id: 'a', blockType: 'hero', heading: 'Hi' },
+      { id: 'b', blockType: 'cta', label: 'Go' },
+    ],
+  }
+  it('lists changed fields at any depth; populated relations compare by id', () => {
+    const draft = {
+      ...published,
+      author: { id: 7, name: 'Ada' }, // same relation, populated
+      meta: { description: 'new' },
+      layout: [
+        { id: 'b', blockType: 'cta', label: 'Go now' }, // moved up and edited: matched by id
+        { id: 'a', blockType: 'hero', heading: 'Hi' },
+        { id: 'c', blockType: 'cta', label: 'New' }, // added
+      ],
+    }
+    expect(changedPaths(published, draft, fields)).toEqual([
+      'meta.description',
+      'layout',
+      'layout.0.label',
+      'layout.2',
+    ])
+    expect(changedPaths(published, structuredClone(published), fields)).toEqual([])
   })
 })
 

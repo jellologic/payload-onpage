@@ -33,6 +33,8 @@ export type Panel =
   | { kind: 'page' }
   /** Choose what to publish, or schedule it. */
   | { kind: 'publish' }
+  /** Saved versions: restore one, see what changed since published. */
+  | { kind: 'versions' }
   | null
 
 export interface Selection {

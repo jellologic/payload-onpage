@@ -18,6 +18,7 @@ import type {
   SaveResult,
   ScheduledPublish,
   SearchHit,
+  VersionSummary,
 } from './ports.ts'
 import type { DocumentSchema } from './schema.ts'
 
@@ -201,6 +202,43 @@ export function payloadRest(
       if (!res.ok) throw new Error(await errorMessage(res))
       const body = (await res.json()) as { lockedBy?: unknown }
       return { lockedBy: typeof body.lockedBy === 'string' ? body.lockedBy : null }
+    },
+    async listVersions(ref, o): Promise<VersionSummary[]> {
+      const base = ref.kind === 'global' ? `${api}/globals/${ref.slug}` : `${api}/${ref.slug}`
+      const p = new URLSearchParams({
+        sort: '-updatedAt',
+        limit: String(o.limit ?? 20),
+        depth: '0',
+      })
+      if (ref.kind === 'collection') p.set('where[parent][equals]', String(ref.id))
+      const res = await f(`${base}/versions?${p}`, init())
+      if (!res.ok) throw new Error(await errorMessage(res))
+      const body = (await res.json()) as {
+        docs?: Array<{
+          id: string | number
+          updatedAt?: string
+          autosave?: boolean
+          version?: { _status?: string }
+        }>
+      }
+      return (body.docs ?? []).map((v) => ({
+        id: v.id,
+        updatedAt: v.updatedAt ?? '',
+        status:
+          v.version?._status === 'published' || v.version?._status === 'draft'
+            ? v.version._status
+            : undefined,
+        autosave: !!v.autosave,
+      }))
+    },
+    async restoreVersion(ref, versionId): Promise<void> {
+      const base = ref.kind === 'global' ? `${api}/globals/${ref.slug}` : `${api}/${ref.slug}`
+      // As a draft: restoring from the page never publishes.
+      const res = await f(
+        `${base}/versions/${encodeURIComponent(String(versionId))}?draft=true&depth=0`,
+        init({ method: 'POST' }),
+      )
+      if (!res.ok) throw new Error(await errorMessage(res))
     },
     async hiddenFields(ref, doc): Promise<string[]> {
       const res = await f(

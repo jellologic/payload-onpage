@@ -480,21 +480,38 @@ export class EditorSession {
 
   /** After a conflict: load the latest draft of a document and continue from it (local edits are dropped). */
   reload(key: RefKey): Promise<void> {
+    return this.serial(() => this.continueFromServer(key))
+  }
+
+  /**
+   * Make a saved version the current draft (`DataSource.restoreVersion`), then
+   * continue from it. Pending edits are saved first, so they're in the history.
+   */
+  restoreVersion(key: RefKey, versionId: string | number): Promise<void> {
     return this.serial(async () => {
       const state = this.docs.get(key)
-      if (!state) return
-      const doc = await this.dataSource.loadDocument(state.ref, {
-        draft: true,
-        locale: this.locale,
-        depth: 2,
-      })
-      this.adopt(key, doc)
-      this.anchors.delete(key)
-      this.past = this.past.filter((e) => e.key !== key)
-      this.future = this.future.filter((e) => e.key !== key)
-      this.queues.get(key)?.reset()
-      this.patchState(key, { edited: false })
+      if (!state || !this.dataSource.restoreVersion) return
+      await this.flush()
+      await this.dataSource.restoreVersion(state.ref, versionId)
+      await this.continueFromServer(key)
     })
+  }
+
+  /** Load the latest draft and continue from it: this document's local history is dropped. */
+  private async continueFromServer(key: RefKey) {
+    const state = this.docs.get(key)
+    if (!state) return
+    const doc = await this.dataSource.loadDocument(state.ref, {
+      draft: true,
+      locale: this.locale,
+      depth: 2,
+    })
+    this.adopt(key, doc)
+    this.anchors.delete(key)
+    this.past = this.past.filter((e) => e.key !== key)
+    this.future = this.future.filter((e) => e.key !== key)
+    this.queues.get(key)?.reset()
+    this.patchState(key, { edited: false })
   }
 
   /** Stop timers and listeners (unmount). Call flush() first to keep unsent edits. */

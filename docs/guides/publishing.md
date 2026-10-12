@@ -1,4 +1,8 @@
-# Page settings and publishing
+# Page settings, history and publishing
+
+## Documents without drafts
+
+A collection or global without `versions.drafts` has no draft: each on-page change is published as soon as it saves. The dock says so ("Header: changes go live"), and the plugin warns at startup. Add `versions: { drafts: true }` to keep changes as drafts.
 
 ## Page settings
 
@@ -9,6 +13,15 @@ Narrow what's offered with the plugin's `fields` option per collection, or with 
 ### Field conditions
 
 Fields with `admin.condition` show and hide in page and section settings as they do in the admin. Conditions are functions in your config, so the plugin runs them on the server against the document as the editor has it (`POST /api/onpage/conditions`), shortly after each change. A link group that shows either `url` or `reference` depending on its `type`, as in Payload's website template, shows only the one that applies.
+
+## History
+
+**History** in the dock lists the document's saved versions (Payload versions), newest first.
+
+- **Outline what changed since published** outlines, on the page, every field the draft changes compared with the published version, and counts them. A new section is outlined as a whole.
+- **Restore** makes an older version the current draft. It isn't published: review it on the page, then publish. Edits not yet saved are saved first, so they stay in the history.
+
+Version access follows Payload's `readVersions` access.
 
 ## Publish
 

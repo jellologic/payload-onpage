@@ -14,6 +14,8 @@ export const DOM_ATTR = {
   styles: 'data-onpage-styles',
   /** A field the server called invalid: the message. */
   invalid: 'data-onpage-invalid',
+  /** A field that differs from the published version (history panel). */
+  changed: 'data-onpage-changed',
 } as const
 
 export const HIDDEN = DOM_ATTR.hidden

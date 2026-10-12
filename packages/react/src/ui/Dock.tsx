@@ -88,6 +88,8 @@ export function Dock() {
   const docs = docKeys.map((k) => snap.docs[k]).filter((d): d is DocumentState => !!d)
   const locked = docs.find((d) => lockedBy[d.key])
   const ready = docs.filter((d) => d.status === 'ready')
+  // No drafts: every save is a live change. Say so, once.
+  const liveDoc = ready.find((d) => d.schema && !d.schema.drafts)
   const failed = docs.find((d) => d.status === 'error')
   const conflict = docs.find((d) => d.save.status === 'conflict')
   const error = docs.find((d) => d.save.status === 'error')
@@ -223,6 +225,16 @@ export function Dock() {
             {t('dock.retry')}
           </button>
         )}
+        {liveDoc && (
+          <span
+            className="po-chip-lock po-chip-live"
+            role="note"
+            title={t('dock.liveHint')}
+            data-testid="onpage-live-doc"
+          >
+            {t('dock.live', { doc: title(liveDoc) })}
+          </span>
+        )}
         {locked && (
           <span
             className="po-chip-lock"
@@ -271,6 +283,18 @@ export function Dock() {
             data-testid="onpage-page-settings-open"
           >
             {t('dock.pageSettings')}
+          </button>
+        )}
+        {session.dataSource.listVersions && ready.length > 0 && (
+          <button
+            type="button"
+            className="po-btn"
+            aria-expanded={panel?.kind === 'versions'}
+            onClick={() => setPanel(panel?.kind === 'versions' ? null : { kind: 'versions' })}
+            title={t('dock.historyHint')}
+            data-testid="onpage-versions-open"
+          >
+            {t('dock.history')}
           </button>
         )}
         {links.mode && (

@@ -480,3 +480,26 @@ test('preview mode for editors, then exit', async ({ context }) => {
   await page.getByTestId('onpage-exit').click()
   await expect(page.getByTestId('onpage-dock')).toHaveCount(0)
 })
+
+// Last: restoring a version rewinds the page's draft.
+test('history: what changed since published, and restoring a version', async ({ context }) => {
+  const page = await editPage(context)
+  await page.getByTestId('onpage-versions-open').click()
+  const panel = page.getByTestId('onpage-versions')
+  await expect(panel.getByTestId('onpage-version-0')).toBeVisible()
+  // Earlier tests edited the heading: it differs from the published page.
+  await panel.getByTestId('onpage-versions-highlight').check()
+  await expect(
+    page.locator('h1[data-onpage-changed], [data-onpage-changed] h1').first(),
+  ).toBeVisible()
+  const axe = await new AxeBuilder({ page }).include('[data-onpage-ui]').analyze()
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+    [],
+  )
+  // Restore the oldest version listed (two clicks: arm, then confirm).
+  const restore = panel.locator('[data-testid^="onpage-version-restore-"]').last()
+  await restore.click()
+  await expect(restore).toHaveText('Restore as draft?')
+  await restore.click()
+  await expect(page.getByTestId('onpage-status')).toHaveText(/Restored the version/)
+})
