@@ -26,7 +26,11 @@ Settings that aren't text on the page, like a section's tone, a link URL or a to
 
 ![The settings panel for a Hero section: a URL field and a Light/Dark choice](media/settings-panel.png)
 
-![The block picker listing the page's block types: Hero, Content, Features](media/block-picker.png)
+![The block picker showing a thumbnail for each block type: Hero, Content, Features](media/block-picker.png)
+
+On a page in [client mode](guides/client-mode.md), pointing at a block previews it in place before it's added:
+
+![Pointing at Features in the picker previews a features section on the page](media/block-preview.png)
 
 ## Field editors for every kind of field
 

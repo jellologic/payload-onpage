@@ -186,6 +186,64 @@ test('client mode updates live while typing', async ({ context }) => {
   await page.keyboard.press('Enter')
 })
 
+test('block picker: thumbnails; client mode previews in place until one is chosen', async ({
+  context,
+}) => {
+  const page = await editPage(context, '/admin/collections/pages/2')
+  const sections = page.locator('main section')
+  const before = await sections.count()
+  const openPicker = async () => {
+    await sections.last().hover()
+    await page.getByTestId('onpage-insert-below').click()
+    await expect(page.getByTestId('onpage-block-picker')).toBeVisible()
+  }
+
+  await openPicker()
+  await expect(page.getByTestId('onpage-block-hero').locator('img')).toHaveAttribute(
+    'src',
+    '/blocks/hero.svg',
+  )
+  await expect(page.getByRole('heading', { name: 'Headers' })).toBeVisible()
+  const axe = await new AxeBuilder({ page })
+    .include('[data-testid="onpage-block-picker"]')
+    .analyze()
+  expect(axe.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical')).toEqual(
+    [],
+  )
+
+  // Hovering shows the block's example content on the page; Escape takes it away.
+  await page.getByTestId('onpage-block-hero').hover()
+  await expect(page.getByText('Your big idea, front and center')).toBeVisible()
+  await expect(sections).toHaveCount(before + 1)
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('onpage-block-picker')).toBeHidden()
+  await expect(sections).toHaveCount(before)
+  await expect(page.getByText('Your big idea, front and center')).toHaveCount(0)
+
+  // Choosing Hero inserts its defaults: its example is preview-only.
+  await openPicker()
+  await page.getByTestId('onpage-block-hero').click()
+  await expect(page.getByTestId('onpage-block-picker')).toBeHidden()
+  await expect(sections).toHaveCount(before + 1)
+  await expect(page.getByText('Your big idea, front and center')).toHaveCount(0)
+  await expect(page.getByTestId('onpage-status')).toHaveText(/Draft saved/)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect(sections).toHaveCount(before)
+
+  // Features sets insertExample: it starts from its example. It saves, and ⌘Z undoes.
+  await openPicker()
+  await page.getByTestId('onpage-block-features').hover()
+  await expect(page.getByTestId('onpage-block-features')).toHaveClass(/is-previewing/)
+  await expect(page.getByText('Why people choose us')).toBeVisible()
+  await page.getByTestId('onpage-block-features').click()
+  await expect(page.getByTestId('onpage-block-picker')).toBeHidden()
+  await expect(sections).toHaveCount(before + 1)
+  await expect(page.getByText('Why people choose us')).toBeVisible()
+  await expect(page.getByTestId('onpage-status')).toHaveText(/Draft saved/)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect(sections).toHaveCount(before)
+})
+
 test('editor UI has no serious accessibility violations', async ({ context }) => {
   const page = await editPage(context)
   await page

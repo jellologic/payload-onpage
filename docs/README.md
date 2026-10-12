@@ -21,6 +21,7 @@ On-page editing and draft previews for **Payload CMS**, on **Next.js (App Router
 
 - [Annotations](guides/annotations.md): precise mapping for rows, lists, images and non-text fields.
 - [Client mode](guides/client-mode.md): instant edits without a server round trip.
+- [Block thumbnails and previews](guides/block-picker.md): thumbnails in the section picker, and live previews in client mode.
 - [Globals and multiple documents](guides/globals-and-multiple-documents.md)
 - [Custom field editor](guides/custom-field-editor.md)
 - [Custom data source](guides/custom-data-source.md)

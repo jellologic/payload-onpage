@@ -20,6 +20,7 @@ import {
   fieldAtPath,
   newBlockRow,
   normalizeValue,
+  previewRow,
 } from '../fields.ts'
 import { AutosaveQueue, type SaveState } from '../autosave.ts'
 import type { SaveResult as SendResult } from '../ports.ts'
@@ -86,6 +87,22 @@ describe('schema-aware field ops', () => {
     const gallery = newBlockRow(narrow(schema[1], 'blocks').blocks[1]!) as { images: unknown[] }
     expect(gallery.images).toHaveLength(1)
     expect(defaultsFor([])).toEqual({})
+  })
+  it('previews a block with its example over the defaults, with fresh row ids', () => {
+    const block = narrow(schema[1], 'blocks').blocks[0]!
+    const row = previewRow({
+      ...block,
+      example: { heading: 'Sample', blockType: 'other', ctas: [{ id: 'x', label: 'Go' }] },
+    }) as any
+    expect(row).toMatchObject({
+      blockType: 'hero',
+      heading: 'Sample',
+      section: { background: 'white' },
+    })
+    expect(typeof row.id).toBe('string')
+    expect(row.ctas[0].label).toBe('Go')
+    expect(row.ctas[0].id).not.toBe('x')
+    expect(previewRow(block)).toMatchObject({ heading: 'Heading' })
   })
   it('clones rows with new row ids but keeps related-document ids', () => {
     const heroFields = narrow(schema[1], 'blocks').blocks[0]!.fields

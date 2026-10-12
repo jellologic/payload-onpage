@@ -56,6 +56,7 @@ export const defaultMessages = {
   'settings.chooseImage': 'Choose image…',
   'settings.changeImage': 'Change image…',
   'blocks.title': 'Add section',
+  'blocks.previewHint': 'Point at a section to preview it on the page.',
   'common.close': 'Close',
   'common.apply': 'Apply',
   'common.clear': 'Clear',

@@ -169,6 +169,60 @@ describe('serializeFields', () => {
     )
     expect(narrow(out[0], 'blocks').blocks.map((b) => b.slug)).toEqual(['cta'])
   })
+  it('carries block thumbnails, groups and examples for the picker', () => {
+    const fn = () => 'not JSON'
+    const out = serializeFields(
+      [
+        {
+          name: 'layout',
+          type: 'blocks',
+          blocks: [
+            {
+              slug: 'hero',
+              fields: [{ name: 'heading', type: 'text' }],
+              admin: {
+                images: { thumbnail: { url: '/hero.png', alt: 'Hero' } },
+                group: { en: 'Headers', de: 'Kopfbereiche' },
+                custom: {
+                  onpage: {
+                    example: { heading: 'Sample\u2063\u2062\u200b\u2064' },
+                    insertExample: true,
+                  },
+                },
+              },
+            },
+            { slug: 'quote', fields: [], admin: { images: { thumbnail: '/quote.png' } } },
+            {
+              slug: 'legacy',
+              fields: [],
+              imageURL: '/legacy.png',
+              imageAltText: 'Old',
+              custom: { onpage: { example: { fn } } },
+            },
+            {
+              slug: 'plain',
+              fields: [],
+              // No usable example: insertExample has nothing to insert.
+              admin: { custom: { onpage: { example: ['no'], insertExample: true } } },
+            },
+          ],
+        },
+      ] as any,
+      { i18n: { language: 'de', fallbackLanguage: 'en' } as any },
+    )
+    const [heroB, quote, legacy, plain] = narrow(out[0], 'blocks').blocks
+    expect(heroB).toMatchObject({
+      thumbnail: { url: '/hero.png', alt: 'Hero' },
+      group: 'Kopfbereiche',
+      example: { heading: 'Sample' },
+      insertExample: true,
+    })
+    expect(quote?.insertExample).toBeUndefined()
+    expect(quote?.thumbnail).toEqual({ url: '/quote.png' })
+    expect(legacy?.thumbnail).toEqual({ url: '/legacy.png', alt: 'Old' })
+    expect(legacy?.example).toEqual({})
+    expect(plain).toEqual({ slug: 'plain', labels: expect.anything(), fields: [] })
+  })
   it('drops fields the user may not update (field permissions)', () => {
     const out = serializeFields(
       [

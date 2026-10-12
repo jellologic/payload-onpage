@@ -192,6 +192,18 @@ test('sections: toolbar, settings and the block picker', async ({ context, page 
   await page.keyboard.press('Escape')
 })
 
+test('block picker: live preview in client mode', async ({ context, page }) => {
+  await enterEditing(context, page, 2, '/about')
+  await page.locator('main section').last().hover()
+  await page.getByTestId('onpage-insert-below').click()
+  await expect(page.getByTestId('onpage-block-picker')).toBeVisible()
+  await page.getByTestId('onpage-block-features').hover()
+  await expect(page.getByText('Why people choose us')).toBeVisible()
+  await pause(page, 800)
+  await shot(page, 'block-preview')
+  await page.keyboard.press('Escape')
+})
+
 test('value editors: select and rich text', async ({ context, page }) => {
   await enterEditing(context, page)
   const icon = page.locator('.features li .icon').first()

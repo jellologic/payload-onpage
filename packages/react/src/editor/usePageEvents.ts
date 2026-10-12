@@ -24,6 +24,13 @@ export function usePageEvents(ctx: OnPageContextValue | null, root: () => Parent
     if (!(t instanceof Element) || isOurs(t)) return
     const r = root()
     if (r && !r.contains(t)) return
+    if (ctx.panel?.kind === 'blocks') {
+      // A click on the page closes the block picker (and its preview) instead of editing.
+      e.preventDefault()
+      e.stopPropagation()
+      ctx.setPanel(null)
+      return
+    }
     const { field, rows } = targetsAt(ctx.targets, t)
     const row = rows[0]
     const inControl = !!t.closest('a,button,label,summary,[role="button"]')

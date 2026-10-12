@@ -1,8 +1,26 @@
 import type { Block, CollectionConfig } from 'payload'
 
+// Shown in the block pickers (the admin's and the on-page one). Live previews in
+// client mode render `example` in place; inserted blocks start from their defaults
+// unless `insertExample` is set.
+const thumbnail = (slug: string, alt: string) => ({ url: `/blocks/${slug}.svg`, alt })
+
 const Hero: Block = {
   slug: 'hero',
   labels: { singular: 'Hero', plural: 'Heroes' },
+  admin: {
+    group: 'Headers',
+    images: { thumbnail: thumbnail('hero', 'A large heading with a subheading and a button') },
+    custom: {
+      onpage: {
+        example: {
+          heading: 'Your big idea, front and center',
+          subheading: 'One or two sentences that say what this page is about.',
+          cta: { label: 'Get started', url: '#' },
+        },
+      },
+    },
+  },
   fields: [
     { name: 'heading', type: 'text', required: true },
     { name: 'subheading', type: 'textarea' },
@@ -30,12 +48,36 @@ const Hero: Block = {
 const Content: Block = {
   slug: 'content',
   labels: { singular: 'Content', plural: 'Content' },
+  admin: {
+    images: { thumbnail: thumbnail('content', 'A heading followed by paragraphs of text') },
+  },
   fields: [{ name: 'body', type: 'richText' }],
 }
 
 const Features: Block = {
   slug: 'features',
   labels: { singular: 'Features', plural: 'Features' },
+  admin: {
+    images: { thumbnail: thumbnail('features', 'A heading over three feature cards') },
+    custom: {
+      onpage: {
+        example: {
+          heading: 'Why people choose us',
+          items: [
+            { title: 'Fast', description: 'Pages load in a blink.', icon: 'bolt' },
+            { title: 'Friendly', description: 'Edit right on the page.', icon: 'heart' },
+            {
+              title: 'Reliable',
+              description: 'Drafts, versions and access control.',
+              icon: 'star',
+            },
+          ],
+        },
+        // A new Features section starts with this content (Hero's example is preview-only).
+        insertExample: true,
+      },
+    },
+  },
   fields: [
     { name: 'heading', type: 'text' },
     {

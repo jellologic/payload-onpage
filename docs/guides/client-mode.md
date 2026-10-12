@@ -23,6 +23,7 @@ export function LivePage({ page }) {
 - `e` is the document's annotation helper (see [annotations](annotations.md)).
 - The rendered tree must be client-renderable. Async server components can't be inside `render`.
 - Saves use the collection's autosave interval. The page doesn't wait for them.
+- The block picker previews a section in place before it's added ([block thumbnails and previews](block-picker.md)).
 
 Example: [`InstantPage.tsx`](../../examples/basic/src/components/InstantPage.tsx) (`/about` in the example).
 
