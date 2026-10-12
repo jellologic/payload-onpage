@@ -2,8 +2,9 @@
  * TanStack Start session adapter and helpers (server-only file: TanStack
  * Start never bundles `*.server.ts` for the browser).
  *
- * Editors: an `onpage` cookie saying which mode, bound to a hash of their
- * auth cookie, so signing out (or in as someone else) ends it.
+ * Editors: an `onpage` cookie saying which mode, sealed with the plugin
+ * secret and bound to a hash of their auth cookie, so it can't be forged and
+ * signing out (or in as someone else) ends it.
  *
  * Preview links: the browser gets only a sealed grant (`onpage_preview`) for
  * one path until it expires. Reads unseal it with the plugin secret and check
@@ -18,11 +19,11 @@
 import {
   CONTEXT_KEY,
   COOKIE,
+  createModeCookie,
   isLivePreviewGrant,
-  isOnPageMode,
+  readModeCookie,
   samePath,
   SEAL_PURPOSE,
-  sha256,
   unseal,
   type OnPageMode,
   type SessionAdapter,
@@ -32,9 +33,10 @@ import { HINT_COOKIE } from './hint.ts'
 
 export interface TanStackSessionOptions {
   /**
-   * Same secret as the plugin (default: Payload's `secret`, i.e. PAYLOAD_SECRET).
-   * Required to redeem preview-link grants; without it shared previews show
-   * published content.
+   * Same secret as the plugin (Payload's `secret`, i.e. PAYLOAD_SECRET, unless
+   * the plugin's `secret` option is set). Required: reads verify the editor's
+   * mode cookie and preview-link grants with it, so without it nobody sees
+   * drafts (editors included).
    */
   secret?: string | undefined
   /** How long an editor's edit/preview mode lasts, in seconds. Default 12 hours. */
@@ -67,33 +69,32 @@ let previewSecret: string | undefined
  */
 const DRAFT_MARKER = 'tanstack-start'
 
-const HASH_LENGTH = 32
-const fingerprint = async (token: string) => (await sha256(token)).slice(0, HASH_LENGTH)
-
-/** `edit` | `view`, or `<mode>:<authCookie>:<hash>` when bound to a session. */
-async function modeValue(mode: OnPageMode, bindTo?: string): Promise<string> {
-  const token = bindTo ? getCookie(bindTo) : undefined
-  return token ? `${mode}:${bindTo}:${await fingerprint(token)}` : mode
-}
-
-/** The mode a cookie value grants in this request, or null (unknown, or the bound session is gone). */
+/**
+ * The mode the cookie grants in this request, or null: forged or unsealed,
+ * expired, or the bound session is gone. Without a configured secret nothing
+ * verifies, so nothing is granted.
+ */
 async function readMode(raw: string | undefined): Promise<OnPageMode | null> {
-  if (!raw) return null
-  const [mode, bound, hash] = raw.split(':')
-  if (!isOnPageMode(mode)) return null
-  if (bound) {
-    const token = getCookie(bound)
-    if (!token || (await fingerprint(token)) !== hash) return null
-  }
-  return mode
+  if (!previewSecret) return null
+  return (await readModeCookie(raw, getCookie, previewSecret))?.mode ?? null
 }
 
 export function tanstackSession(opts: TanStackSessionOptions = {}): SessionAdapter {
   if (opts.secret !== undefined) previewSecret = opts.secret
   const maxAge = opts.maxAge ?? 12 * 3600
   return {
-    async enable(mode, { secure, bindTo }) {
-      setCookie(COOKIE.mode, await modeValue(mode, bindTo), { ...cookieBase(secure), maxAge })
+    async enable(mode, { secure, bindTo, sealMode }) {
+      if (!previewSecret)
+        console.warn(
+          'payload-onpage: tanstackSession() has no secret, so edit mode cannot be verified on the page. Pass tanstackSession({ secret: process.env.PAYLOAD_SECRET }).',
+        )
+      const value = await createModeCookie(mode, {
+        sealMode,
+        expiresAt: new Date(Date.now() + maxAge * 1000),
+        bindTo,
+        token: bindTo ? getCookie(bindTo) : undefined,
+      })
+      setCookie(COOKIE.mode, value, { ...cookieBase(secure), maxAge })
       deleteCookie(COOKIE.preview, { path: '/' })
       setCookie(HINT_COOKIE, '1', { ...hintBase(secure), maxAge })
     },

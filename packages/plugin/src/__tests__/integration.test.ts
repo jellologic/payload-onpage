@@ -4,7 +4,14 @@
  * property of the endpoints has a test here.
  */
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
-import { HEADER, stegaDecode, type OnPageMode, type SessionAdapter } from '@payload-onpage/core'
+import {
+  createModeCookie,
+  HEADER,
+  readModeCookie,
+  stegaDecode,
+  type OnPageMode,
+  type SessionAdapter,
+} from '@payload-onpage/core'
 import {
   buildConfig,
   getPayload,
@@ -22,8 +29,14 @@ const SECRET = 'integration-secret'
 /** Records what the endpoints asked the framework adapter to do. */
 const calls: Array<{ fn: string; args: unknown }> = []
 const session: SessionAdapter = {
-  async enable(mode: OnPageMode, opts) {
-    calls.push({ fn: 'enable', args: { mode, ...opts } })
+  async enable(mode: OnPageMode, { sealMode, ...opts }) {
+    // What the adapter would store, read back with the plugin's secret: proves it is sealed with it.
+    const cookie = await createModeCookie(mode, {
+      sealMode,
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    const verified = (await readModeCookie(cookie, () => undefined, SECRET))?.mode
+    calls.push({ fn: 'enable', args: { mode, ...opts, verified } })
   },
   async enableLink(opts) {
     calls.push({ fn: 'enableLink', args: { ...opts, sealed: await opts.seal('NEXT_SECRET') } })
@@ -249,7 +262,10 @@ describe('enter / mode / exit', () => {
     expect(own.status).toBe(303)
     expect(own.headers.get('location')).toBe(`${ORIGIN}/editor-page`)
     expect(calls).toEqual([
-      { fn: 'enable', args: { mode: 'edit', secure: false, bindTo: 'payload-token' } },
+      {
+        fn: 'enable',
+        args: { mode: 'edit', secure: false, bindTo: 'payload-token', verified: 'edit' },
+      },
     ])
   })
   it('refuses users of other auth collections', async () => {
@@ -267,7 +283,10 @@ describe('enter / mode / exit', () => {
     const editor = await call('POST', '/onpage/mode?mode=edit&path=/', { as: 'editor' })
     expect(editor.status).toBe(303)
     expect(calls).toEqual([
-      { fn: 'enable', args: { mode: 'edit', secure: false, bindTo: 'payload-token' } },
+      {
+        fn: 'enable',
+        args: { mode: 'edit', secure: false, bindTo: 'payload-token', verified: 'edit' },
+      },
     ])
   })
   it('answers anonymous callers uniformly, whatever the slug', async () => {

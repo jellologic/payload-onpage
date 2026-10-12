@@ -1,4 +1,4 @@
-import { COOKIE, sha256 } from '@payload-onpage/core'
+import { COOKIE, createModeCookie, modeSealer, sha256 } from '@payload-onpage/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // A minimal stand-in for next/headers: request cookies in, response cookies out.
@@ -39,6 +39,10 @@ vi.mock('next/headers.js', () => ({
 const { nextSession, getOnPageMode, isDraftEnabled, onpageContext, isSharedPreview } =
   await import('../session.ts')
 
+const SECRET = 'test-secret-not-for-prod'
+const sealMode = modeSealer(SECRET)
+const later = () => new Date(Date.now() + 3600_000)
+
 beforeEach(() => {
   state.draft = false
   state.cookies.clear()
@@ -49,9 +53,11 @@ beforeEach(() => {
 describe('nextSession', () => {
   it('binds edit mode to the auth cookie; signing out ends it', async () => {
     state.cookies.set('payload-token', 'JWT-1')
-    await nextSession().enable('edit', { secure: true, bindTo: 'payload-token' })
+    await nextSession().enable('edit', { secure: true, bindTo: 'payload-token', sealMode })
     const mode = state.set.find((c) => c.name === COOKIE.mode)!
-    expect(mode.value).toBe(`edit:payload-token:${(await sha256('JWT-1')).slice(0, 32)}`)
+    expect(mode.value).toMatch(
+      new RegExp(`^edit:payload-token:${(await sha256('JWT-1')).slice(0, 32)}\\.[\\w-]+$`),
+    )
     expect(mode.opts).toMatchObject({
       httpOnly: true,
       secure: true,
@@ -130,7 +136,7 @@ describe('nextSession', () => {
   })
 
   it('disable clears everything', async () => {
-    await nextSession().enable('view', { secure: false })
+    await nextSession().enable('view', { secure: false, sealMode })
     await nextSession().disable()
     expect(state.draft).toBe(false)
     expect(state.cookies.has(COOKIE.mode)).toBe(false)
@@ -140,7 +146,7 @@ describe('nextSession', () => {
 
 describe('helpers', () => {
   it('are inert without draft mode', async () => {
-    state.cookies.set(COOKIE.mode, 'edit')
+    state.cookies.set(COOKIE.mode, await createModeCookie('edit', { sealMode, expiresAt: later() }))
     expect(await getOnPageMode()).toBeNull()
     expect(await isDraftEnabled()).toBe(false)
     expect(await onpageContext()).toEqual({})
@@ -152,7 +158,7 @@ describe('helpers', () => {
   })
   it('recognise a proxy-injected preview-link view', async () => {
     state.draft = true
-    state.cookies.set(COOKIE.mode, 'view')
+    state.cookies.set(COOKIE.mode, await createModeCookie('view', { sealMode, expiresAt: later() }))
     state.headers.set('x-onpage-shared', '1')
     expect(await getOnPageMode()).toBe('view')
     expect(await isSharedPreview()).toBe(true)
@@ -163,5 +169,14 @@ describe('helpers', () => {
     state.cookies.set(COOKIE.mode, 'admin')
     expect(await getOnPageMode()).toBeNull()
     expect(await isDraftEnabled()).toBe(false)
+  })
+  it('reject an unsealed mode cookie (hand-made, or from before 0.5.1)', async () => {
+    state.draft = true
+    for (const forged of ['edit', 'view', `edit:x:${(await sha256('y')).slice(0, 32)}`]) {
+      state.cookies.set('x', 'y')
+      state.cookies.set(COOKIE.mode, forged)
+      expect(await getOnPageMode()).toBeNull()
+      expect(await isDraftEnabled()).toBe(false)
+    }
   })
 })

@@ -38,12 +38,12 @@ Fields the user can't update are left out of the editor schema (field-level acce
 
 ## Cookies
 
-| Cookie               | Holder                   | Flags                                                                                                   |
-| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `onpage`             | Editors                  | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>` (bound to the session). |
-| `onpage_preview`     | Share-link viewers       | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                 |
-| `onpage_hint`        | Editors, viewers (Start) | Readable by the mount, trusted by nothing. Lets visitors skip the state lookup entirely.                |
-| `__prerender_bypass` | Editors only (Next.js)   | Next's own. Never given to share-link viewers.                                                          |
+| Cookie               | Holder                                      | Flags                                                                                                                                                                                                                                                              |
+| -------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `onpage`             | Editors                                     | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>.<seal>`: bound to the session and sealed, so it can't be hand-made. The Next proxy and Start reads verify the seal.                                                                 |
+| `onpage_preview`     | Share-link viewers                          | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                                                                                                                                                                            |
+| `onpage_hint`        | Editors, viewers (Start)                    | Readable by the mount, trusted by nothing. Lets visitors skip the state lookup entirely.                                                                                                                                                                           |
+| `__prerender_bypass` | Editors (Next.js); viewers with `cdnBypass` | Next's own, one key for the whole site until the next deploy. Viewers get it only with `cdnBypass` (default on Vercel), scoped to the shared page and the link's lifetime. On Vercel the proxy is strict by default, so a copied cookie unlocks nothing elsewhere. |
 
 Set `serverURL` in production. It's used for redirects, link URLs and the Secure flag; the plugin warns at startup when it's missing.
 

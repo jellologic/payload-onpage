@@ -3,9 +3,12 @@
  * HKDF-SHA256 from a secret and a purpose). Uses WebCrypto only, so the same
  * code runs in Node, the browser and edge runtimes (Next.js proxy).
  *
- * Used for preview-link tokens and the preview cookie: tamper-proof, opaque
- * to the holder, and bound to one purpose (a token can't be replayed as a cookie).
+ * Used for preview-link tokens, the preview cookie and the editor's mode
+ * cookie: tamper-proof, opaque to the holder, and bound to one purpose (a
+ * token can't be replayed as a cookie).
  */
+import { isOnPageMode, type OnPageMode } from './ports.ts'
+
 const enc = new TextEncoder()
 const dec = new TextDecoder()
 const keys = new Map<string, Promise<CryptoKey>>()
@@ -13,6 +16,7 @@ const keys = new Map<string, Promise<CryptoKey>>()
 export const SEAL_PURPOSE = {
   previewLink: 'payload-onpage:preview-link:v1',
   previewCookie: 'payload-onpage:preview-cookie:v1',
+  modeCookie: 'payload-onpage:mode-cookie:v1',
 } as const
 
 function key(secret: string, purpose: string): Promise<CryptoKey> {
@@ -128,4 +132,89 @@ export function isLivePreviewGrant(value: unknown, now = Date.now()): value is P
     Number.isFinite(g.exp) &&
     g.exp * 1000 > now
   )
+}
+
+/** Seals a mode cookie's plain part until `expiresAt` (the plugin binds its secret). */
+export type SealMode = (plain: string, expiresAt: Date) => Promise<string>
+
+/** What a mode cookie's seal holds: its plain part, and an expiry in seconds since the epoch. */
+interface ModeSeal {
+  v: string
+  exp: number
+}
+
+/** A `SealMode` for `secret`: what the plugin hands session adapters, and the proxy uses for viewers. */
+export const modeSealer =
+  (secret: string): SealMode =>
+  (plain, expiresAt) =>
+    seal(
+      { v: plain, exp: Math.floor(expiresAt.getTime() / 1000) } satisfies ModeSeal,
+      secret,
+      SEAL_PURPOSE.modeCookie,
+    )
+
+const HASH_LENGTH = 32
+const fingerprint = async (token: string) => (await sha256(token)).slice(0, HASH_LENGTH)
+
+/**
+ * The editor's `onpage` mode cookie: `<plain>.<seal>`, where `<plain>` is
+ * `<mode>`, or `<mode>:<authCookie>:<hash of its value>` when bound to a
+ * session. The plain part lets readers without the secret (Next server
+ * components, behind the proxy) see the mode; the seal makes it unforgeable
+ * for readers with it (the proxy, TanStack Start reads).
+ */
+export async function createModeCookie(
+  mode: OnPageMode,
+  opts: {
+    sealMode: SealMode
+    expiresAt: Date
+    /** The auth cookie to bind to, and its current value. */
+    bindTo?: string | undefined
+    token?: string | undefined
+  },
+): Promise<string> {
+  const plain =
+    opts.bindTo && opts.token ? `${mode}:${opts.bindTo}:${await fingerprint(opts.token)}` : mode
+  return `${plain}.${await opts.sealMode(plain, opts.expiresAt)}`
+}
+
+export interface ModeCookie {
+  mode: OnPageMode
+  /** True when bound to an auth cookie that is present and matches. */
+  bound: boolean
+}
+
+/**
+ * Parse a mode cookie; null when malformed, unsealed, expired, sealed with
+ * another secret, or bound to a session that ended. Pass the secret wherever
+ * it's available: without it (`null`) only the shape and the binding are
+ * checked, so such readers must sit behind one that verifies (the Next proxy
+ * strips cookies that don't).
+ */
+export async function readModeCookie(
+  raw: string | null | undefined,
+  cookie: (name: string) => string | undefined,
+  secret: string | null,
+  now = Date.now(),
+): Promise<ModeCookie | null> {
+  if (!raw) return null
+  const dot = raw.lastIndexOf('.')
+  if (dot <= 0 || dot === raw.length - 1) return null
+  const plain = raw.slice(0, dot)
+  if (secret !== null) {
+    const sealed = await unseal<Partial<ModeSeal>>(
+      raw.slice(dot + 1),
+      secret,
+      SEAL_PURPOSE.modeCookie,
+    )
+    if (!sealed || sealed.v !== plain) return null
+    if (typeof sealed.exp !== 'number' || !Number.isFinite(sealed.exp) || sealed.exp * 1000 <= now)
+      return null
+  }
+  const [mode, bound, hash, ...rest] = plain.split(':')
+  if (!isOnPageMode(mode) || rest.length) return null
+  if (bound === undefined) return { mode, bound: false }
+  const token = bound ? cookie(bound) : undefined
+  if (!token || !hash || (await fingerprint(token)) !== hash) return null
+  return { mode, bound: true }
 }

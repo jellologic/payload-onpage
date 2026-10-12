@@ -206,12 +206,14 @@ export function serializeFields(
       if ('fields' in f && Array.isArray(f.fields)) out.push(...serializeFields(f.fields, ctx))
       continue
     }
-    // Hidden from the admin (admin.hidden) or the API (hidden), disabled, virtual: not editable here either.
+    // Hidden from the admin (admin.hidden) or the API (hidden), disabled, virtual, or
+    // read-only in the admin (admin.readOnly): not editable here either.
     if (
       SYSTEM_FIELDS.has(f.name) ||
       fieldIsHiddenOrDisabled(f) ||
       fieldIsVirtual(f) ||
-      f.admin?.hidden
+      f.admin?.hidden ||
+      f.admin?.readOnly
     )
       continue
     const perms = childPermissions(ctx.permissions, f.name)

@@ -37,7 +37,7 @@ export default buildConfig({
 
 Collections must have **drafts** enabled (`versions: { drafts: true }`), so edits save as drafts until published. The page URL comes from the `url` option, then the collection's `admin.preview`, then `/<slug>`.
 
-Unlike Next, the secret goes on the session, not on a proxy: Start request middleware cannot rewrite the request, so reads verify the sealed preview grant directly (unseal + path + expiry) instead of injecting a draft cookie. Without the secret, shared preview links fail closed and show published content.
+Unlike Next, the secret goes on the session, not on a proxy: Start request middleware cannot rewrite the request, so reads verify the editor's sealed mode cookie and the sealed preview grant directly (unseal + path + expiry) instead of injecting a draft cookie. It must be the plugin's secret (Payload's `secret` unless you set the plugin's `secret` option). Without it, everything fails closed: nobody sees drafts, editors included.
 
 **Check:** open a document in the admin. **Edit on page** and **Copy preview link** appear beside the document controls.
 

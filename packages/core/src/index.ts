@@ -122,12 +122,17 @@ export {
   type SessionSnapshot,
 } from './session.ts'
 export {
+  createModeCookie,
   isLivePreviewGrant,
+  modeSealer,
+  readModeCookie,
   seal,
   SEAL_PURPOSE,
   sha256,
   unseal,
+  type ModeCookie,
   type PreviewGrant,
+  type SealMode,
 } from './seal.ts'
 export { CONTEXT_KEY, COOKIE, DEFAULTS, HEADER, ROUTES } from './constants.ts'
 export { assertNever, errorText } from './util.ts'

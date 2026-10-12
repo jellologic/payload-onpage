@@ -213,7 +213,11 @@ Use `isDraftEnabled()` rather than `draftMode().isEnabled`: it also ends draft a
 import { createOnPageProxy } from '@payload-onpage/next/proxy'
 
 export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET }) // Next 15: export as `middleware`
-export const config = { matcher: ['/((?!api|_next|admin|.*\\..*).*)'] }
+export const config = {
+  matcher: [
+    '/((?!api|admin|_next/static|_next/image|.*\\.(?:ico|png|jpe?g|gif|webp|avif|svg|css|js|map|txt|xml|woff2?)$).*)',
+  ],
+}
 ```
 
 Already have one? Forward the headers it prepares:
@@ -227,7 +231,7 @@ return NextResponse.next({
 
 **Check:** copy a preview link in the admin and open it in a private window. The draft shows with a "Shared preview" bar; other pages show published content.
 
-**On Vercel** (or any CDN that serves cached pages unless the browser itself sends Next's draft cookie), the viewer's browser also gets that cookie, scoped to the shared page and expiring with the link (`nextSession({ cdnBypass })`, on by default when `VERCEL` is set). The proxy strips it from every request the link doesn't cover. Next's draft cookie is one site-wide key, so also pass `allowDraft`: a copied cookie then unlocks nothing unless the request is an editor's or your own check admits it.
+**On Vercel** (or any CDN that serves cached pages unless the browser itself sends Next's draft cookie), the viewer's browser also gets that cookie, scoped to the shared page and expiring with the link (`nextSession({ cdnBypass })`, on by default when `VERCEL` is set). Next's draft cookie is one site-wide key that lasts until the next deploy, so on Vercel the proxy is strict by default: a request keeps it only on the page its link covers, or for an editor still signed in as the session that entered edit mode. A copied cookie unlocks nothing else. If your own preview route also turns on draft mode, admit its users with `allowDraft`:
 
 ```ts
 withOnPage(request, {
@@ -299,7 +303,7 @@ export default buildConfig({
 
 Collections must have **drafts** enabled (`versions: { drafts: true }`), so edits save as drafts until published. The page URL comes from the `url` option, then the collection's `admin.preview`, then `/<slug>`.
 
-Unlike Next, the secret goes on the session, not on a proxy: Start request middleware cannot rewrite the request, so reads verify the sealed preview grant directly (unseal + path + expiry) instead of injecting a draft cookie. Without the secret, shared preview links fail closed and show published content.
+Unlike Next, the secret goes on the session, not on a proxy: Start request middleware cannot rewrite the request, so reads verify the editor's sealed mode cookie and the sealed preview grant directly (unseal + path + expiry) instead of injecting a draft cookie. It must be the plugin's secret (Payload's `secret` unless you set the plugin's `secret` option). Without it, everything fails closed: nobody sees drafts, editors included.
 
 **Check:** open a document in the admin. **Edit on page** and **Copy preview link** appear beside the document controls.
 
@@ -484,7 +488,7 @@ _Found a bug? [Report it](https://github.com/jellologic/payload-onpage/issues/ne
 | **Preview**    | Signed-in editors    | Draft without tools, plus device widths                  | The dock's **Preview**                                    |
 | **Share link** | Anyone with the link | Draft of **one page**, read-only, until the link expires | A preview link (`/api/onpage/preview?token=…`)            |
 
-- Edit and preview turn on draft reads site-wide for that editor (Next draft mode on Next.js; the session's mode cookie on Start). The mode cookie is bound to their auth cookie, so signing out or switching user ends it. It lasts 12 hours by default (`nextSession({ maxAge })` / `tanstackSession({ maxAge })`).
+- Edit and preview turn on draft reads site-wide for that editor (Next draft mode on Next.js; the session's mode cookie on Start). The mode cookie is sealed with the plugin secret and bound to their auth cookie, so it can't be hand-made, and signing out or switching user ends it. It lasts 12 hours by default (`nextSession({ maxAge })` / `tanstackSession({ maxAge })`).
 - Share links never give the browser a draft credential. The grant opens the shared path only — via the proxy on Next.js, via per-read verification on Start — until it expires. See [security](security.md).
 - **Exit** clears everything (`POST /api/onpage/exit`).
 
@@ -552,12 +556,12 @@ Fields the user can't update are left out of the editor schema (field-level acce
 
 ## Cookies
 
-| Cookie               | Holder                   | Flags                                                                                                   |
-| -------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `onpage`             | Editors                  | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>` (bound to the session). |
-| `onpage_preview`     | Share-link viewers       | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                 |
-| `onpage_hint`        | Editors, viewers (Start) | Readable by the mount, trusted by nothing. Lets visitors skip the state lookup entirely.                |
-| `__prerender_bypass` | Editors only (Next.js)   | Next's own. Never given to share-link viewers.                                                          |
+| Cookie               | Holder                                      | Flags                                                                                                                                                                                                                                                              |
+| -------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `onpage`             | Editors                                     | httpOnly, SameSite=Lax, Secure on HTTPS, 12 h. Value `edit:<authCookie>:<hash>.<seal>`: bound to the session and sealed, so it can't be hand-made. The Next proxy and Start reads verify the seal.                                                                 |
+| `onpage_preview`     | Share-link viewers                          | httpOnly, SameSite=Lax, Secure on HTTPS, expires with the link. Sealed.                                                                                                                                                                                            |
+| `onpage_hint`        | Editors, viewers (Start)                    | Readable by the mount, trusted by nothing. Lets visitors skip the state lookup entirely.                                                                                                                                                                           |
+| `__prerender_bypass` | Editors (Next.js); viewers with `cdnBypass` | Next's own, one key for the whole site until the next deploy. Viewers get it only with `cdnBypass` (default on Vercel), scoped to the shared page and the link's lifetime. On Vercel the proxy is strict by default, so a copied cookie unlocks nothing elsewhere. |
 
 Set `serverURL` in production. It's used for redirects, link URLs and the Secure flag; the plugin warns at startup when it's missing.
 

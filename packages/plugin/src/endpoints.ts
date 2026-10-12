@@ -15,6 +15,7 @@
  */
 import {
   isOnPageMode,
+  modeSealer,
   parseRefKey,
   pathnameOf,
   refKey,
@@ -176,6 +177,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
       await session.enable(isOnPageMode(mode) ? mode : 'edit', {
         secure: isSecure(req),
         bindTo: authCookieOf(req, options),
+        sealMode: modeSealer(secretOf(req, options)),
       })
       return redirectTo(req, path)
     },
@@ -195,6 +197,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
       await session.enable(isOnPageMode(next) ? next : 'edit', {
         secure: isSecure(req),
         bindTo: authCookieOf(req, options),
+        sealMode: modeSealer(secretOf(req, options)),
       })
       return redirectTo(req, q.get('path'))
     },

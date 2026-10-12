@@ -13,6 +13,7 @@
 import type { DocRef } from './docref.ts'
 import { MARKER_KINDS } from './stega.ts'
 import type { DocumentSchema } from './schema.ts'
+import type { SealMode } from './seal.ts'
 
 export type Doc = Record<string, unknown>
 
@@ -153,9 +154,13 @@ export interface SessionAdapter {
   /**
    * Signed-in editors: site-wide draft mode in edit or view mode. `bindTo` names
    * the auth cookie the mode is bound to, so signing out (or in as someone else)
-   * ends it.
+   * ends it. Store the mode cookie from `createModeCookie(mode, { sealMode, … })`:
+   * `sealMode` seals it with the plugin's secret, so it can't be forged.
    */
-  enable(mode: OnPageMode, opts: { secure: boolean; bindTo?: string }): Promise<void>
+  enable(
+    mode: OnPageMode,
+    opts: { secure: boolean; bindTo?: string; sealMode: SealMode },
+  ): Promise<void>
   /**
    * Preview links: read-only draft access to one page until `expiresAt`. The
    * adapter passes the framework's draft secret to `seal` and stores the sealed

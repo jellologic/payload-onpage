@@ -3,6 +3,8 @@
  *
  * Editors: Next draft mode plus an `onpage` cookie saying which mode, bound to
  * a hash of their auth cookie, so signing out (or in as someone else) ends it.
+ * The cookie is sealed with the plugin secret; the proxy verifies the seal and
+ * strips forged ones, and these helpers check its shape and binding.
  *
  * Preview links: the browser gets a sealed grant (`onpage_preview`). The proxy
  * (./proxy) unseals it and injects draft mode into the request for the shared
@@ -18,12 +20,13 @@
 import {
   CONTEXT_KEY,
   COOKIE,
+  createModeCookie,
   HEADER,
+  readModeCookie,
   type OnPageMode,
   type SessionAdapter,
 } from '@payload-onpage/core'
 import { cookies, draftMode, headers } from 'next/headers.js'
-import { fingerprint, readModeCookie } from './binding.ts'
 
 export interface NextSessionOptions {
   /** How long an editor's edit/preview mode lasts, in seconds. Default 12 hours. */
@@ -57,24 +60,25 @@ async function inDraft<T>(read: () => Promise<T>, fallback: T): Promise<T> {
   }
 }
 
-/** `edit` | `view`, or `<mode>:<authCookie>:<hash>` when bound to a session. */
-async function modeValue(mode: OnPageMode, jar: Jar, bindTo?: string): Promise<string> {
-  const token = bindTo ? jar.get(bindTo)?.value : undefined
-  return token ? `${mode}:${bindTo}:${await fingerprint(token)}` : mode
-}
-
+/** The cookie's mode, checking shape and binding; the proxy has verified its seal. */
 async function readMode(raw: string | undefined, jar: Jar): Promise<OnPageMode | null> {
-  return (await readModeCookie(raw, (name) => jar.get(name)?.value))?.mode ?? null
+  return (await readModeCookie(raw, (name) => jar.get(name)?.value, null))?.mode ?? null
 }
 
 export function nextSession(opts: NextSessionOptions = {}): SessionAdapter {
   const maxAge = opts.maxAge ?? 12 * 3600
   const cdnBypass = opts.cdnBypass ?? (typeof process !== 'undefined' && !!process.env.VERCEL)
   return {
-    async enable(mode, { secure, bindTo }) {
+    async enable(mode, { secure, bindTo, sealMode }) {
       ;(await draftMode()).enable()
       const jar = await cookies()
-      jar.set(COOKIE.mode, await modeValue(mode, jar, bindTo), { ...cookieBase(secure), maxAge })
+      const value = await createModeCookie(mode, {
+        sealMode,
+        expiresAt: new Date(Date.now() + maxAge * 1000),
+        bindTo,
+        token: bindTo ? jar.get(bindTo)?.value : undefined,
+      })
+      jar.set(COOKIE.mode, value, { ...cookieBase(secure), maxAge })
       jar.delete(COOKIE.preview)
     },
     async enableLink({ secure, path, expiresAt, seal }) {
