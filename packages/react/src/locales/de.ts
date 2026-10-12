@@ -194,4 +194,13 @@ export const de = {
   'saveSection.name': 'Name',
   'saveSection.save': 'Speichern',
   'pages.noPath': 'Die neue Seite hat keine Adresse zum Öffnen – du findest sie im Admin',
+  'assist.label': 'Schreibassistent',
+  'assist.shorter': 'Kürzer',
+  'assist.clearer': 'Klarer',
+  'assist.friendlier': 'Freundlicher',
+  'assist.fix': 'Rechtschreibung korrigieren',
+  'assist.custom': 'Oder sag, was sich ändern soll…',
+  'assist.ask': 'Fragen',
+  'assist.working': 'Schreibt…',
+  'assist.hint': 'Die Antwort ersetzt den Text – Enter übernimmt sie, Escape verwirft sie.',
 } satisfies Record<MessageKey, string> & Messages

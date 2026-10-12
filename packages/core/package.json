@@ -44,6 +44,10 @@
     "./payload": {
       "types": "./dist/payload.d.ts",
       "default": "./dist/payload.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
     }
   },
   "main": "./dist/index.js",

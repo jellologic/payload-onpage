@@ -193,4 +193,13 @@ export const fr = {
   'saveSection.name': 'Nom',
   'saveSection.save': 'Enregistrer',
   'pages.noPath': 'La nouvelle page n’a pas d’adresse à ouvrir : retrouvez-la dans l’admin',
+  'assist.label': 'Assistant de rédaction',
+  'assist.shorter': 'Plus court',
+  'assist.clearer': 'Plus clair',
+  'assist.friendlier': 'Plus chaleureux',
+  'assist.fix': 'Corriger l’orthographe',
+  'assist.custom': 'Ou dites quoi changer…',
+  'assist.ask': 'Demander',
+  'assist.working': 'Rédaction…',
+  'assist.hint': 'La réponse remplace le texte : Entrée la garde, Échap l’annule.',
 } satisfies Record<MessageKey, string> & Messages

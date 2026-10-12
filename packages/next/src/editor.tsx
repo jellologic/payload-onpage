@@ -67,6 +67,7 @@ export function NextEditor(props: OnPageMountProps) {
       messages={props.messages}
       uiLocale={props.uiLocale}
       onEvent={props.onEvent}
+      assist={props.assist}
     />
   )
 }

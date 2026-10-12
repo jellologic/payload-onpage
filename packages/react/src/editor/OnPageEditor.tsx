@@ -9,6 +9,7 @@
  */
 import {
   refKey,
+  type AssistPort,
   type DataSource,
   type DocRef,
   type Locator,
@@ -81,6 +82,11 @@ export interface OnPageEditorProps {
    * (e.g. Sentry). Called after the editor has handled them.
    */
   onEvent?: ((event: OnPageEvent) => void) | undefined
+  /**
+   * A writing assistant for text fields (rewrite, shorten, fix, translate…).
+   * Bring your own: payload-onpage bundles no AI vendor. See the assist guide.
+   */
+  assist?: AssistPort | undefined
 }
 
 /** How long a re-rendered page gets to land (and the locator to rescan) before ghosts are retired. */
@@ -221,6 +227,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
         rerender: (refs) => rerender(refs),
         notify,
         report,
+        assist: props.assist,
         addGhost,
       },
     [
@@ -236,6 +243,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
       rerender,
       notify,
       report,
+      props.assist,
       addGhost,
     ],
   )
