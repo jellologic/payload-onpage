@@ -1,5 +1,14 @@
 # @payload-onpage/lexical
 
+## 0.4.0
+
+### Patch Changes
+
+- [`cfd55ea`](https://github.com/jellologic/payload-onpage/commit/cfd55eaf03184af534fe0fee8ca2e5122d05e5e7) Thanks [@jellologic](https://github.com/jellologic)! - The inline rich-text surface now copies the edited element's typography (font, line height, color, spacing) instead of rendering in the editor UI's 13px. The surface lays out exactly over the original text, so the click point maps to the right block on any site; committed ghosts keep the same typography until the server render lands.
+- Updated dependencies [[`cfd55ea`](https://github.com/jellologic/payload-onpage/commit/cfd55eaf03184af534fe0fee8ca2e5122d05e5e7)]:
+  - @payload-onpage/core@0.4.0
+  - @payload-onpage/react@0.4.0
+
 ## 0.3.2
 
 ### Patch Changes
