@@ -1,0 +1,63 @@
+name: Upcoming Payload
+# Nightly: the TanStack example (Payload 4) on Payload's newest beta and canary
+# releases, so breaking changes show up here before users meet them. A failure
+# opens (or updates) one issue; it never blocks a PR.
+on:
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: payload-next
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    name: TanStack example on payload@${{ matrix.tag }}
+    if: github.repository == 'jellologic/payload-onpage'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ['beta', 'canary']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - name: Move the example to payload@${{ matrix.tag }}
+        id: version
+        working-directory: examples/tanstack
+        run: |
+          v=$(npm view payload@${{ matrix.tag }} version)
+          echo "payload=$v" >> "$GITHUB_OUTPUT"
+          bun add payload@$v @payloadcms/db-sqlite@$v @payloadcms/richtext-lexical@$v \
+            @payloadcms/tanstack-start@$v @payloadcms/ui@$v
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run build
+      - name: Build the example
+        working-directory: examples/tanstack
+        run: bun run build
+      - run: bunx playwright test -c e2e/playwright.config.ts
+        env:
+          CI: '1'
+          ONPAGE_EXAMPLE: tanstack
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report-${{ matrix.tag }}
+          path: e2e/playwright-report
+      - name: Report the failure
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: 'Upcoming Payload (${{ matrix.tag }}) breaks the TanStack example'
+          BODY: |
+            payload@${{ steps.version.outputs.payload || matrix.tag }} fails the nightly run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          n=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$BODY"; else gh issue create --title "$TITLE" --body "$BODY"; fi

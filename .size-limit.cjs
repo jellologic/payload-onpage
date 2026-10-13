@@ -88,7 +88,8 @@ module.exports = [
     name: 'Plugin (server)',
     path: 'packages/plugin/dist/index.js',
     import: '{ onpage }',
-    limit: '8 KB',
+    // Server only (never shipped to browsers); a guard against accidental bloat.
+    limit: '9 KB',
     ignore,
   },
 ]

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { InvalidConfiguration } from 'payload'
 import type { SessionAdapter } from '@payload-onpage/core'
 import { stegaClean, stegaCleanDeep, stegaDecode, stegaEncode } from '@payload-onpage/core'
@@ -169,6 +169,21 @@ describe('serializeFields', () => {
       },
     )
     expect(narrow(out[0], 'blocks').blocks.map((b) => b.slug)).toEqual(['cta'])
+  })
+  it('resolves block slugs listed in blocks itself (Payload 4)', () => {
+    const out = serializeFields(
+      [
+        {
+          name: 'layout',
+          type: 'blocks',
+          blocks: ['cta', { slug: 'hero', fields: [{ name: 'heading', type: 'text' }] }, 'gone'],
+        },
+      ] as any,
+      { blocks: [{ slug: 'cta', fields: [{ name: 'label', type: 'text' }] }] as any },
+    )
+    const blocks = narrow(out[0], 'blocks').blocks
+    expect(blocks.map((b) => b.slug)).toEqual(['cta', 'hero'])
+    expect(blocks[0]!.fields.map((f) => f.name)).toEqual(['label'])
   })
   it('carries block thumbnails, groups and examples for the picker', () => {
     const fn = () => 'not JSON'
@@ -367,6 +382,20 @@ describe('onpage() plugin', () => {
 
   it('fails at config time, not on the first request, without a session adapter', () => {
     expect(() => onpage({ collections: ['pages'] })(config)).toThrow(InvalidConfiguration)
+  })
+
+  it('warns at startup about enabled documents without drafts (edits go live)', async () => {
+    const warn = vi.fn()
+    const startup = (collections: any[], globals: any[]) =>
+      out.onInit({ config: { serverURL: 'https://x', collections, globals }, logger: { warn } })
+    await startup([{ slug: 'pages', versions: { drafts: true } }], [{ slug: 'header' }])
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('global "header" has no drafts'))
+    warn.mockClear()
+    await startup(
+      [{ slug: 'pages', versions: { drafts: true } }],
+      [{ slug: 'header', versions: { drafts: true } }],
+    )
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it('rejects an empty secret at config time', () => {

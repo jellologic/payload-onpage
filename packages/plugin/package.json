@@ -70,9 +70,9 @@
     "@payload-onpage/core": "workspace:*"
   },
   "peerDependencies": {
-    "payload": "^3.90.2",
-    "@payloadcms/ui": "^3.90.2",
-    "@payloadcms/translations": "^3.90.2",
+    "payload": "^3.90.2 || ^4.0.0-beta.0",
+    "@payloadcms/ui": "^3.90.2 || ^4.0.0-beta.0",
+    "@payloadcms/translations": "^3.90.2 || ^4.0.0-beta.0",
     "react": "^19.0.0"
   },
   "engines": {
