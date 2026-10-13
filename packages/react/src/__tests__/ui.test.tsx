@@ -279,6 +279,36 @@ describe('page settings', () => {
   })
 })
 
+describe('field conditions', () => {
+  it('hides the fields the data source says are hidden, and asks again after a change', async () => {
+    const conditional: DocumentSchema = {
+      ...schema,
+      conditions: true,
+      editable: [...schema.editable, 'featured', 'badge'],
+      fields: [
+        ...schema.fields,
+        { name: 'featured', type: 'checkbox', label: 'Featured' },
+        { name: 'badge', type: 'text', label: 'Badge' },
+      ],
+    }
+    const hiddenFields = vi.fn<NonNullable<DataSource['hiddenFields']>>(async (_r, doc) =>
+      doc.featured ? [] : ['badge'],
+    )
+    const { ds } = source({
+      loadSchema: async () => conditional,
+      loadDocument: async () => ({ ...initial(), featured: false }),
+      hiddenFields,
+    })
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`)
+    fireEvent.click(screen.getByTestId('onpage-page-settings-open'))
+    const panel = await screen.findByTestId('onpage-page-settings')
+    await waitFor(() => expect(hiddenFields).toHaveBeenCalled())
+    await waitFor(() => expect(panel.textContent).not.toContain('Badge'))
+    fireEvent.click(screen.getByLabelText('Featured'))
+    await waitFor(() => expect(panel.textContent).toContain('Badge'))
+  })
+})
+
 describe('publish panel', () => {
   it('publishes the chosen documents, or schedules them', async () => {
     const published: unknown[] = []

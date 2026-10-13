@@ -67,6 +67,24 @@ describe('payloadRest', () => {
     expect(calls[0]!.url).toBe('/api/onpage/schema/global/header?locale=en')
     await ds.loadDocument({ kind: 'collection', slug: 'pages', id: 1 }, { draft: true })
     expect(calls[1]!.url).toBe('/api/pages/1?draft=true&depth=2')
+    // Field conditions: the current document, without markers.
+    const { f: cf, calls: cc } = fetchSpy(() => json({ hidden: ['link.url', 3] }))
+    const marked = stegaEncode('Hi', { ref: 'c:pages:1', path: 'title', kind: 'text' })
+    expect(
+      await payloadRest({ fetch: cf }).hiddenFields!(
+        { kind: 'collection', slug: 'pages', id: 1 },
+        {
+          title: marked,
+        },
+      ),
+    ).toEqual(['link.url'])
+    expect(cc[0]!.url).toBe('/api/onpage/conditions')
+    expect(JSON.parse(cc[0]!.init?.body as string)).toEqual({
+      kind: 'collection',
+      slug: 'pages',
+      id: 1,
+      data: { title: 'Hi' },
+    })
     // A collection document's schema is asked for by id (field rules can depend on it).
     await ds.loadSchema({ kind: 'collection', slug: 'pages', id: 7 }, {})
     expect(calls.pop()!.url).toBe('/api/onpage/schema/collection/pages?id=7')

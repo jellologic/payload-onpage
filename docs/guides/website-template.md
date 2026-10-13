@@ -142,7 +142,7 @@ Live Preview keeps working: payload-onpage's editor stays out of the admin's pre
 
 The template wraps every block in `RenderBlocks` with a `<div className="my-16">`, so each section maps to its block without annotations. Text in `CMSLink` maps too: `link.label` is a text field, and `link.url` is skipped because its name looks like a URL.
 
-A section's fields that aren't rendered as text are in its settings panel (**Edit section**). Images (`Media`) map through their `<img>`. Rows you want to select that render no text or image, such as the archive block's, need an annotation: see [Annotations](annotations.md).
+A section's fields that aren't rendered as text are in its settings panel (**Edit section**). Field conditions apply there as in the admin, so a link shows `url` or `reference` depending on its type. Images (`Media`) map through their `<img>`. Rows you want to select that render no text or image, such as the archive block's, need an annotation: see [Annotations](annotations.md).
 
 ## Check
 

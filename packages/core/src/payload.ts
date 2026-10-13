@@ -7,7 +7,7 @@
  */
 import type { DocRef } from './docref.ts'
 import { DEFAULTS, HEADER, ROUTES } from './constants.ts'
-import { stegaClean } from './stega.ts'
+import { stegaClean, stegaCleanDeep } from './stega.ts'
 import type {
   DataSource,
   Doc,
@@ -153,6 +153,24 @@ export function payloadRest(
           doc,
         }
       })
+    },
+    async hiddenFields(ref, doc): Promise<string[]> {
+      const res = await f(
+        `${api}${prefix}${ROUTES.conditions}`,
+        init({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: ref.kind,
+            slug: ref.slug,
+            id: ref.kind === 'collection' ? ref.id : undefined,
+            data: stegaCleanDeep(doc),
+          }),
+        }),
+      )
+      if (!res.ok) throw new Error(await errorMessage(res))
+      const body = (await res.json()) as { hidden?: unknown }
+      return Array.isArray(body.hidden) ? body.hidden.filter((p) => typeof p === 'string') : []
     },
     async schedulePublish(ref, o): Promise<ScheduledPublish> {
       const res = await f(

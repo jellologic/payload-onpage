@@ -74,6 +74,11 @@ export interface DataSource {
     ref: DocRef,
     opts: { at: Date; type?: Opt<'publish' | 'unpublish'>; locale?: Opt<string> },
   ): Promise<ScheduledPublish>
+  /**
+   * Data paths whose field condition (`admin.condition`) is false for `doc`, the
+   * document as the editor has it now. Optional; asked when the schema has `conditions`.
+   */
+  hiddenFields?(ref: DocRef, doc: Doc): Promise<string[]>
 }
 
 export interface ScheduledPublish {

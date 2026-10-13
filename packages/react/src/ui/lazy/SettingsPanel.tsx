@@ -20,7 +20,7 @@ import {
   isReady,
   type RefKey,
 } from '@payload-onpage/core'
-import { useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
+import { useEffect, useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
 import { useOnPage } from '../../context.tsx'
 import type { Translate } from '../../messages.ts'
 import { checkedOf } from '../../editors/CheckboxEditor.tsx'
@@ -239,19 +239,61 @@ function Row({ docKey, path, field }: { docKey: RefKey; path: string; field: Sch
   )
 }
 
-function Fields({ docKey, fields, path }: { docKey: RefKey; fields: SchemaField[]; path: string }) {
+const NONE: ReadonlySet<string> = new Set()
+
+/**
+ * Paths hidden by their field's `admin.condition`, for the document as it is
+ * now: asked from the data source (conditions are functions on the server),
+ * again shortly after each change.
+ */
+function useHiddenFields(key: RefKey): ReadonlySet<string> {
+  const { session, snap } = useOnPage()
+  const state = snap.docs[key]
+  const ref = state?.ref
+  const doc = state?.doc
+  const conditional = !!state?.schema?.conditions
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(NONE)
+  useEffect(() => {
+    const { dataSource } = session
+    if (!conditional || !dataSource.hiddenFields || !ref || !doc) return
+    let live = true
+    const id = setTimeout(() => {
+      dataSource.hiddenFields?.(ref, doc).then(
+        (paths) => live && setHidden(new Set(paths)),
+        () => undefined, // can't tell: show every field, as before
+      )
+    }, 150)
+    return () => {
+      live = false
+      clearTimeout(id)
+    }
+  }, [conditional, session, ref, doc])
+  return hidden
+}
+
+function Fields({
+  docKey,
+  fields,
+  path,
+  hidden,
+}: {
+  docKey: RefKey
+  fields: SchemaField[]
+  path: string
+  hidden: ReadonlySet<string>
+}) {
   const { targets } = useOnPage()
   return (
     <>
       {fields
-        .filter((f) => settable(f, path, docKey, targets))
+        .filter((f) => settable(f, path, docKey, targets) && !hidden.has(joinPath(path, f.name)))
         .map((f) => {
           const full = joinPath(path, f.name)
           if (f.type === 'group') {
             return (
               <fieldset key={f.name} className="po-group">
                 <legend className="po-h4">{f.label}</legend>
-                <Fields docKey={docKey} fields={f.fields} path={full} />
+                <Fields docKey={docKey} fields={f.fields} path={full} hidden={hidden} />
               </fieldset>
             )
           }
@@ -259,6 +301,12 @@ function Fields({ docKey, fields, path }: { docKey: RefKey; fields: SchemaField[
         })}
     </>
   )
+}
+
+/** One document's page settings, with its conditions applied. */
+function DocFields({ docKey, fields }: { docKey: RefKey; fields: SchemaField[] }) {
+  const hidden = useHiddenFields(docKey)
+  return <Fields docKey={docKey} fields={fields} path="" hidden={hidden} />
 }
 
 function PageSettingsPanel() {
@@ -276,14 +324,27 @@ function PageSettingsPanel() {
         docs.length > 1 ? (
           <fieldset key={state.key} className="po-group">
             <legend className="po-h4">{docTitle(state)}</legend>
-            <Fields docKey={state.key} fields={fields} path="" />
+            <DocFields docKey={state.key} fields={fields} />
           </fieldset>
         ) : (
-          <Fields key={state.key} docKey={state.key} fields={fields} path="" />
+          <DocFields key={state.key} docKey={state.key} fields={fields} />
         ),
       )}
     </Dialog>
   )
+}
+
+function RowFields({
+  docKey,
+  fields,
+  path,
+}: {
+  docKey: RefKey
+  fields: SchemaField[]
+  path: string
+}) {
+  const hidden = useHiddenFields(docKey)
+  return <Fields docKey={docKey} fields={fields} path={path} hidden={hidden} />
 }
 
 export function SettingsPanel() {
@@ -304,7 +365,7 @@ export function SettingsPanel() {
       t={t}
       testId="onpage-settings"
     >
-      <Fields docKey={panel.key} fields={fields} path={panel.path} />
+      <RowFields docKey={panel.key} fields={fields} path={panel.path} />
     </Dialog>
   )
 }

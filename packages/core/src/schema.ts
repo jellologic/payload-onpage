@@ -159,6 +159,8 @@ export interface DocumentSchema {
   autosaveInterval?: number
   /** Publishing can be scheduled (`versions.drafts.schedulePublish`). */
   schedulePublish?: boolean
+  /** Some fields have `admin.condition`: ask `DataSource.hiddenFields` which are hidden. */
+  conditions?: boolean
   /** Collections that relationship fields point to: how to search and show them. */
   relations?: Record<string, { titleField: string; label: string }>
 }
