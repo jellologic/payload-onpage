@@ -4,7 +4,14 @@
  * property of the endpoints has a test here.
  */
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
-import { HEADER, stegaDecode, type OnPageMode, type SessionAdapter } from '@payload-onpage/core'
+import {
+  createModeCookie,
+  HEADER,
+  readModeCookie,
+  stegaDecode,
+  type OnPageMode,
+  type SessionAdapter,
+} from '@payload-onpage/core'
 import {
   buildConfig,
   getPayload,
@@ -12,7 +19,7 @@ import {
   type Payload,
   type SanitizedConfig,
 } from 'payload'
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { onpage } from '../index.ts'
 import { verifyPreviewToken } from '../tokens.ts'
 
@@ -22,8 +29,14 @@ const SECRET = 'integration-secret'
 /** Records what the endpoints asked the framework adapter to do. */
 const calls: Array<{ fn: string; args: unknown }> = []
 const session: SessionAdapter = {
-  async enable(mode: OnPageMode, opts) {
-    calls.push({ fn: 'enable', args: { mode, ...opts } })
+  async enable(mode: OnPageMode, { sealMode, ...opts }) {
+    // What the adapter would store, read back with the plugin's secret: proves it is sealed with it.
+    const cookie = await createModeCookie(mode, {
+      sealMode,
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    const verified = (await readModeCookie(cookie, () => undefined, SECRET))?.mode
+    calls.push({ fn: 'enable', args: { mode, ...opts, verified } })
   },
   async enableLink(opts) {
     calls.push({ fn: 'enableLink', args: { ...opts, sealed: await opts.seal('NEXT_SECRET') } })
@@ -88,6 +101,12 @@ beforeAll(async () => {
           { name: 'body', type: 'textarea' },
           { name: 'author', type: 'relationship', relationTo: 'users' },
           { name: 'price', type: 'number', access: { update: ({ req }) => isAdmin(req.user) } },
+          // A rule that depends on the document: frozen on the admin's page.
+          {
+            name: 'featured',
+            type: 'checkbox',
+            access: { update: ({ doc }) => doc?.slug !== 'admin-page' },
+          },
         ],
       },
       {
@@ -204,7 +223,7 @@ describe('schema endpoint', () => {
     const editor = await (
       await call('GET', '/onpage/schema/collection/pages', { as: 'editor' })
     ).json()
-    expect(editor.editable).toEqual(['title', 'slug', 'body', 'author'])
+    expect(editor.editable).toEqual(['title', 'slug', 'body', 'author', 'featured'])
     expect(editor.drafts).toBe(true)
     expect(editor.autosaveInterval).toBe(1500)
     expect(editor.relations).toEqual({ users: { titleField: 'id', label: 'User' } })
@@ -213,6 +232,21 @@ describe('schema endpoint', () => {
     ).json()
     expect(admin.editable).toContain('price')
     expect((await call('GET', '/onpage/schema/global/header', { as: 'admin' })).status).toBe(200)
+  })
+  it('with an id, evaluates field rules against that document', async () => {
+    const schemaFor = async (id: string | number) =>
+      (
+        await (
+          await call('GET', `/onpage/schema/collection/pages?id=${id}`, { as: 'admin' })
+        ).json()
+      ).editable
+    expect(await schemaFor(ids.adminPage)).not.toContain('featured')
+    expect(await schemaFor(ids.editorPage)).toContain('featured')
+    // Row-level rules too: an editor gets no schema for someone else's page.
+    expect(
+      (await call('GET', `/onpage/schema/collection/pages?id=${ids.adminPage}`, { as: 'editor' }))
+        .status,
+    ).toBe(403)
   })
   it('denies the schema when update access is definitively false or throws', async () => {
     // Row-level editors still get the schema (their rule needs a document to evaluate).
@@ -233,6 +267,22 @@ describe('schema endpoint', () => {
 })
 
 describe('enter / mode / exit', () => {
+  it("warns when the editor's auth cookie isn't sent (the mode can't be bound)", async () => {
+    const warn = vi.spyOn(payload.logger, 'warn').mockImplementation(() => undefined)
+    try {
+      await call('POST', '/onpage/mode?mode=edit&path=/', { as: 'admin' }) // header auth only
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('"payload-token"'))
+      warn.mockClear()
+      await call('POST', '/onpage/mode?mode=edit&path=/', {
+        as: 'admin',
+        headers: { cookie: `payload-token=${tokens.admin}` },
+      })
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('only accepts same-origin POSTs (CSRF)', async () => {
     expect((await call('GET', enterPath(ids.adminPage), { as: 'admin' })).status).toBe(404) // no GET route
     expect(
@@ -249,7 +299,10 @@ describe('enter / mode / exit', () => {
     expect(own.status).toBe(303)
     expect(own.headers.get('location')).toBe(`${ORIGIN}/editor-page`)
     expect(calls).toEqual([
-      { fn: 'enable', args: { mode: 'edit', secure: false, bindTo: 'payload-token' } },
+      {
+        fn: 'enable',
+        args: { mode: 'edit', secure: false, bindTo: 'payload-token', verified: 'edit' },
+      },
     ])
   })
   it('refuses users of other auth collections', async () => {
@@ -267,7 +320,10 @@ describe('enter / mode / exit', () => {
     const editor = await call('POST', '/onpage/mode?mode=edit&path=/', { as: 'editor' })
     expect(editor.status).toBe(303)
     expect(calls).toEqual([
-      { fn: 'enable', args: { mode: 'edit', secure: false, bindTo: 'payload-token' } },
+      {
+        fn: 'enable',
+        args: { mode: 'edit', secure: false, bindTo: 'payload-token', verified: 'edit' },
+      },
     ])
   })
   it('answers anonymous callers uniformly, whatever the slug', async () => {

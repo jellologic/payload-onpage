@@ -1,9 +1,32 @@
-import { COOKIE, HEADER, SEAL_PURPOSE, seal, sha256 } from '@payload-onpage/core'
+import {
+  COOKIE,
+  createModeCookie,
+  HEADER,
+  modeSealer,
+  readModeCookie,
+  SEAL_PURPOSE,
+  seal,
+  sha256,
+} from '@payload-onpage/core'
 import { NextRequest } from 'next/server.js'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { withOnPage } from '../proxy.ts'
 
 const secret = 'proxy-secret'
+const modeCookie = (mode: 'edit' | 'view', bind?: { name: string; token: string }) =>
+  createModeCookie(mode, {
+    sealMode: modeSealer(secret),
+    expiresAt: new Date(Date.now() + 3600_000),
+    bindTo: bind?.name,
+    token: bind?.token,
+  })
+const cookieValue = (h: Headers, name: string) =>
+  (h.get('cookie') ?? '')
+    .split('; ')
+    .find((c) => c.startsWith(`${name}=`))
+    ?.slice(name.length + 1)
+
+afterEach(() => vi.unstubAllEnvs())
 const req = (path: string, cookie = '', extra: Record<string, string> = {}) =>
   new NextRequest(`http://site.test${path}`, { headers: { cookie, ...extra } })
 const grant = (over: Record<string, unknown> = {}) =>
@@ -29,7 +52,11 @@ describe('withOnPage (proxy)', () => {
     const cookie = `${COOKIE.preview}=${await grant()}; theme=dark`
     const on = await withOnPage(req('/', cookie), { secret })
     expect(on.get('cookie')).toContain(`${COOKIE.nextDraft}=NEXT_DRAFT_SECRET`)
-    expect(on.get('cookie')).toContain(`${COOKIE.mode}=view`)
+    // A sealed view-mode cookie, which server components can read.
+    expect(await readModeCookie(cookieValue(on, COOKIE.mode), () => undefined, secret)).toEqual({
+      mode: 'view',
+      bound: false,
+    })
     expect(on.get('cookie')).toContain('theme=dark')
     expect(on.get(HEADER.shared)).toBe('1')
     const off = await withOnPage(req('/products/x', cookie), { secret })
@@ -49,7 +76,7 @@ describe('withOnPage (proxy)', () => {
     }
   })
   it('does nothing without a secret, and never touches editors', async () => {
-    const editor = `${COOKIE.nextDraft}=abc; ${COOKIE.mode}=edit`
+    const editor = `${COOKIE.nextDraft}=abc; ${COOKIE.mode}=${await modeCookie('edit')}`
     expect((await withOnPage(req('/x', editor), { secret })).get('cookie')).toBe(editor)
     expect(
       (await withOnPage(req('/', `${COOKIE.preview}=${await grant()}`), { secret: undefined })).get(
@@ -76,6 +103,11 @@ describe('withOnPage (proxy)', () => {
     )
   })
 
+  it('strips a forged or unsealed mode cookie even without a draft cookie', async () => {
+    const h = await withOnPage(req('/x', `${COOKIE.mode}=edit; theme=dark`), { secret })
+    expect(h.get('cookie')).toBe('theme=dark')
+  })
+
   describe('strict guard (allowDraft)', () => {
     const copied = `${COOKIE.nextDraft}=NEXT_DRAFT_SECRET`
     it('a copied draft cookie with no grant unlocks nothing', async () => {
@@ -83,7 +115,7 @@ describe('withOnPage (proxy)', () => {
       expect(h.get('cookie')).not.toContain(COOKIE.nextDraft)
     })
     it('keeps it for an editor whose bound session is still signed in', async () => {
-      const bound = `edit:auth:${(await sha256('TOKEN')).slice(0, 32)}`
+      const bound = await modeCookie('edit', { name: 'auth', token: 'TOKEN' })
       const allowDraft = () => false
       const signedIn = await withOnPage(
         req('/x', `${copied}; ${COOKIE.mode}=${bound}; auth=TOKEN`),
@@ -110,6 +142,43 @@ describe('withOnPage (proxy)', () => {
         },
       })
       expect(thrown.get('cookie')).not.toContain(COOKIE.nextDraft)
+    })
+    it('a forged binding (cookie name and value both chosen by the client) unlocks nothing', async () => {
+      const forged = `edit:x:${(await sha256('y')).slice(0, 32)}`
+      for (const value of [forged, `${forged}.tampered`, 'edit', 'view']) {
+        const h = await withOnPage(req('/x', `${copied}; x=y; ${COOKIE.mode}=${value}`), {
+          secret,
+          allowDraft: () => false,
+        })
+        expect(h.get('cookie')).not.toContain(COOKIE.nextDraft)
+        expect(h.get('cookie')).not.toContain(`${COOKIE.mode}=`)
+      }
+    })
+    it('a mode cookie sealed with another secret unlocks nothing', async () => {
+      const other = await createModeCookie('edit', {
+        sealMode: modeSealer('other-secret'),
+        expiresAt: new Date(Date.now() + 3600_000),
+        bindTo: 'auth',
+        token: 'TOKEN',
+      })
+      const h = await withOnPage(req('/x', `${copied}; auth=TOKEN; ${COOKIE.mode}=${other}`), {
+        secret,
+        allowDraft: () => false,
+      })
+      expect(h.get('cookie')).not.toContain(COOKIE.nextDraft)
+    })
+    it('is the default on Vercel: a copied draft cookie with no grant unlocks nothing', async () => {
+      vi.stubEnv('VERCEL', '1')
+      const h = await withOnPage(req('/drafts/secret', copied), { secret })
+      expect(h.get('cookie')).not.toContain(COOKIE.nextDraft)
+      const editor = await withOnPage(
+        req(
+          '/x',
+          `${copied}; auth=TOKEN; ${COOKIE.mode}=${await modeCookie('edit', { name: 'auth', token: 'TOKEN' })}`,
+        ),
+        { secret },
+      )
+      expect(editor.get('cookie')).toContain(COOKIE.nextDraft)
     })
     it('never asks when the grant covers the page', async () => {
       const allowDraft = vi.fn(() => false)

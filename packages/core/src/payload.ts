@@ -114,7 +114,10 @@ export function payloadRest(
   return {
     async loadSchema(ref, o): Promise<DocumentSchema> {
       const res = await f(
-        `${api}${prefix}/schema/${ref.kind}/${ref.slug}?${qs({ locale: o.locale })}`,
+        `${api}${prefix}/schema/${ref.kind}/${ref.slug}?${qs({
+          locale: o.locale,
+          id: ref.kind === 'collection' ? ref.id : undefined,
+        })}`,
         init(),
       )
       if (!res.ok) throw new Error(`Schema for ${ref.slug}: ${await errorMessage(res)}`)

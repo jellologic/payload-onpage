@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { InvalidConfiguration } from 'payload'
 import type { SessionAdapter } from '@payload-onpage/core'
-import { stegaClean, stegaCleanDeep, stegaDecode } from '@payload-onpage/core'
+import { stegaClean, stegaCleanDeep, stegaDecode, stegaEncode } from '@payload-onpage/core'
 import { serializeFields } from '../schema.ts'
 import { narrow } from '../../../core/src/__tests__/fixtures/narrow.ts'
 import { payloadFields } from '../../../core/src/__tests__/fixtures/payloadFields.ts'
@@ -157,6 +157,7 @@ describe('serializeFields', () => {
       { name: 'locked', type: 'text', admin: { disabled: true } },
       { name: 'computed', type: 'text', virtual: true },
       { name: 'related', type: 'join', collection: 'x', on: 'y' },
+      { name: 'slugLock', type: 'text', admin: { readOnly: true } },
     ] as any)
     expect(out.map((f) => f.name)).toEqual(['title'])
   })
@@ -329,6 +330,30 @@ describe('onpage() plugin', () => {
     expect(wantsMarkers({})).toBe(false)
   })
 
+  it("strips markers before the site's own hooks see the data; guards stale writes last", async () => {
+    const seen: unknown[] = []
+    const site = ({ data }: any) => (seen.push(data.title), data)
+    const withSite: any = onpage({ collections: ['pages'], session })({
+      collections: [
+        {
+          slug: 'pages',
+          fields: [{ name: 'title', type: 'text' }],
+          hooks: { beforeValidate: [site], beforeChange: [site] },
+        },
+      ],
+    })
+    const hooks = withSite.collections[0].hooks
+    expect(hooks.beforeValidate).toHaveLength(2)
+    expect(hooks.beforeChange).toHaveLength(3)
+    const marked = stegaEncode('T', { ref: 'c:pages:1', path: 'title', kind: 'text' })
+    for (const list of [hooks.beforeValidate, hooks.beforeChange.slice(0, 2)]) {
+      let data: any = { title: marked }
+      for (const hook of list) data = (await hook({ data, context: {}, req: {} })) ?? data
+    }
+    expect(seen).toEqual(['T', 'T'])
+    expect(hooks.beforeChange.at(-1)).not.toBe(site)
+  })
+
   it('is idempotent and can be disabled', () => {
     const once: any = onpage({ collections: ['pages'], session })({ ...config })
     const twice: any = onpage({ collections: ['pages'], session })(once)
@@ -349,6 +374,14 @@ describe('onpage() plugin', () => {
       /must not be empty/,
     )
     expect(() => onpage({ collections: ['pages'], session })(config)).not.toThrow()
+    // A rotation keyring: neither empty nor holding an empty secret.
+    for (const secret of [[], ['new', '']])
+      expect(() => onpage({ collections: ['pages'], session, secret })(config)).toThrow(
+        /must not be empty/,
+      )
+    expect(() =>
+      onpage({ collections: ['pages'], session, secret: ['new', 'old'] })(config),
+    ).not.toThrow()
   })
 
   it("merges its translations under the site's, which win", () => {

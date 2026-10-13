@@ -23,7 +23,7 @@ export const CONTEXT_KEY = 'onpage'
 
 /** Cookies and headers used by the Next.js adapter and its proxy. */
 export const COOKIE = {
-  /** Editor mode, bound to the signed-in session: `edit|view:<authCookie>:<hash>`. */
+  /** Editor mode, bound to the signed-in session and sealed: `edit|view:<authCookie>:<hash>.<seal>` (see `createModeCookie`). */
   mode: 'onpage',
   /** Sealed preview-link grant (path, expiry, Next's draft secret); only the proxy can read it. */
   preview: 'onpage_preview',

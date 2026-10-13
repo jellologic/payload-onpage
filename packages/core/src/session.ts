@@ -70,8 +70,9 @@ export interface PublishResult {
 }
 
 /** Schemas are per collection or global, not per document. */
-type SchemaKey = `${DocRef['kind']}:${string}`
-const schemaKey = (ref: DocRef): SchemaKey => `${ref.kind}:${ref.slug}`
+/** One schema per document: field access can depend on the document itself. */
+type SchemaKey = RefKey
+const schemaKey = (ref: DocRef): SchemaKey => refKey(ref)
 
 const HISTORY_LIMIT = 200
 const IDLE: SaveState = { status: 'idle', seq: 0 }

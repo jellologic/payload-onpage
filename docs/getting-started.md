@@ -95,7 +95,11 @@ Use `isDraftEnabled()` rather than `draftMode().isEnabled`: it also ends draft a
 import { createOnPageProxy } from '@payload-onpage/next/proxy'
 
 export const proxy = createOnPageProxy({ secret: process.env.PAYLOAD_SECRET }) // Next 15: export as `middleware`
-export const config = { matcher: ['/((?!api|_next|admin|.*\\..*).*)'] }
+export const config = {
+  matcher: [
+    '/((?!api|admin|_next/static|_next/image|.*\\.(?:ico|png|jpe?g|gif|webp|avif|svg|css|js|map|txt|xml|woff2?)$).*)',
+  ],
+}
 ```
 
 Already have one? Forward the headers it prepares:
@@ -109,7 +113,7 @@ return NextResponse.next({
 
 **Check:** copy a preview link in the admin and open it in a private window. The draft shows with a "Shared preview" bar; other pages show published content.
 
-**On Vercel** (or any CDN that serves cached pages unless the browser itself sends Next's draft cookie), the viewer's browser also gets that cookie, scoped to the shared page and expiring with the link (`nextSession({ cdnBypass })`, on by default when `VERCEL` is set). The proxy strips it from every request the link doesn't cover. Next's draft cookie is one site-wide key, so also pass `allowDraft`: a copied cookie then unlocks nothing unless the request is an editor's or your own check admits it.
+**On Vercel** (or any CDN that serves cached pages unless the browser itself sends Next's draft cookie), the viewer's browser also gets that cookie, scoped to the shared page and expiring with the link (`nextSession({ cdnBypass })`, on by default when `VERCEL` is set). Next's draft cookie is one site-wide key that lasts until the next deploy, so on Vercel the proxy is strict by default: a request keeps it only on the page its link covers, or for an editor still signed in as the session that entered edit mode. A copied cookie unlocks nothing else. If your own preview route also turns on draft mode, admit its users with `allowDraft`:
 
 ```ts
 withOnPage(request, {

@@ -42,7 +42,11 @@ export function onpage(options: OnPageOptions): OnPagePlugin {
       throw new InvalidConfiguration(
         'payload-onpage: pass `session` (e.g. nextSession() from @payload-onpage/next/session). The enter, mode, exit and preview endpoints need it.',
       )
-    if (options.secret !== undefined && !options.secret)
+    const secrets =
+      options.secret === undefined || typeof options.secret === 'string'
+        ? [options.secret]
+        : options.secret
+    if (options.secret !== undefined && (!secrets.length || secrets.some((s) => !s)))
       throw new InvalidConfiguration(
         "payload-onpage: `secret` must not be empty. Omit it to use Payload's `secret`.",
       )
@@ -62,12 +66,17 @@ export function onpage(options: OnPageOptions): OnPagePlugin {
       )
     }
 
-    /** The hooks every enabled document gets (see ./hooks). Encoding serializes the fields once, lazily. */
+    /**
+     * The hooks every enabled document gets (see ./hooks). Markers are stripped
+     * before the site's own hooks run, so those never see them; the stale-write
+     * guard runs last. Encoding serializes the fields once, lazily.
+     */
     const hooksFor = (cfg: CollectionConfig | GlobalConfig, entry: Entry) => {
       let fields: SchemaField[] | undefined
       return {
         beforeValidate: [stripMarkers],
-        beforeChange: [stripMarkers, guardStaleWrite],
+        beforeChange: [stripMarkers],
+        lastBeforeChange: [guardStaleWrite],
         afterRead: [
           encodeOnRead({
             kind: entry.kind,
@@ -85,8 +94,12 @@ export function onpage(options: OnPageOptions): OnPagePlugin {
         ...c,
         hooks: {
           ...c.hooks,
-          beforeValidate: [...(c.hooks?.beforeValidate ?? []), ...add.beforeValidate],
-          beforeChange: [...(c.hooks?.beforeChange ?? []), ...add.beforeChange],
+          beforeValidate: [...add.beforeValidate, ...(c.hooks?.beforeValidate ?? [])],
+          beforeChange: [
+            ...add.beforeChange,
+            ...(c.hooks?.beforeChange ?? []),
+            ...add.lastBeforeChange,
+          ],
           afterRead: [...(c.hooks?.afterRead ?? []), ...add.afterRead],
         },
       }
@@ -97,8 +110,12 @@ export function onpage(options: OnPageOptions): OnPagePlugin {
         ...g,
         hooks: {
           ...g.hooks,
-          beforeValidate: [...(g.hooks?.beforeValidate ?? []), ...add.beforeValidate],
-          beforeChange: [...(g.hooks?.beforeChange ?? []), ...add.beforeChange],
+          beforeValidate: [...add.beforeValidate, ...(g.hooks?.beforeValidate ?? [])],
+          beforeChange: [
+            ...add.beforeChange,
+            ...(g.hooks?.beforeChange ?? []),
+            ...add.lastBeforeChange,
+          ],
           afterRead: [...(g.hooks?.afterRead ?? []), ...add.afterRead],
         },
       }

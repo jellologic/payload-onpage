@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type BrowserContext, type Page } from '@playwright/test'
 
@@ -282,6 +283,7 @@ test('share links: draft on the shared page only, no draft credential in the bro
   await viewer.goto(link)
   await expect(viewer.getByTestId('onpage-preview-toolbar')).toContainText('Shared preview')
   await expect(viewer.locator('h1').first()).toContainText('E2E ') // the draft
+  const shared = viewer.url()
   const cookies = await anon.cookies()
   // TanStack Start also sets a non-credential hint so the mount can skip its
   // state fetch for visitors; it grants nothing by itself.
@@ -303,6 +305,22 @@ test('share links: draft on the shared page only, no draft credential in the bro
 
   // Tampered and missing tokens are refused.
   expect((await viewer.goto(`${link.slice(0, -3)}AAA`))!.status()).toBe(403)
+
+  // A hand-made mode cookie, or a session binding the client made up (its
+  // cookie name and value both chosen), shows no drafts and no editor.
+  const forger = await browser.newContext()
+  const forged = await forger.newPage()
+  const binding = `edit:x:${createHash('sha256').update('y').digest('hex').slice(0, 32)}`
+  for (const value of ['view', 'edit', binding]) {
+    await forger.addCookies([
+      { name: 'x', value: 'y', url: shared },
+      { name: 'onpage', value, url: shared },
+    ])
+    await forged.goto(shared)
+    await expect(forged.locator('h1').first()).not.toContainText('E2E ')
+    await expect(forged.getByTestId('onpage-dock')).toHaveCount(0)
+  }
+  await forger.close()
 
   // Leaving clears the grant.
   await viewer.goto(link)

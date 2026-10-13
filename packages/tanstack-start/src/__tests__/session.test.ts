@@ -1,4 +1,11 @@
-import { COOKIE, SEAL_PURPOSE, seal, sha256 } from '@payload-onpage/core'
+import {
+  COOKIE,
+  createModeCookie,
+  modeSealer,
+  SEAL_PURPOSE,
+  seal,
+  sha256,
+} from '@payload-onpage/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 // A minimal stand-in for @tanstack/react-start/server: request cookies in,
@@ -7,6 +14,7 @@ const state = vi.hoisted(() => ({
   cookies: new Map<string, string>(),
   set: [] as Array<{ name: string; value: string; opts?: Record<string, unknown> | undefined }>,
   deleted: [] as string[],
+  headers: new Map<string, string>(),
   path: '/a',
 }))
 vi.mock('@tanstack/react-start/server', () => ({
@@ -20,6 +28,7 @@ vi.mock('@tanstack/react-start/server', () => ({
     state.cookies.delete(name)
   },
   getRequestUrl: () => new URL(`http://test${state.path}`),
+  setResponseHeader: (name: string, value: string) => state.headers.set(name, value),
 }))
 
 const {
@@ -33,11 +42,13 @@ const {
 import { HINT_COOKIE } from '../hint.ts'
 
 const SECRET = 'test-secret-not-for-prod'
+const sealMode = modeSealer(SECRET)
 
 beforeEach(() => {
   state.cookies.clear()
   state.set = []
   state.deleted = []
+  state.headers.clear()
   state.path = '/a'
   tanstackSession({ secret: SECRET })
 })
@@ -45,9 +56,11 @@ beforeEach(() => {
 describe('tanstackSession', () => {
   it('binds edit mode to the auth cookie; signing out ends it', async () => {
     state.cookies.set('payload-token', 'JWT-1')
-    await tanstackSession().enable('edit', { secure: true, bindTo: 'payload-token' })
+    await tanstackSession().enable('edit', { secure: true, bindTo: 'payload-token', sealMode })
     const mode = state.set.find((c) => c.name === COOKIE.mode)!
-    expect(mode.value).toBe(`edit:payload-token:${(await sha256('JWT-1')).slice(0, 32)}`)
+    expect(mode.value).toMatch(
+      new RegExp(`^edit:payload-token:${(await sha256('JWT-1')).slice(0, 32)}\\.[\\w-]+$`),
+    )
     expect(mode.opts).toMatchObject({
       httpOnly: true,
       secure: true,
@@ -66,7 +79,7 @@ describe('tanstackSession', () => {
   })
 
   it('sets a non-credential hint next to the mode cookie, and clears it on disable', async () => {
-    await tanstackSession().enable('view', { secure: false })
+    await tanstackSession().enable('view', { secure: false, sealMode })
     const hint = state.set.find((c) => c.name === HINT_COOKIE)!
     expect(hint.opts).toMatchObject({ httpOnly: false, path: '/' })
 
@@ -111,11 +124,49 @@ describe('tanstackSession', () => {
     }
   })
 
+  it('a hand-made mode cookie grants nothing: no drafts, no markers', async () => {
+    const bound = `edit:x:${(await sha256('y')).slice(0, 32)}`
+    for (const forged of ['view', 'edit', bound, `${bound}.tampered`]) {
+      state.cookies.set('x', 'y') // a cookie name and value the client chose
+      state.cookies.set(COOKIE.mode, forged)
+      expect(await isDraftEnabled()).toBe(false)
+      expect(await getOnPageMode()).toBeNull()
+      expect(await onpageContext()).toEqual({})
+    }
+  })
+
+  it('refuses mode cookies sealed with another secret, or expired', async () => {
+    const other = await createModeCookie('edit', {
+      sealMode: modeSealer('other-secret'),
+      expiresAt: new Date(Date.now() + 3600_000),
+    })
+    const expired = await createModeCookie('edit', {
+      sealMode,
+      expiresAt: new Date(Date.now() - 1),
+    })
+    for (const value of [other, expired]) {
+      state.cookies.set(COOKIE.mode, value)
+      expect(await isDraftEnabled()).toBe(false)
+    }
+  })
+
+  it('without a secret, nothing verifies (fails closed)', async () => {
+    state.cookies.set(
+      COOKIE.mode,
+      await createModeCookie('edit', { sealMode, expiresAt: new Date(Date.now() + 3600_000) }),
+    )
+    expect(await isDraftEnabled()).toBe(true)
+    tanstackSession({ secret: '' })
+    expect(await isDraftEnabled()).toBe(false)
+    expect(await getOnPageMode()).toBeNull()
+  })
+
   it('a hint cookie alone grants nothing', async () => {
     state.cookies.set(HINT_COOKIE, '1')
     expect(await getOnPageMode()).toBeNull()
     expect(await isSharedPreview()).toBe(false)
     expect(await isDraftEnabled()).toBe(false)
+    expect(state.headers.has('Cache-Control')).toBe(false) // visitors' pages stay cacheable
     expect(await onpageContext()).toEqual({})
   })
 })
@@ -137,7 +188,9 @@ describe('shared preview grants', () => {
   it('a live grant for this path enables drafts (view-only, no markers)', async () => {
     state.cookies.set(COOKIE.preview, await grant())
     expect(await isSharedPreview()).toBe(true)
+    expect(state.headers.get('Cache-Control')).toBeUndefined()
     expect(await isDraftEnabled()).toBe(true)
+    expect(state.headers.get('Cache-Control')).toBe('private, no-store')
     expect(await getOnPageMode()).toBeNull()
     expect(await onpageContext()).toEqual({})
   })

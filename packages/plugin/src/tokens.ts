@@ -2,7 +2,7 @@
  * Preview-link tokens: sealed (AES-GCM) and expiring, bound to one document
  * and path. Opaque to the holder, so the link reveals nothing about the draft.
  */
-import { SEAL_PURPOSE, seal, unseal } from '@payload-onpage/core'
+import { SEAL_PURPOSE, seal, unseal, type SealSecret } from '@payload-onpage/core'
 
 export interface PreviewTokenPayload {
   /** refKey of the shared document */
@@ -19,7 +19,7 @@ export interface PreviewTokenPayload {
 
 export async function createPreviewToken(
   payload: Pick<PreviewTokenPayload, 'ref' | 'path' | 'locale'>,
-  secret: string,
+  secret: SealSecret,
   ttlSeconds: number,
   now = Date.now(),
 ): Promise<{ token: string; payload: PreviewTokenPayload }> {
@@ -35,7 +35,7 @@ export async function createPreviewToken(
 
 export async function verifyPreviewToken(
   token: string,
-  secret: string,
+  secret: SealSecret,
   now = Date.now(),
 ): Promise<PreviewTokenPayload | null> {
   const p = await unseal<PreviewTokenPayload>(token, secret, SEAL_PURPOSE.previewLink)

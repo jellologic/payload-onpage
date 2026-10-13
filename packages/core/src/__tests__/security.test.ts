@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { getAt, pathnameOf, safeLinkUrl, safePath, samePath, setAt } from '../path.ts'
-import { SEAL_PURPOSE, isLivePreviewGrant, seal, sha256, unseal } from '../seal.ts'
+import {
+  createModeCookie,
+  isLivePreviewGrant,
+  modeSealer,
+  readModeCookie,
+  SEAL_PURPOSE,
+  seal,
+  sha256,
+  unseal,
+} from '../seal.ts'
 
 describe('safePath (open-redirect guard)', () => {
   it.each([
@@ -124,4 +133,84 @@ describe('isLivePreviewGrant', () => {
     ['missing path', { ...ok, path: undefined }],
     ['not an object', 'x'],
   ])('refuses %s', (_, g) => expect(isLivePreviewGrant(g, now)).toBe(false))
+})
+
+describe('secret rotation (keyring)', () => {
+  it('seals with the first secret and unseals with any', async () => {
+    const old = await seal({ a: 1 }, 'old', SEAL_PURPOSE.previewLink)
+    const ring = ['new', 'old'] as const
+    expect(await unseal(old, ring, SEAL_PURPOSE.previewLink)).toEqual({ a: 1 })
+    const fresh = await seal({ b: 2 }, ring, SEAL_PURPOSE.previewLink)
+    expect(await unseal(fresh, 'new', SEAL_PURPOSE.previewLink)).toEqual({ b: 2 })
+    expect(await unseal(fresh, 'old', SEAL_PURPOSE.previewLink)).toBeNull()
+    // Dropping the old secret retires what it sealed.
+    expect(await unseal(old, ['new'], SEAL_PURPOSE.previewLink)).toBeNull()
+  })
+  it('refuses an empty keyring', async () => {
+    await expect(seal({}, [], SEAL_PURPOSE.previewLink)).rejects.toThrow(/secret is required/)
+    await expect(seal({}, [''], SEAL_PURPOSE.previewLink)).rejects.toThrow(/secret is required/)
+    const t = await seal({}, 'x', SEAL_PURPOSE.previewLink)
+    expect(await unseal(t, [], SEAL_PURPOSE.previewLink)).toBeNull()
+  })
+  it('mode cookies survive a rotation', async () => {
+    const raw = await createModeCookie('edit', {
+      sealMode: modeSealer('old'),
+      expiresAt: new Date(Date.now() + 60_000),
+    })
+    expect(await readModeCookie(raw, () => undefined, ['new', 'old'])).toEqual({
+      mode: 'edit',
+      bound: false,
+    })
+  })
+})
+
+describe('mode cookie', () => {
+  const secret = 'test-secret'
+  const sealMode = modeSealer(secret)
+  const later = new Date(Date.now() + 3600_000)
+  const jar = (cookies: Record<string, string>) => (name: string) => cookies[name]
+
+  it('round-trips, bound to the auth cookie', async () => {
+    const raw = await createModeCookie('edit', {
+      sealMode,
+      expiresAt: later,
+      bindTo: 'auth',
+      token: 'T',
+    })
+    expect(await readModeCookie(raw, jar({ auth: 'T' }), secret)).toEqual({
+      mode: 'edit',
+      bound: true,
+    })
+    expect(await readModeCookie(raw, jar({ auth: 'T2' }), secret)).toBeNull() // someone else
+    expect(await readModeCookie(raw, jar({}), secret)).toBeNull() // signed out
+    expect(await readModeCookie(raw, jar({ auth: 'T' }), null)).toEqual({
+      mode: 'edit',
+      bound: true,
+    })
+  })
+  it('stays unbound without an auth cookie', async () => {
+    const raw = await createModeCookie('view', { sealMode, expiresAt: later, bindTo: 'auth' })
+    expect(await readModeCookie(raw, jar({}), secret)).toEqual({ mode: 'view', bound: false })
+  })
+  it('refuses forgeries with the secret', async () => {
+    const hash = (await sha256('y')).slice(0, 32)
+    const real = await createModeCookie('view', { sealMode, expiresAt: later })
+    const seal_ = real.slice(real.lastIndexOf('.') + 1)
+    const cases = [
+      'edit',
+      'view',
+      `edit:x:${hash}`,
+      `edit:x:${hash}.junk`,
+      `edit.${seal_}`, // a real seal moved onto another plain part
+      await createModeCookie('edit', { sealMode: modeSealer('other'), expiresAt: later }),
+      await createModeCookie('edit', { sealMode, expiresAt: new Date(Date.now() - 1000) }),
+    ]
+    for (const raw of cases) expect(await readModeCookie(raw, jar({ x: 'y' }), secret)).toBeNull()
+  })
+  it('without the secret, checks shape and binding only', async () => {
+    const hash = (await sha256('y')).slice(0, 32)
+    expect(await readModeCookie('edit', jar({}), null)).toBeNull()
+    expect(await readModeCookie('admin.x', jar({}), null)).toBeNull()
+    expect(await readModeCookie(`edit:x:${hash}:z.s`, jar({ x: 'y' }), null)).toBeNull()
+  })
 })
