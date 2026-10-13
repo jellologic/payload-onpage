@@ -161,6 +161,10 @@ export interface DocumentSchema {
   schedulePublish?: boolean
   /** Some fields have `admin.condition`: ask `DataSource.hiddenFields` which are hidden. */
   conditions?: boolean
+  /** Comments and review requests are on (the plugin's `comments` option). */
+  comments?: boolean
+  /** May this user publish this document? (Sent when the schema is asked for a document.) */
+  canPublish?: boolean
   /** Collections rich-text links can point to (the site's pages); they're in `relations` too. */
   linkTargets?: string[]
   /** Collections that relationship fields point to: how to search and show them. */

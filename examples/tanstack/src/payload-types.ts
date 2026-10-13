@@ -62,30 +62,31 @@ export type SupportedTimezones =
   | 'Pacific/Fiji';
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "LexicalNodes_1C1AB931".
+ * via the `definition` "LexicalNodes_E646CC79".
  */
-export type LexicalNodes_1C1AB931 =
+export type LexicalNodes_E646CC79 =
   | SerializedTextNode
   | SerializedTabNode
   | SerializedLineBreakNode
-  | SerializedParagraphNode<LexicalNodes_1C1AB931>
+  | SerializedParagraphNode<LexicalNodes_E646CC79>
   | SerializedHorizontalRuleNode
   | SerializedUploadNode<'media'>
-  | SerializedQuoteNode<LexicalNodes_1C1AB931>
+  | SerializedQuoteNode<LexicalNodes_E646CC79>
   | SerializedRelationshipNode<
       | 'pages'
       | 'users'
+      | 'onpage-comments'
       | 'payload-kv'
       | 'payload-jobs'
       | 'payload-locked-documents'
       | 'payload-preferences'
       | 'payload-migrations'
     >
-  | SerializedAutoLinkNode<LexicalNodes_1C1AB931, LexicalLinkFields>
-  | SerializedLinkNode<LexicalNodes_1C1AB931, LexicalLinkFields>
-  | SerializedListNode<LexicalNodes_1C1AB931>
-  | SerializedListItemNode<LexicalNodes_1C1AB931>
-  | SerializedHeadingNode<LexicalNodes_1C1AB931>;
+  | SerializedAutoLinkNode<LexicalNodes_E646CC79, LexicalLinkFields>
+  | SerializedLinkNode<LexicalNodes_E646CC79, LexicalLinkFields>
+  | SerializedListNode<LexicalNodes_E646CC79>
+  | SerializedListItemNode<LexicalNodes_E646CC79>
+  | SerializedHeadingNode<LexicalNodes_E646CC79>;
 /**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "LexicalNodes_3DE324E4".
@@ -108,6 +109,7 @@ export interface Config {
     pages: Page;
     media: Media;
     users: User;
+    'onpage-comments': OnpageComment;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -120,6 +122,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'onpage-comments': OnpageCommentsSelect<false> | OnpageCommentsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -298,7 +301,7 @@ export interface Media {
  * via the `definition` "Content".
  */
 export interface Content {
-  body?: LexicalRichText<LexicalNodes_1C1AB931> | null;
+  body?: LexicalRichText<LexicalNodes_E646CC79> | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'content';
@@ -321,6 +324,39 @@ export interface Features {
   id?: string | null;
   blockName?: string | null;
   blockType: 'features';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "onpage-comments".
+ */
+export interface OnpageComment {
+  id: number;
+  doc?: {
+    relationTo: 'pages';
+    value: number | Page;
+  } | null;
+  global?: string | null;
+  /**
+   * Field the comment is about.
+   */
+  path?: string | null;
+  quote?: string | null;
+  body: string;
+  kind?: ('comment' | 'review') | null;
+  author?: (number | null) | User;
+  guestName?: string | null;
+  link?: string | null;
+  resolved?: boolean | null;
+  createdBy?: {
+    relationTo: 'users';
+    value: number | User;
+  } | null;
+  updatedBy?: {
+    relationTo: 'users';
+    value: number | User;
+  } | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -467,6 +503,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'onpage-comments';
+        value: number | OnpageComment;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -651,6 +691,26 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "onpage-comments_select".
+ */
+export interface OnpageCommentsSelect<T extends boolean = true> {
+  doc?: T;
+  global?: T;
+  path?: T;
+  quote?: T;
+  body?: T;
+  kind?: T;
+  author?: T;
+  guestName?: T;
+  link?: T;
+  resolved?: T;
+  createdBy?: T;
+  updatedBy?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -851,7 +911,7 @@ export interface CollectionsWidget {
 export interface CollectionQueryWidget {
   data?: {
     title?: string | null;
-    relatedCollection: 'pages' | 'media' | 'users';
+    relatedCollection: 'pages' | 'media' | 'users' | 'onpage-comments';
     where?:
       | {
           [k: string]: unknown;
@@ -873,7 +933,7 @@ export interface CollectionQueryWidget {
  */
 export interface ActivityWidget {
   data?: {
-    excludedCollections?: ('pages' | 'media' | 'users')[] | null;
+    excludedCollections?: ('pages' | 'media' | 'users' | 'onpage-comments')[] | null;
   };
   width: 'small' | 'medium' | 'large' | 'x-large' | 'full';
 }

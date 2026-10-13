@@ -60,6 +60,33 @@ function useTicker(ms: number) {
   }, [ms])
 }
 
+/**
+ * How many comments are open on the page's documents (null: comments are off).
+ * Asked again whenever the comments panel closes.
+ */
+function useOpenComments(docs: DocumentState[], panelOpen: boolean): number | null {
+  const { session } = useOnPage()
+  const ds = session.dataSource
+  const ids = docs
+    .filter((d) => d.schema?.comments)
+    .map((d) => JSON.stringify(d.ref))
+    .join('|')
+  const [count, setCount] = useState<number | null>(null)
+  useEffect(() => {
+    const list = ds.listComments?.bind(ds)
+    if (!list || !ids || panelOpen) return
+    let live = true
+    Promise.all(ids.split('|').map((r) => list(JSON.parse(r) as DocumentState['ref']))).then(
+      (all) => live && setCount(all.flat().filter((c) => !c.resolved).length),
+      () => live && setCount(0),
+    )
+    return () => {
+      live = false
+    }
+  }, [ds, ids, panelOpen])
+  return ds.listComments && ids ? (count ?? 0) : null
+}
+
 export function Dock() {
   const {
     session,
@@ -88,6 +115,9 @@ export function Dock() {
   const docs = docKeys.map((k) => snap.docs[k]).filter((d): d is DocumentState => !!d)
   const locked = docs.find((d) => lockedBy[d.key])
   const ready = docs.filter((d) => d.status === 'ready')
+  const openComments = useOpenComments(ready, panel?.kind === 'comments')
+  // Publishing needs a right some editors don't have: they ask for a review instead.
+  const cantPublish = ready.some((d) => d.schema?.canPublish === false)
   // No drafts: every save is a live change. Say so, once.
   const liveDoc = ready.find((d) => d.schema && !d.schema.drafts)
   const failed = docs.find((d) => d.status === 'error')
@@ -285,6 +315,18 @@ export function Dock() {
             {t('dock.pageSettings')}
           </button>
         )}
+        {openComments !== null && (
+          <button
+            type="button"
+            className="po-btn"
+            aria-expanded={panel?.kind === 'comments'}
+            onClick={() => setPanel(panel?.kind === 'comments' ? null : { kind: 'comments' })}
+            title={t('dock.commentsHint')}
+            data-testid="onpage-comments-open"
+          >
+            {openComments ? t('dock.commentsCount', { count: openComments }) : t('dock.comments')}
+          </button>
+        )}
         {session.dataSource.listVersions && ready.length > 0 && (
           <button
             type="button"
@@ -345,7 +387,8 @@ export function Dock() {
         <button
           type="button"
           className="po-btn po-primary"
-          disabled={!ready.length || busy || !!conflict}
+          disabled={!ready.length || busy || !!conflict || cantPublish}
+          title={cantPublish ? t('dock.cantPublish') : undefined}
           onClick={() => void publish()}
           data-testid="onpage-publish"
         >

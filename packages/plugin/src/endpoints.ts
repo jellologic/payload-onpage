@@ -69,6 +69,14 @@ import type { Entry, OnPageOptions } from './options.ts'
 import { resolvePath } from './paths.ts'
 import { hasConditions, hiddenPaths } from './conditions.ts'
 import { applyLock } from './locks.ts'
+import {
+  boundedText,
+  COMMENTS,
+  commentTarget,
+  commentsWhere,
+  guestGrant,
+  LIMITS,
+} from './comments.ts'
 import { label, relationTargets, serializeFields } from './schema.ts'
 import { createPreviewToken, verifyPreviewToken } from './tokens.ts'
 
@@ -80,6 +88,17 @@ export interface EndpointContext {
 }
 
 const DAY = 24 * 3600
+
+/** A user's display name: their collection's title field, else their email. */
+const authorName = (req: PayloadRequest, user: unknown): string | undefined => {
+  if (!user || typeof user !== 'object') return undefined
+  const u = user as Record<string, unknown>
+  const titleField =
+    req.payload.collections[req.payload.config.admin.user]?.config.admin?.useAsTitle
+  const title = titleField ? u[titleField] : undefined
+  if (typeof title === 'string' && title) return title
+  return typeof u.email === 'string' ? u.email : undefined
+}
 
 const secretOf = (req: PayloadRequest, options: OnPageOptions): SealSecret =>
   options.secret ?? req.payload.config.secret
@@ -193,6 +212,12 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
         drafts: hasDraftsEnabled(cfg),
         ...(hasScheduledPublishEnabled(cfg) ? { schedulePublish: true } : {}),
         ...(hasConditions(cfg.fields, req.payload.config.blocks) ? { conditions: true } : {}),
+        ...(options.comments ? { comments: true } : {}),
+        ...(ref || kind === 'global'
+          ? {
+              canPublish: await canPublishDocument(req, ref ?? { kind: 'global', slug }, options),
+            }
+          : {}),
         ...(hasAutosaveEnabled(cfg) ? { autosaveInterval: getAutosaveInterval(cfg) } : {}),
         ...(useAsTitle ? { useAsTitle } : {}),
         ...(Object.keys(relations).length ? { relations } : {}),
@@ -328,6 +353,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
             ref: token.ref,
             exp: token.exp,
             draft: draftSecret,
+            id: token.jti,
           }
           return seal(grant, secret, SEAL_PURPOSE.previewCookie)
         },
@@ -433,5 +459,212 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     },
   }
 
-  return [schema, enter, mode, exit, previewLink, preview, schedule, conditions, lock]
+  /** The document a JSON request is about, once the body is parsed (null: unknown). */
+  const docOf = (req: PayloadRequest, body: Record<string, unknown>) => {
+    const ref = readRef(req, body)
+    return ref && ctx.entry(ref.kind, ref.slug) ? ref : null
+  }
+  const jsonBody = async (req: PayloadRequest): Promise<Record<string, unknown>> => {
+    if (!req.headers.get('content-type')?.includes('application/json'))
+      throw new APIError('Expected a JSON body', 415)
+    await addDataAndFileToRequest(req)
+    return req.data ?? {}
+  }
+  const isEditorOf = async (req: PayloadRequest, ref: DocRef) =>
+    !!req.user && (await canUseOnPage(req, options)) && (await canEditDocument(req, ref, options))
+  const guestsAllowed = typeof options.comments === 'object' && !!options.comments.guests
+
+  /** Comments on a document, newest first: for its editors. */
+  const listComments: Endpoint = {
+    path: `${prefix}${ROUTES.comments}`,
+    method: 'get',
+    handler: async (req) => {
+      const q = req.searchParams
+      const ref = readRef(req, { kind: q.get('kind'), slug: q.get('slug'), id: q.get('id') })
+      if (!ref || !ctx.entry(ref.kind, ref.slug)) throw new APIError('Unknown document', 400)
+      if (!(await isEditorOf(req, ref))) throw new Forbidden(req.t)
+      const { docs } = await req.payload.find({
+        collection: COMMENTS,
+        where: commentsWhere(ref),
+        sort: '-createdAt',
+        limit: 100,
+        depth: 1,
+        overrideAccess: true,
+        req,
+      })
+      return json({
+        comments: docs.map((doc) => {
+          const c = doc as Record<string, unknown>
+          const str = (v: unknown) => (typeof v === 'string' && v ? v : undefined)
+          return {
+            id: c.id,
+            body: str(c.body) ?? '',
+            path: str(c.path),
+            quote: str(c.quote),
+            kind: c.kind === 'review' ? 'review' : 'comment',
+            resolved: c.resolved === true,
+            createdAt: str(c.createdAt) ?? '',
+            author: authorName(req, c.author) ?? str(c.guestName),
+            guest: !c.author,
+          }
+        }),
+      })
+    },
+  }
+
+  /** Add a comment: an editor of the document, or (with `comments.guests`) a share-link viewer of it. */
+  const addComment: Endpoint = {
+    path: `${prefix}${ROUTES.comments}`,
+    method: 'post',
+    handler: async (req) => {
+      const refused = rejectCrossSite(req)
+      if (refused) return refused
+      const body = await jsonBody(req)
+      const text = boundedText(body.body, LIMITS.body)
+      if (!text) throw new APIError(`Write a comment of at most ${LIMITS.body} characters`, 400)
+      const quote = body.quote === undefined ? null : boundedText(body.quote, LIMITS.quote)
+      const named = docOf(req, body)
+      let ref: DocRef
+      const data: Record<string, unknown> = { body: text, ...(quote ? { quote } : {}) }
+      if (named && (await isEditorOf(req, named))) {
+        ref = named
+        const path = typeof body.path === 'string' && body.path.length <= 200 ? body.path : null
+        Object.assign(data, { author: req.user!.id, ...(path ? { path } : {}) })
+      } else {
+        // A share-link viewer: the document is the one their sealed grant covers, never one they name.
+        const grant = guestsAllowed ? await guestGrant(req, secretOf(req, options)) : null
+        const parsed = grant && parseRefKey(grant.ref)
+        if (!grant || !parsed || (named && refKey(named) !== grant.ref)) throw new Forbidden(req.t)
+        ref = withIdType(req, parsed)
+        const name = boundedText(body.name, LIMITS.name)
+        if (!name) throw new APIError(`Give your name (at most ${LIMITS.name} characters)`, 400)
+        const link = grant.id ?? grant.ref
+        const { totalDocs } = await req.payload.count({
+          collection: COMMENTS,
+          where: {
+            and: [
+              { link: { equals: link } },
+              { createdAt: { greater_than: new Date(Date.now() - 3600_000).toISOString() } },
+            ],
+          },
+          overrideAccess: true,
+          req,
+        })
+        if (totalDocs >= LIMITS.perLinkPerHour)
+          throw new APIError('Too many comments from this link; try again later', 429)
+        Object.assign(data, { guestName: name, link })
+      }
+      Object.assign(data, commentTarget(ref))
+      const created = await req.payload.create({
+        collection: COMMENTS,
+        data,
+        overrideAccess: true,
+        req,
+      })
+      return json({ id: created.id })
+    },
+  }
+
+  /** May this share-link viewer comment? (The toolbar asks before offering it.) */
+  const guestStatus: Endpoint = {
+    path: `${prefix}${ROUTES.comments}/guest`,
+    method: 'get',
+    handler: async (req) =>
+      json({
+        enabled: guestsAllowed && !!(await guestGrant(req, secretOf(req, options))),
+      }),
+  }
+
+  /** Mark a comment resolved (or not): editors of its document. */
+  const resolveComment: Endpoint = {
+    path: `${prefix}${ROUTES.comments}/resolve`,
+    method: 'post',
+    handler: async (req) => {
+      const refused = rejectCrossSite(req)
+      if (refused) return refused
+      const body = await jsonBody(req)
+      const id = typeof body.id === 'string' || typeof body.id === 'number' ? body.id : null
+      if (id === null) throw new APIError('Which comment?', 400)
+      const comment = await req.payload
+        .findByID({ collection: COMMENTS, id, depth: 0, overrideAccess: true, req })
+        .catch(() => null)
+      if (!comment) throw new NotFound(req.t)
+      const target = comment.doc as { relationTo?: string; value?: unknown } | undefined
+      const ref = target?.relationTo
+        ? readRef(req, { kind: 'collection', slug: target.relationTo, id: String(target.value) })
+        : typeof comment.global === 'string'
+          ? readRef(req, { kind: 'global', slug: comment.global })
+          : null
+      if (!ref || !(await isEditorOf(req, ref))) throw new Forbidden(req.t)
+      await req.payload.update({
+        collection: COMMENTS,
+        id,
+        data: { resolved: body.resolved !== false },
+        overrideAccess: true,
+        req,
+      })
+      return json({ ok: true })
+    },
+  }
+
+  /**
+   * Ask for a review: a fresh share link, the site's `onReviewRequest` hook
+   * (email, Slack…), and the request kept as a comment.
+   */
+  const review: Endpoint = {
+    path: `${prefix}${ROUTES.review}`,
+    method: 'post',
+    handler: async (req) => {
+      const refused = rejectCrossSite(req)
+      if (refused) return refused
+      const body = await jsonBody(req)
+      const ref = docOf(req, body)
+      const entry = ref && ctx.entry(ref.kind, ref.slug)
+      if (!ref || !entry) throw new APIError('Unknown document', 400)
+      if (!(await isEditorOf(req, ref))) throw new Forbidden(req.t)
+      const note =
+        body.note === undefined || body.note === '' ? '' : boundedText(body.note, LIMITS.body)
+      if (note === null) throw new APIError(`Keep the note under ${LIMITS.body} characters`, 400)
+      const locale = knownLocale(req, body.locale)
+      const path = await resolvePath(req, ref, entry, locale)
+      if (!path) throw new APIError('This document has no page', 404)
+      const { token, payload } = await createPreviewToken(
+        { ref: refKey(ref), path, ...(locale ? { locale } : {}) },
+        secretOf(req, options),
+        options.previewLinkTTL ?? DAY,
+      )
+      const url = `${apiURL(req, `${prefix}${ROUTES.preview}`)}?token=${encodeURIComponent(token)}`
+      const expiresAt = new Date(payload.exp * 1000).toISOString()
+      await req.payload.create({
+        collection: COMMENTS,
+        data: {
+          ...commentTarget(ref),
+          kind: 'review',
+          body: note || 'Review requested',
+          author: req.user!.id,
+        },
+        overrideAccess: true,
+        req,
+      })
+      await options.onReviewRequest?.({ req, ref, note, url, expiresAt })
+      return json({ ok: true, url, expiresAt })
+    },
+  }
+
+  const commentEndpoints = options.comments
+    ? [listComments, addComment, guestStatus, resolveComment, review]
+    : []
+
+  return [
+    schema,
+    enter,
+    mode,
+    exit,
+    previewLink,
+    preview,
+    schedule,
+    conditions,
+    lock,
+    ...commentEndpoints,
+  ]
 }

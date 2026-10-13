@@ -5,7 +5,7 @@
  * page in a framed viewport. Signed-in editors can switch back to editing;
  * people on a shared link can leave to the published page.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useEditorStyles, useIsClient } from '../useIsClient.ts'
 import { createPortal } from 'react-dom'
 import { UI } from '../dom.ts'
@@ -22,6 +22,32 @@ export interface PreviewToolbarProps {
   messages?: Messages | undefined
   /** The language of the UI strings. Default "en". */
   uiLocale?: string | undefined
+  /**
+   * The plugin's comments endpoint. On a shared link, viewers can comment when
+   * the site allows it (`comments: { guests: true }`); the toolbar asks first.
+   */
+  commentsHref?: string | undefined
+}
+
+const GuestComment = lazy(() => import('./lazy/GuestComment.tsx'))
+
+/** Can this share-link viewer comment? Asked once; false when the endpoint isn't there. */
+function useGuestComments(href: string | undefined): boolean {
+  const [enabled, setEnabled] = useState(false)
+  useEffect(() => {
+    if (!href) return
+    let live = true
+    fetch(`${href}/guest`, { credentials: 'same-origin' })
+      .then((r) => (r.ok ? (r.json() as Promise<{ enabled?: unknown }>) : { enabled: false }))
+      .then(
+        (j) => live && setEnabled(j.enabled === true),
+        () => undefined,
+      )
+    return () => {
+      live = false
+    }
+  }, [href])
+  return enabled
 }
 
 const DEVICES = [
@@ -42,8 +68,12 @@ export function PreviewToolbar({
   shared,
   messages,
   uiLocale,
+  commentsHref,
 }: PreviewToolbarProps) {
   const [device, setDevice] = useState<(typeof DEVICES)[number] | null>(null)
+  const canComment = useGuestComments(shared ? commentsHref : undefined)
+  const [comment, setComment] = useState<{ quote: string } | null>(null)
+  const [sent, setSent] = useState(false)
   const mounted = useIsClient()
   const t = useMemo(() => createTranslate(messages, uiLocale), [messages, uiLocale])
   useEditorStyles()
@@ -108,6 +138,20 @@ export function PreviewToolbar({
             {t('preview.desktop')}
           </button>
         )}
+        {canComment && commentsHref && (
+          <button
+            type="button"
+            className="po-btn"
+            // Keep the page's text selection: it becomes the comment's quote.
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() =>
+              setComment({ quote: (window.getSelection()?.toString() ?? '').trim().slice(0, 500) })
+            }
+            data-testid="onpage-guest-comment-open"
+          >
+            {t(sent ? 'guest.another' : 'guest.open')}
+          </button>
+        )}
         {editHref && (
           <PostButton action={editHref} className="po-btn po-primary" testId="onpage-edit">
             {t('preview.edit')}
@@ -116,7 +160,25 @@ export function PreviewToolbar({
         <PostButton action={exitHref} testId="onpage-exit-preview">
           {t(shared ? 'preview.viewPublished' : 'preview.exit')}
         </PostButton>
+        {sent && (
+          <span className="po-status" role="status">
+            {t('guest.sent')}
+          </span>
+        )}
       </div>
+      {comment && commentsHref && (
+        <Suspense fallback={null}>
+          <GuestComment
+            action={commentsHref}
+            quote={comment.quote}
+            t={t}
+            onClose={(ok) => {
+              setComment(null)
+              if (ok) setSent(true)
+            }}
+          />
+        </Suspense>
+      )}
     </div>,
     document.body,
   )

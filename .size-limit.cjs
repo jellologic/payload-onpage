@@ -41,7 +41,7 @@ const onDemandPanels = (config) => {
     {
       name: 'on-demand-panels',
       setup: (b) =>
-        b.onResolve({ filter: /(\/lazy\/panels|\/InlineRichText)\.js$/ }, (a) => ({
+        b.onResolve({ filter: /(\/lazy\/[^/]+|\/InlineRichText)\.js$/ }, (a) => ({
           path: a.path,
           external: true,
         })),
@@ -103,7 +103,14 @@ module.exports = [
     name: 'Editor panels (on demand)',
     path: 'packages/react/dist/ui/lazy/panels.js',
     import: '{ OnDemandPanel }',
-    limit: '10 KB',
+    limit: '12 KB',
+    ignore,
+  },
+  {
+    name: 'Guest comment form (share-link viewers, on demand)',
+    path: 'packages/react/dist/ui/lazy/GuestComment.js',
+    import: '{ GuestComment }',
+    limit: '4 KB',
     ignore,
   },
   {
@@ -126,7 +133,7 @@ module.exports = [
     path: 'packages/plugin/dist/index.js',
     import: '{ onpage }',
     // Server only (never shipped to browsers); a guard against accidental bloat.
-    limit: '10 KB',
+    limit: '12 KB',
     ignore,
   },
 ]

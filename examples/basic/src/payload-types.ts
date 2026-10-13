@@ -70,6 +70,7 @@ export interface Config {
     pages: Page;
     media: Media;
     users: User;
+    'onpage-comments': OnpageComment;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -81,6 +82,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'onpage-comments': OnpageCommentsSelect<false> | OnpageCommentsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -249,6 +251,31 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "onpage-comments".
+ */
+export interface OnpageComment {
+  id: number;
+  doc?: {
+    relationTo: 'pages';
+    value: number | Page;
+  } | null;
+  global?: string | null;
+  /**
+   * Field the comment is about.
+   */
+  path?: string | null;
+  quote?: string | null;
+  body: string;
+  kind?: ('comment' | 'review') | null;
+  author?: (number | null) | User;
+  guestName?: string | null;
+  link?: string | null;
+  resolved?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -374,6 +401,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'onpage-comments';
+        value: number | OnpageComment;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -518,6 +549,24 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "onpage-comments_select".
+ */
+export interface OnpageCommentsSelect<T extends boolean = true> {
+  doc?: T;
+  global?: T;
+  path?: T;
+  quote?: T;
+  body?: T;
+  kind?: T;
+  author?: T;
+  guestName?: T;
+  link?: T;
+  resolved?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

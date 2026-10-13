@@ -35,6 +35,8 @@ export type Panel =
   | { kind: 'publish' }
   /** Saved versions: restore one, see what changed since published. */
   | { kind: 'versions' }
+  /** Comments on the page, and review requests. */
+  | { kind: 'comments' }
   | null
 
 export interface Selection {

@@ -14,6 +14,7 @@ import type {
   FieldError,
   MediaItem,
   MediaLibrary,
+  PageComment,
   PreviewLink,
   SaveResult,
   ScheduledPublish,
@@ -239,6 +240,59 @@ export function payloadRest(
         init({ method: 'POST' }),
       )
       if (!res.ok) throw new Error(await errorMessage(res))
+    },
+    async listComments(ref): Promise<PageComment[]> {
+      const p = new URLSearchParams({ kind: ref.kind, slug: ref.slug })
+      if (ref.kind === 'collection') p.set('id', String(ref.id))
+      const res = await f(`${api}${prefix}${ROUTES.comments}?${p}`, init())
+      if (!res.ok) throw new Error(await errorMessage(res))
+      return ((await res.json()) as { comments?: PageComment[] }).comments ?? []
+    },
+    async addComment(ref, c) {
+      const res = await f(
+        `${api}${prefix}${ROUTES.comments}`,
+        init({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: ref.kind,
+            slug: ref.slug,
+            id: ref.kind === 'collection' ? ref.id : undefined,
+            body: c.body,
+            path: c.path,
+          }),
+        }),
+      )
+      if (!res.ok) throw new Error(await errorMessage(res))
+    },
+    async resolveComment(id, resolved) {
+      const res = await f(
+        `${api}${prefix}${ROUTES.comments}/resolve`,
+        init({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, resolved }),
+        }),
+      )
+      if (!res.ok) throw new Error(await errorMessage(res))
+    },
+    async requestReview(ref, o) {
+      const res = await f(
+        `${api}${prefix}${ROUTES.review}`,
+        init({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: ref.kind,
+            slug: ref.slug,
+            id: ref.kind === 'collection' ? ref.id : undefined,
+            note: o.note,
+            locale: o.locale,
+          }),
+        }),
+      )
+      if (!res.ok) throw new Error(await errorMessage(res))
+      return (await res.json()) as { url: string; expiresAt: string }
     },
     async hiddenFields(ref, doc): Promise<string[]> {
       const res = await f(

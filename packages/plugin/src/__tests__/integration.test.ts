@@ -49,6 +49,8 @@ const session: SessionAdapter = {
   },
 }
 
+const reviews: Array<{ ref: unknown; note: string; url: string }> = []
+
 let config: SanitizedConfig
 let payload: Payload
 // Filled in beforeAll.
@@ -143,7 +145,15 @@ beforeAll(async () => {
       },
     ],
     plugins: [
-      onpage({ collections: ['pages', 'fragile', 'locked'], globals: ['header'], session }),
+      onpage({
+        collections: ['pages', 'fragile', 'locked'],
+        globals: ['header'],
+        session,
+        comments: { guests: true },
+        onReviewRequest: async (args) => {
+          reviews.push({ ref: args.ref, note: args.note, url: args.url })
+        },
+      }),
     ],
   })
   payload = await getPayload({ config })
@@ -478,6 +488,141 @@ describe('enter / mode / exit', () => {
       )
       expect(new URL(enter.headers.get('location')!).origin).toBe(ORIGIN)
     }
+  })
+})
+
+describe('comments and review requests', () => {
+  const page = () => ({ kind: 'collection', slug: 'pages', id: ids.editorPage })
+  /** Open a share link to the editor's page; returns the sealed grant cookie a viewer holds. */
+  const grantCookie = async () => {
+    const link = await (
+      await call('POST', '/onpage/preview-link', { as: 'admin', body: page() })
+    ).json()
+    calls.length = 0
+    await handleEndpoints({ config, request: new Request(link.url) })
+    return `onpage_preview=${(calls[0]!.args as { sealed: string }).sealed}`
+  }
+  const list = async (as: As = 'editor') =>
+    call(
+      'GET',
+      `/onpage/comments?kind=collection&slug=pages&id=${ids.editorPage}`,
+      as ? { as } : {},
+    )
+
+  it('editors comment and read comments on their documents only', async () => {
+    const res = await call('POST', '/onpage/comments', {
+      as: 'editor',
+      body: { ...page(), body: '  Tighten this heading  ', path: 'title' },
+    })
+    expect(res.status).toBe(200)
+    const { comments } = await (await list()).json()
+    expect(comments[0]).toMatchObject({
+      body: 'Tighten this heading',
+      path: 'title',
+      author: 'editor@test.dev',
+      guest: false,
+      resolved: false,
+    })
+    // Someone else's page, or nobody: no.
+    const other = { kind: 'collection', slug: 'pages', id: ids.adminPage, body: 'x' }
+    expect((await call('POST', '/onpage/comments', { as: 'editor', body: other })).status).toBe(403)
+    expect(
+      (
+        await call('GET', `/onpage/comments?kind=collection&slug=pages&id=${ids.adminPage}`, {
+          as: 'editor',
+        })
+      ).status,
+    ).toBe(403)
+    expect((await list(null)).status).toBe(403)
+    // Resolve it.
+    expect(
+      (
+        await call('POST', '/onpage/comments/resolve', {
+          as: 'editor',
+          body: { id: comments[0].id },
+        })
+      ).status,
+    ).toBe(200)
+    expect((await (await list()).json()).comments[0].resolved).toBe(true)
+  })
+
+  it('share-link viewers comment on the page they were sent, by name, within limits', async () => {
+    const cookie = await grantCookie()
+    const guest = (body: Record<string, unknown>, extra: Record<string, string> = {}) =>
+      call('POST', '/onpage/comments', {
+        headers: { cookie, ...extra },
+        body: { ...page(), ...body },
+      })
+    // The toolbar asks first.
+    expect(
+      await (await call('GET', '/onpage/comments/guest', { headers: { cookie } })).json(),
+    ).toEqual({ enabled: true })
+    expect(await (await call('GET', '/onpage/comments/guest')).json()).toEqual({ enabled: false })
+    expect((await guest({ body: 'Looks good', name: 'Sam' })).status).toBe(200)
+    // Without naming the document: the grant's.
+    expect(
+      (
+        await call('POST', '/onpage/comments', {
+          headers: { cookie },
+          body: { body: 'Grant decides', name: 'Sam' },
+        })
+      ).status,
+    ).toBe(200)
+    expect((await guest({ body: 'No name' })).status).toBe(400)
+    expect((await guest({ body: 'x'.repeat(2001), name: 'Sam' })).status).toBe(400)
+    // Another page than the link's: no.
+    expect(
+      (
+        await call('POST', '/onpage/comments', {
+          headers: { cookie },
+          body: { kind: 'collection', slug: 'pages', id: ids.adminPage, body: 'hi', name: 'Sam' },
+        })
+      ).status,
+    ).toBe(403)
+    // No grant (or a forged one): no.
+    expect(
+      (
+        await call('POST', '/onpage/comments', {
+          headers: { cookie: 'onpage_preview=forged' },
+          body: { ...page(), body: 'hi', name: 'Sam' },
+        })
+      ).status,
+    ).toBe(403)
+    const { comments } = await (await list()).json()
+    expect(comments[0]).toMatchObject({ body: 'Grant decides', author: 'Sam', guest: true })
+    // A cap per link.
+    for (let i = 2; i < 20; i++) await guest({ body: `n${i}`, name: 'Sam' })
+    expect((await guest({ body: 'one too many', name: 'Sam' })).status).toBe(429)
+  })
+
+  it("review requests mint a share link, call the site's hook, and are kept as a comment", async () => {
+    const res = await call('POST', '/onpage/review', {
+      as: 'editor',
+      body: { ...page(), note: 'Ready for legal' },
+    })
+    expect(res.status).toBe(200)
+    expect(reviews.at(-1)).toMatchObject({
+      note: 'Ready for legal',
+      ref: { slug: 'pages', id: ids.editorPage },
+    })
+    expect(reviews.at(-1)!.url).toContain('/api/onpage/preview?token=')
+    const { comments } = await (await list()).json()
+    expect(comments[0]).toMatchObject({ kind: 'review', body: 'Ready for legal' })
+    expect(
+      (
+        await call('POST', '/onpage/review', {
+          as: 'editor',
+          body: { kind: 'collection', slug: 'pages', id: ids.adminPage },
+        })
+      ).status,
+    ).toBe(403)
+  })
+
+  it('tells the editor whether they may publish', async () => {
+    const schema = await (
+      await call('GET', `/onpage/schema/collection/pages?id=${ids.editorPage}`, { as: 'editor' })
+    ).json()
+    expect(schema).toMatchObject({ comments: true, canPublish: true })
   })
 })
 

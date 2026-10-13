@@ -17,6 +17,7 @@ import {
   type GlobalConfig,
 } from 'payload'
 import { deepMergeSimple, hasDraftsEnabled } from 'payload/shared'
+import { COMMENTS, commentsCollection } from './comments.ts'
 import { createEndpoints } from './endpoints.ts'
 import { encodeOnRead, guardStaleWrite, stripMarkers } from './hooks.ts'
 import { normalizeEntries, type Entry, type OnPageOptions } from './options.ts'
@@ -173,10 +174,20 @@ export function onpage(options: OnPageOptions): OnPagePlugin {
         // Ours first; the site's own translations (any language, any key) win.
         translations: deepMergeSimple(translations, incoming.i18n?.translations ?? {}),
       },
-      collections: (incoming.collections ?? []).map((c) => {
-        const entry = byKey.get(keyOf('collection', c.slug))
-        return entry ? withCollectionAdmin(withCollectionHooks(c, entry)) : c
-      }),
+      collections: [
+        ...(incoming.collections ?? []).map((c) => {
+          const entry = byKey.get(keyOf('collection', c.slug))
+          return entry ? withCollectionAdmin(withCollectionHooks(c, entry)) : c
+        }),
+        ...(options.comments && !incoming.collections?.some((c) => c.slug === COMMENTS)
+          ? [
+              commentsCollection(
+                entries.filter((e) => e.kind === 'collection').map((e) => e.slug),
+                incoming.admin?.user ?? 'users',
+              ),
+            ]
+          : []),
+      ],
       globals: (incoming.globals ?? []).map((g) => {
         const entry = byKey.get(keyOf('global', g.slug))
         return entry ? withGlobalAdmin(withGlobalHooks(g, entry)) : g
