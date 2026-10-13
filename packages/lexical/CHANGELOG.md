@@ -1,5 +1,21 @@
 # @payload-onpage/lexical
 
+## 0.6.0
+
+### Minor Changes
+
+- [#27](https://github.com/jellologic/payload-onpage/pull/27) [`c6ebef6`](https://github.com/jellologic/payload-onpage/commit/c6ebef6fe77b917af23b3ea7df900e34abfd67a4) Thanks [@jellologic](https://github.com/jellologic)! - Editing:
+
+  - **Drag and drop:** sections and list items have a drag handle on their toolbar; drop them anywhere in their list, side by side or stacked. The move buttons and ⌥↑/⌥↓ stay as the keyboard path.
+  - **Lists in settings:** a list the page doesn't show (a hero's links, a card's tags) is edited in the section's settings: add, edit, move and remove its rows.
+  - **Links to pages** in rich text: the link popover offers **Page** next to **Web address**. You search the site's pages (the collections enabled for on-page editing, `DocumentSchema.linkTargets`), and the link is stored as Payload's internal link (`linkType: 'internal'`, `doc`).
+
+### Patch Changes
+
+- Updated dependencies [[`7e5837c`](https://github.com/jellologic/payload-onpage/commit/7e5837ce684a9312ce29bd00066d18c4bf9fdba5), [`7c1c9d7`](https://github.com/jellologic/payload-onpage/commit/7c1c9d735067a20520921eea65fb6f75dda9f73d), [`9748d89`](https://github.com/jellologic/payload-onpage/commit/9748d8942bae6c89b0927f909c28c512eee464c3), [`c6ebef6`](https://github.com/jellologic/payload-onpage/commit/c6ebef6fe77b917af23b3ea7df900e34abfd67a4), [`57ba823`](https://github.com/jellologic/payload-onpage/commit/57ba823ddb0bc1a924e0064845d2b022c85fdc95), [`88ae4bf`](https://github.com/jellologic/payload-onpage/commit/88ae4bff140cf749d97d81480be8e4fd2cebb17a), [`a0c9656`](https://github.com/jellologic/payload-onpage/commit/a0c9656c1c772e96dc32a6d4bf437d10f67b59c4), [`2b2641d`](https://github.com/jellologic/payload-onpage/commit/2b2641dc5553cba042c1dc8d5185160303767c44), [`54a1db0`](https://github.com/jellologic/payload-onpage/commit/54a1db0301135cfde5b35391481ed27aa4891bb5), [`0d4dfa7`](https://github.com/jellologic/payload-onpage/commit/0d4dfa7885ff4ec6f34ddef6764bd2cdffa43518), [`a1a358a`](https://github.com/jellologic/payload-onpage/commit/a1a358a7afda1879eab4b94679f75b72f71f7d85), [`4b3ed49`](https://github.com/jellologic/payload-onpage/commit/4b3ed49e75acd6765f9d8f7cc0e22e58bc8b5e33), [`4b3ed49`](https://github.com/jellologic/payload-onpage/commit/4b3ed49e75acd6765f9d8f7cc0e22e58bc8b5e33)]:
+  - @payload-onpage/core@0.6.0
+  - @payload-onpage/react@0.6.0
+
 ## 0.5.0
 
 ### Patch Changes
