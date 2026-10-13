@@ -9,7 +9,7 @@
  *   })
  */
 export { Dialog, type DialogProps } from './ui/Dialog.tsx'
-export { useOnPage } from './context.tsx'
+export { useOnPage, useOnPageOptional } from './context.tsx'
 export { useDebouncedSearch } from './editors/useDebouncedSearch.ts'
 export { ApplyBar, EditorPopover, useDraft } from './editors/kit.tsx'
 export { canEdit, defineEditor } from './registry.ts'

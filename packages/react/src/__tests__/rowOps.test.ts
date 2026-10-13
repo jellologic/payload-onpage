@@ -44,6 +44,13 @@ describe('rowOps', () => {
     expect(o.move(1)).toEqual({ key: 'c:pages:1', path: 'items.1' })
     expect(state.doc.items).toEqual([{ t: 'b' }, { t: 'a' }])
   })
+  it('moves to any position (drag and drop), within bounds', () => {
+    const { state, ops: o } = ops({ items: [{ t: 'a' }, { t: 'b' }, { t: 'c' }] }, 'items.0')
+    expect(o.moveTo(0)).toBeNull()
+    expect(o.moveTo(3)).toBeNull()
+    expect(o.moveTo(2)).toEqual({ key: 'c:pages:1', path: 'items.2' })
+    expect(state.doc.items).toEqual([{ t: 'b' }, { t: 'c' }, { t: 'a' }])
+  })
   it('respects maxRows when duplicating, with a new row id', () => {
     const full = ops({ items: [{ id: '1' }, { id: '2' }, { id: '3' }] }, 'items.0')
     expect(full.ops.canDuplicate).toBe(false)

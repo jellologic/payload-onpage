@@ -24,6 +24,7 @@ import { useOnPage } from '../context.tsx'
 import { isOurs, shortcut } from '../dom.ts'
 import { belowList, GEOMETRY, inViewport, outlineBox, toolbarPosition } from '../geometry.ts'
 import { useLayoutTick } from '../layout.ts'
+import { DragHandle } from './DragHandle.tsx'
 import { ToolbarButton } from './ToolbarButton.tsx'
 import { ArrowDownIcon, ArrowUpIcon, CloseIcon, DuplicateIcon, SettingsIcon } from '../icons.tsx'
 import { targetsAt } from '../targets.ts'
@@ -94,9 +95,11 @@ interface ActiveRow {
 
 function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item' }) {
   const { session, setSelected, setPanel, selected, targets, t } = useOnPage()
+  const [dragging, setDragging] = useState(false)
   const { key, info, el } = row
   const r = el.getBoundingClientRect()
-  if (!inViewport(r, GEOMETRY.toolbar)) return null
+  // Off screen, the toolbar hides; but not mid-drag, which would end the drag with it.
+  if (!dragging && !inViewport(r, GEOMETRY.toolbar)) return null
   const { path } = info
   const label = targets.find(key, path, ['item'])?.label || info.label
   const ops = rowOps(session, key, info)
@@ -119,6 +122,12 @@ function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item
       aria-label={t('row.toolbar', { label })}
       data-testid={`onpage-${variant}-toolbar`}
     >
+      <DragHandle
+        rowKey={key}
+        info={info}
+        onDragging={setDragging}
+        testId={`onpage-${variant}-drag`}
+      />
       <span className="po-btn po-bar-label">{label}</span>
       <ToolbarButton
         label={t('row.moveUp')}

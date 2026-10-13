@@ -62,6 +62,7 @@ export const defaultMessages = {
   'notify.linkFailed': "Couldn't create a preview link: {message}",
   'notify.loading': 'Loading the editor…',
   'notify.cantEdit': "Can't edit: {message}",
+  'row.drag': 'Drag to move',
   'row.moveUp': 'Move up',
   'row.moveDown': 'Move down',
   'row.duplicate': 'Duplicate',
@@ -125,6 +126,10 @@ export const defaultMessages = {
   'rt.done': 'Done',
   'rt.linkPlaceholder': 'https://… or /page (empty removes the link)',
   'rt.linkInvalid': 'Use an https://, mailto:, tel: or relative link',
+  'rt.linkUrl': 'Web address',
+  'rt.linkPage': 'Page',
+  'rt.linkSearch': 'Search pages…',
+  'rt.linkCollection': 'Collection',
 } as const
 
 export type MessageKey = keyof typeof defaultMessages

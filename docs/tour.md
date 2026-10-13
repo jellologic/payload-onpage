@@ -22,7 +22,7 @@ Sections (Payload `blocks` fields) and list items (`array` fields) get a toolbar
 
 ![A selected section with its toolbar (move up, move down, duplicate, settings, delete) and "Add section" buttons above and below](media/section-toolbar.png)
 
-Settings that aren't text on the page, like a section's tone, a link URL or a toggle, are in the section's settings panel, generated from the block's fields:
+Settings that aren't text on the page, like a section's tone, a link URL or a toggle, are in the section's settings panel, generated from the block's fields. Lists the page doesn't show, like a hero's buttons, are edited there too. Drag a section or item by its handle to move it anywhere in its list:
 
 ![The settings panel for a Hero section: a URL field and a Light/Dark choice](media/settings-panel.png)
 
@@ -34,7 +34,7 @@ On a page in [client mode](guides/client-mode.md), pointing at a block previews 
 
 ## Field editors for every kind of field
 
-Selects, dates, numbers, relationships, colors, images and rich text each get an editor that fits. Add your own with `defineEditor` ([guide](guides/custom-field-editor.md)).
+Selects, dates, numbers, relationships, colors, images and rich text each get an editor that fits. In rich text, a link can point to a web address or to another page of the site (stored as Payload's internal link). Add your own with `defineEditor` ([guide](guides/custom-field-editor.md)).
 
 ![A select field edited in place: a popover listing the field's options](media/select-editor.png)
 
