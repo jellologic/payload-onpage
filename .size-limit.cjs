@@ -32,6 +32,20 @@ const lazyEditor = (config) => {
   return config
 }
 
+// Panels in react/dist/ui/lazy load on first use (prefetched when idle): the editor
+// budgets measure the first download; the on-demand chunk has its own budget.
+const onDemandPanels = (config) => {
+  config.plugins = [
+    ...(config.plugins ?? []),
+    {
+      name: 'on-demand-panels',
+      setup: (b) =>
+        b.onResolve({ filter: /\/lazy\/panels\.js$/ }, (a) => ({ path: a.path, external: true })),
+    },
+  ]
+  return config
+}
+
 module.exports = [
   {
     name: 'Visitor: <OnPage /> client mount (every page)',
@@ -61,6 +75,7 @@ module.exports = [
     import: '{ NextEditor }',
     limit: '31 KB',
     ignore,
+    modifyEsbuildConfig: onDemandPanels,
   },
   {
     name: 'Visitor (Start): <OnPage /> client mount (every page)',
@@ -75,6 +90,16 @@ module.exports = [
     path: 'packages/tanstack-start/dist/editor.js',
     import: '{ TanstackEditor }',
     limit: '31 KB',
+    ignore,
+    modifyEsbuildConfig: onDemandPanels,
+  },
+  {
+    // Block picker, settings, publish…: loaded on first use. Measured on its own, so it
+    // also counts modules the editor has already loaded (Dialog, core helpers).
+    name: 'Editor panels (on demand)',
+    path: 'packages/react/dist/ui/lazy/panels.js',
+    import: '{ OnDemandPanel }',
+    limit: '10 KB',
     ignore,
   },
   {

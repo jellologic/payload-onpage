@@ -106,6 +106,7 @@ export {
   type OnPageMode,
   type PreviewLink,
   type Renderer,
+  type ScheduledPublish,
   type SaveResult,
   type SearchHit,
   type SessionAdapter,

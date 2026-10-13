@@ -66,6 +66,21 @@ export interface DataSource {
   ): Promise<SearchHit[]>
   /** Create a read-only preview link for a document. Optional. */
   createPreviewLink?(ref: DocRef, opts: { locale?: Opt<string> }): Promise<PreviewLink>
+  /**
+   * Publish (or unpublish) a document at a later time: its latest saved draft
+   * then. Optional; offered for documents whose schema has `schedulePublish`.
+   */
+  schedulePublish?(
+    ref: DocRef,
+    opts: { at: Date; type?: Opt<'publish' | 'unpublish'>; locale?: Opt<string> },
+  ): Promise<ScheduledPublish>
+}
+
+export interface ScheduledPublish {
+  id: string | number
+  /** When it runs (ISO). */
+  waitUntil: string
+  type: 'publish' | 'unpublish'
 }
 
 export interface PreviewLink {

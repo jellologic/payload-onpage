@@ -37,10 +37,9 @@ import type {
   Panel,
   Selection,
 } from '../types.ts'
-import { BlockPicker } from '../ui/BlockPicker.tsx'
+import { OnDemandPanels } from '../ui/OnDemand.tsx'
 import { Dock } from '../ui/Dock.tsx'
 import { Overlay } from '../ui/Overlay.tsx'
-import { SettingsPanel } from '../ui/SettingsPanel.tsx'
 import { useEditorStyles, useIsClient } from '../useIsClient.ts'
 import { useEvent } from '../useEvent.ts'
 import { resolveEditTarget } from './editTarget.ts'
@@ -251,8 +250,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
       {createPortal(
         <div className="po-layer" {...{ [UI]: '' }}>
           <Overlay />
-          <SettingsPanel />
-          <BlockPicker />
+          <OnDemandPanels />
           <FieldHost mode="popover" />
           <Dock />
         </div>,

@@ -21,13 +21,15 @@ import {
   type RefKey,
 } from '@payload-onpage/core'
 import { useId, useRef, useState, type KeyboardEvent, type RefObject } from 'react'
-import { useOnPage } from '../context.tsx'
-import type { Translate } from '../messages.ts'
-import { checkedOf } from '../editors/CheckboxEditor.tsx'
-import { selectedValues } from '../editors/SelectEditor.tsx'
-import { canEdit } from '../registry.ts'
-import { settable } from '../settings.ts'
-import { Dialog } from './Dialog.tsx'
+import { useOnPage } from '../../context.tsx'
+import type { Translate } from '../../messages.ts'
+import { checkedOf } from '../../editors/CheckboxEditor.tsx'
+import { selectedValues } from '../../editors/SelectEditor.tsx'
+import { canEdit } from '../../registry.ts'
+import { joinPath, settable } from '../../settings.ts'
+import { usePageSettings } from '../usePageSettings.ts'
+import { Dialog } from '../Dialog.tsx'
+import { docTitle } from '../titles.ts'
 
 const display = (v: unknown, t: Translate): string => {
   if (v == null || v === '') return t('common.none')
@@ -244,7 +246,7 @@ function Fields({ docKey, fields, path }: { docKey: RefKey; fields: SchemaField[
       {fields
         .filter((f) => settable(f, path, docKey, targets))
         .map((f) => {
-          const full = `${path}.${f.name}`
+          const full = joinPath(path, f.name)
           if (f.type === 'group') {
             return (
               <fieldset key={f.name} className="po-group">
@@ -259,8 +261,34 @@ function Fields({ docKey, fields, path }: { docKey: RefKey; fields: SchemaField[
   )
 }
 
+function PageSettingsPanel() {
+  const { setPanel, t } = useOnPage()
+  const docs = usePageSettings()
+  return (
+    <Dialog
+      variant="panel"
+      title={t('settings.page')}
+      onClose={() => setPanel(null)}
+      t={t}
+      testId="onpage-page-settings"
+    >
+      {docs.map(({ state, fields }) =>
+        docs.length > 1 ? (
+          <fieldset key={state.key} className="po-group">
+            <legend className="po-h4">{docTitle(state)}</legend>
+            <Fields docKey={state.key} fields={fields} path="" />
+          </fieldset>
+        ) : (
+          <Fields key={state.key} docKey={state.key} fields={fields} path="" />
+        ),
+      )}
+    </Dialog>
+  )
+}
+
 export function SettingsPanel() {
   const { panel, setPanel, snap, t } = useOnPage()
+  if (panel?.kind === 'page') return <PageSettingsPanel />
   if (panel?.kind !== 'settings') return null
   const state = snap.docs[panel.key]
   if (!isReady(state)) return null

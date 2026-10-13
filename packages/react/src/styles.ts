@@ -107,6 +107,8 @@ html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 .po-error{color:#b91c1c;margin:6px 0}
 .po-center{text-align:center;margin-top:12px}
 .po-actions{display:flex;gap:6px}
+.po-split{min-width:22px;padding:0 4px;margin-left:-4px}
+.po-schedule{margin-top:14px}
 .po-alt{display:flex;flex-direction:column;gap:10px}
 .po-alt img{max-height:160px;max-width:100%;align-self:flex-start;object-fit:contain;border-radius:4px}
 .po-alt-line{display:flex;gap:6px}

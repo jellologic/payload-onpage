@@ -352,6 +352,12 @@ export class EditorSession {
     return state.edited || state.doc?._status === 'draft'
   }
 
+  /** Does this document have changes that aren't published yet? */
+  hasUnpublished(key: RefKey): boolean {
+    const state = this.docs.get(key)
+    return !!state && this.unpublished(state)
+  }
+
   private selected(keys?: RefKey[]): DocumentState[] {
     return [...this.docs.values()].filter(
       (s) => (!keys || keys.includes(s.key)) && s.doc && s.schema && this.unpublished(s),

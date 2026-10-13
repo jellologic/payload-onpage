@@ -39,8 +39,20 @@ import {
   type PayloadRequest,
   type TypedLocale,
 } from 'payload'
-import { getAutosaveInterval, hasAutosaveEnabled, hasDraftsEnabled, toWords } from 'payload/shared'
-import { canEditDocument, canUseOnPage, documentPermissions, isUpdateDenied } from './access.ts'
+import {
+  getAutosaveInterval,
+  hasAutosaveEnabled,
+  hasDraftsEnabled,
+  hasScheduledPublishEnabled,
+  toWords,
+} from 'payload/shared'
+import {
+  canEditDocument,
+  canPublishDocument,
+  canUseOnPage,
+  documentPermissions,
+  isUpdateDenied,
+} from './access.ts'
 import {
   apiURL,
   entityConfig,
@@ -165,6 +177,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
         editable: fields.map((f) => f.name),
         fields,
         drafts: hasDraftsEnabled(cfg),
+        ...(hasScheduledPublishEnabled(cfg) ? { schedulePublish: true } : {}),
         ...(hasAutosaveEnabled(cfg) ? { autosaveInterval: getAutosaveInterval(cfg) } : {}),
         ...(useAsTitle ? { useAsTitle } : {}),
         ...(Object.keys(relations).length ? { relations } : {}),
@@ -307,5 +320,53 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     },
   }
 
-  return [schema, enter, mode, exit, previewLink, preview]
+  /**
+   * Schedule a publish (or unpublish), as the admin's own scheduler does: a
+   * `schedulePublish` job that publishes the document's latest draft then.
+   */
+  const schedule: Endpoint = {
+    path: `${prefix}${ROUTES.schedule}`,
+    method: 'post',
+    handler: async (req) => {
+      const refused = rejectCrossSite(req)
+      if (refused) return refused
+      if (!req.headers.get('content-type')?.includes('application/json'))
+        throw new APIError('Expected a JSON body', 415)
+      await addDataAndFileToRequest(req)
+      if (!(await canUseOnPage(req, options))) throw new Forbidden(req.t)
+      const body: Record<string, unknown> = req.data ?? {}
+      const ref = readRef(req, body)
+      const entry = ref && ctx.entry(ref.kind, ref.slug)
+      const cfg = ref && entityConfig(req, ref.kind, ref.slug)
+      if (!ref || !entry || !cfg) throw new APIError('Unknown document', 400)
+      if (!hasScheduledPublishEnabled(cfg))
+        throw new APIError(
+          'Scheduling is off for this document: set versions.drafts.schedulePublish',
+          400,
+        )
+      if (!(await canPublishDocument(req, ref, options))) throw new Forbidden(req.t)
+      const at = typeof body.at === 'string' ? new Date(body.at) : null
+      if (!at || Number.isNaN(at.getTime()) || at.getTime() <= Date.now())
+        throw new APIError('Choose a time in the future', 400)
+      const type = body.type === 'unpublish' ? 'unpublish' : 'publish'
+      const locale = knownLocale(req, body.locale)
+      const user = req.user
+      const job = await req.payload.jobs.queue({
+        task: 'schedulePublish',
+        input: {
+          type,
+          ...(ref.kind === 'global'
+            ? { global: ref.slug }
+            : { doc: { relationTo: ref.slug, value: ref.id } }),
+          ...(locale ? { locale } : {}),
+          ...(user ? { user: { relationTo: user.collection, value: user.id } } : {}),
+        },
+        waitUntil: at,
+        req,
+      })
+      return json({ id: job.id, waitUntil: at.toISOString(), type })
+    },
+  }
+
+  return [schema, enter, mode, exit, previewLink, preview, schedule]
 }

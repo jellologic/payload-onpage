@@ -241,6 +241,81 @@ describe('relationship and upload editors', () => {
   })
 })
 
+describe('page settings', () => {
+  it("lists the document's fields that aren't on the page, and edits them", async () => {
+    const withMeta: DocumentSchema = {
+      ...schema,
+      editable: [...schema.editable, 'slug', 'meta'],
+      fields: [
+        ...schema.fields,
+        { name: 'slug', type: 'text', label: 'Slug' },
+        {
+          name: 'meta',
+          type: 'group',
+          label: 'SEO',
+          fields: [
+            { name: 'title', type: 'text', label: 'Meta title' },
+            { name: 'description', type: 'textarea', label: 'Meta description' },
+          ],
+        },
+      ],
+    }
+    const { ds, saves } = source({
+      loadSchema: async () => withMeta,
+      loadDocument: async () => ({ ...initial(), slug: 'home', meta: { title: 'Home' } }),
+    })
+    // The title is on the page; everything else isn't.
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`)
+    fireEvent.click(screen.getByTestId('onpage-page-settings-open'))
+    const panel = await screen.findByTestId('onpage-page-settings')
+    const labels = [...panel.querySelectorAll('label, legend')].map((l) => l.textContent)
+    expect(labels).toEqual(expect.arrayContaining(['Author', 'Image', 'SEO', 'Meta title']))
+    expect(labels).not.toContain('Title') // edited on the page
+    expect(labels).not.toContain('Slug') // the page's own address
+    const metaTitle = screen.getByLabelText('Meta title')
+    fireEvent.change(metaTitle, { target: { value: 'Welcome' } })
+    fireEvent.blur(metaTitle)
+    await waitFor(() => expect(saves.at(-1)).toMatchObject({ meta: { title: 'Welcome' } }))
+  })
+})
+
+describe('publish panel', () => {
+  it('publishes the chosen documents, or schedules them', async () => {
+    const published: unknown[] = []
+    const schedulePublish = vi.fn<NonNullable<DataSource['schedulePublish']>>(async (_r, o) => ({
+      id: 1,
+      waitUntil: o.at.toISOString(),
+      type: 'publish',
+    }))
+    const { ds } = source({
+      loadSchema: async () => ({ ...schema, schedulePublish: true }),
+      loadDocument: async () => ({ ...initial(), _status: 'draft' }),
+      publish: async (ref) => (published.push(ref), { ok: true }),
+      schedulePublish,
+    })
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`)
+    fireEvent.click(screen.getByTestId('onpage-publish-more'))
+    const doc = await screen.findByTestId<HTMLInputElement>('onpage-publish-doc-c:pages:1')
+    expect(doc.checked).toBe(true) // has unpublished changes
+    expect(screen.getByText('Hello')).toBeTruthy()
+    // Schedule an hour from now.
+    const at = new Date(Date.now() + 3600_000)
+    const local = new Date(at.getTime() - at.getTimezoneOffset() * 60_000)
+      .toISOString()
+      .slice(0, 16)
+    fireEvent.change(screen.getByTestId('onpage-schedule-at'), { target: { value: local } })
+    fireEvent.click(screen.getByTestId('onpage-schedule'))
+    await waitFor(() => expect(schedulePublish).toHaveBeenCalledTimes(1))
+    expect(schedulePublish.mock.calls[0]![0]).toMatchObject({ slug: 'pages', id: 1 })
+    expect(published).toEqual([]) // scheduling doesn't publish now
+    await waitFor(() => expect(screen.queryByTestId('onpage-publish-panel')).toBeNull())
+    // Publish now, through the panel.
+    fireEvent.click(screen.getByTestId('onpage-publish-more'))
+    fireEvent.click(await screen.findByTestId('onpage-publish-selected'))
+    await waitFor(() => expect(published).toHaveLength(1))
+  })
+})
+
 describe('OnPageClient', () => {
   it('renders the given doc without an editor, with inert annotations', () => {
     hub.set(null)

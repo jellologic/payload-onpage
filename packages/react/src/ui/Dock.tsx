@@ -14,6 +14,7 @@ import { PostButton } from './PostButton.tsx'
 import { ToolbarButton } from './ToolbarButton.tsx'
 import { RedoIcon, UndoIcon } from '../icons.tsx'
 import { shortcut } from '../dom.ts'
+import { usePageSettings } from './usePageSettings.ts'
 import type { Flash } from '../types.ts'
 
 const title = (d: DocumentState) => d.schema?.labels.singular ?? d.ref.slug
@@ -60,7 +61,9 @@ function useTicker(ms: number) {
 }
 
 export function Dock() {
-  const { session, snap, links, rendering, notify, rerender, docKeys, flash, t } = useOnPage()
+  const { session, snap, links, rendering, notify, rerender, docKeys, flash, t, panel, setPanel } =
+    useOnPage()
+  const pageSettings = usePageSettings()
   const [confirmDiscard, setConfirmDiscard] = useState(false)
   useTicker(5000)
   useEffect(() => {
@@ -207,6 +210,18 @@ export function Dock() {
           testId="onpage-redo"
         />
         <span className="po-sep" />
+        {pageSettings.length > 0 && (
+          <button
+            type="button"
+            className="po-btn"
+            aria-expanded={panel?.kind === 'page'}
+            onClick={() => setPanel(panel?.kind === 'page' ? null : { kind: 'page' })}
+            title={t('dock.pageSettingsHint')}
+            data-testid="onpage-page-settings-open"
+          >
+            {t('dock.pageSettings')}
+          </button>
+        )}
         {links.mode && (
           <PostButton
             action={links.mode('view')}
@@ -260,6 +275,18 @@ export function Dock() {
           data-testid="onpage-publish"
         >
           {t(busy ? 'dock.publishing' : 'dock.publish')}
+        </button>
+        <button
+          type="button"
+          className="po-btn po-primary po-split"
+          aria-label={t('dock.publishMore')}
+          title={t('dock.publishMore')}
+          aria-expanded={panel?.kind === 'publish'}
+          disabled={!ready.length || busy || !!conflict}
+          onClick={() => setPanel(panel?.kind === 'publish' ? null : { kind: 'publish' })}
+          data-testid="onpage-publish-more"
+        >
+          ▾
         </button>
       </div>
     </>

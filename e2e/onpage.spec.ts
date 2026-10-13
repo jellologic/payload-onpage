@@ -288,6 +288,37 @@ test('image editor: alt text for the current image, and before an upload', async
   await expect(current).toBeVisible()
 })
 
+test('page settings and the publish menu (choose, schedule)', async ({ context }) => {
+  const page = await editPage(context)
+  // Page settings: the page's own fields that aren't on it.
+  await page.getByTestId('onpage-page-settings-open').click()
+  const settings = page.getByTestId('onpage-page-settings')
+  await expect(settings).toBeVisible()
+  await expect(settings.getByText('Client-mode demo')).toBeVisible() // a top-level checkbox
+  await expect(settings.getByText('Slug', { exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(settings).toHaveCount(0)
+
+  // Publish menu: the page is listed; schedule it for tomorrow.
+  await page.getByTestId('onpage-publish-more').click()
+  const panel = page.getByTestId('onpage-publish-panel')
+  await expect(panel).toBeVisible()
+  const results = await new AxeBuilder({ page }).include('[data-onpage-ui]').analyze()
+  expect(
+    results.violations
+      .filter((v) => v.impact === 'serious' || v.impact === 'critical')
+      .map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`),
+  ).toEqual([])
+  const tomorrow = new Date(Date.now() + 86_400_000)
+  const local = new Date(tomorrow.getTime() - tomorrow.getTimezoneOffset() * 60_000)
+    .toISOString()
+    .slice(0, 16)
+  await page.getByTestId('onpage-schedule-at').fill(local)
+  await page.getByTestId('onpage-schedule').click()
+  await expect(page.getByTestId('onpage-status')).toHaveText(/Scheduled to publish/)
+  await expect(panel).toHaveCount(0)
+})
+
 test('share links: draft on the shared page only, no draft credential in the browser', async ({
   context,
   browser,

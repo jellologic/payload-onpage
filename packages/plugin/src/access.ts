@@ -26,17 +26,22 @@ export async function canUseOnPage(req: PayloadRequest, options: OnPageOptions):
 export async function documentPermissions(
   req: PayloadRequest,
   ref: { kind: DocRef['kind']; slug: string; id?: string | number | undefined },
+  /** The data an update would write, for access rules that look at it (`_status: 'published'`). */
+  data?: Record<string, unknown>,
 ): Promise<SanitizedCollectionPermission | SanitizedGlobalPermission | null> {
   try {
     if (ref.kind === 'global') {
       const globalConfig = entityConfig(req, 'global', ref.slug)
-      return globalConfig ? await docAccessOperationGlobal({ globalConfig, req }) : null
+      return globalConfig
+        ? await docAccessOperationGlobal({ globalConfig, req, ...(data ? { data } : {}) })
+        : null
     }
     const collection = req.payload.collections[ref.slug]
     if (!collection) return null
     return await docAccessOperation({
       collection,
       ...(ref.id !== undefined ? { id: ref.id } : {}),
+      ...(data ? { data } : {}),
       req,
     })
   } catch (err) {
@@ -86,6 +91,27 @@ export async function canEditDocument(
   if (options.access) return Boolean(await options.access({ req, ref }))
   if (!(await canUseOnPage(req, options))) return false
   const update: unknown = (await documentPermissions(req, ref))?.update
+  return (
+    update === true ||
+    (typeof update === 'object' &&
+      update !== null &&
+      'permission' in update &&
+      update.permission === true)
+  )
+}
+
+/**
+ * May this user publish this document? As Payload's own scheduler checks it:
+ * update access for data that sets `_status: 'published'`.
+ */
+export async function canPublishDocument(
+  req: PayloadRequest,
+  ref: DocRef,
+  options: OnPageOptions,
+): Promise<boolean> {
+  if (!(await canEditDocument(req, ref, options))) return false
+  if (options.access) return true // the site's own rule decides, as for editing
+  const update: unknown = (await documentPermissions(req, ref, { _status: 'published' }))?.update
   return (
     update === true ||
     (typeof update === 'object' &&
