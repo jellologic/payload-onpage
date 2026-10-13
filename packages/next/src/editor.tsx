@@ -66,6 +66,7 @@ export function NextEditor(props: OnPageMountProps) {
       locale={locale}
       messages={props.messages}
       uiLocale={props.uiLocale}
+      onEvent={props.onEvent}
     />
   )
 }

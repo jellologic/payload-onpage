@@ -11,6 +11,7 @@ import {
 import { OnPageClient } from '../OnPageClient.tsx'
 import { OnPageEditor } from '../editor/OnPageEditor.tsx'
 import { hub } from '../hub.ts'
+import type { OnPageEvent } from '../types.ts'
 import { sanitizeHtml } from '../sanitize.ts'
 
 const schema: DocumentSchema = {
@@ -95,7 +96,12 @@ const media: MediaLibrary = {
   }),
 }
 
-async function mountEditor(ds: DataSource, html: string, mediaLibrary: MediaLibrary = media) {
+async function mountEditor(
+  ds: DataSource,
+  html: string,
+  mediaLibrary: MediaLibrary = media,
+  onEvent?: (e: OnPageEvent) => void,
+) {
   document.body.innerHTML = html
   const container = document.createElement('div')
   document.body.appendChild(container)
@@ -103,6 +109,7 @@ async function mountEditor(ds: DataSource, html: string, mediaLibrary: MediaLibr
     <OnPageEditor
       dataSource={ds}
       media={mediaLibrary}
+      onEvent={onEvent}
       links={{ exit: '/exit', mode: (m) => `/mode?mode=${m}` }}
       autosaveDelay={0}
     />,
@@ -306,6 +313,113 @@ describe('field conditions', () => {
     await waitFor(() => expect(panel.textContent).not.toContain('Badge'))
     fireEvent.click(screen.getByLabelText('Featured'))
     await waitFor(() => expect(panel.textContent).toContain('Badge'))
+  })
+})
+
+describe('save failures', () => {
+  it('outlines the fields a validation error names, and clears them once saved', async () => {
+    let fail = true
+    const { ds } = source({
+      saveDraft: async () =>
+        fail
+          ? {
+              ok: false,
+              status: 400,
+              message: 'Invalid: Title',
+              fields: [{ path: 'title', message: 'Required' }],
+            }
+          : { ok: true },
+    })
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`)
+    const el = document.querySelector('span')!
+    act(() => hub.get()!.session.setValue('c:pages:1', 'title', ''))
+    await waitFor(() => expect(el.getAttribute('data-onpage-invalid')).toBe('Required'))
+    fail = false
+    fireEvent.click(screen.getByTestId('onpage-retry'))
+    await waitFor(() => expect(el.hasAttribute('data-onpage-invalid')).toBe(false))
+  })
+  it('on a conflict, Keep my changes re-applies them on the latest version', async () => {
+    let conflict = true
+    const saves: Record<string, unknown>[] = []
+    const { ds } = source({
+      loadDocument: async () => ({ ...initial(), updatedAt: conflict ? 'v0' : 'v1' }),
+      saveDraft: async (_r, data) => {
+        saves.push(data)
+        if (conflict) return ((conflict = false), { ok: false, status: 409, message: 'stale' })
+        return { ok: true }
+      },
+    })
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`)
+    act(() => hub.get()!.session.setValue('c:pages:1', 'title', 'Mine'))
+    fireEvent.click(await screen.findByTestId('onpage-keep-mine'))
+    await waitFor(() => expect(saves).toEqual([{ title: 'Mine' }, { title: 'Mine' }]))
+    await waitFor(() => expect(screen.queryByTestId('onpage-keep-mine')).toBeNull())
+  })
+})
+
+describe('document locks', () => {
+  it('takes the lock while editing, refreshes it after saves, and says who else holds one', async () => {
+    const calls: string[] = []
+    let holder: string | null = null
+    const { ds } = source({
+      lock: async (_ref, action) => (calls.push(action), { lockedBy: holder }),
+    })
+    const { unmount } = render(<></>)
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`)
+    await waitFor(() => expect(calls).toEqual(['take']))
+    const api = hub.get()!
+    act(() => api.session.setValue('c:pages:1', 'title', 'A'))
+    await waitFor(() => expect(calls).toEqual(['take', 'take'])) // a save clears it server-side
+    expect(screen.queryByTestId('onpage-locked')).toBeNull()
+    holder = 'Ada'
+    act(() => api.session.setValue('c:pages:1', 'title', 'B'))
+    expect((await screen.findByTestId('onpage-locked')).textContent).toBe(
+      'Ada is editing this Page',
+    )
+    unmount()
+  })
+})
+
+describe('onEvent', () => {
+  it('reports saves, failures, conflicts and publishes', async () => {
+    const events: OnPageEvent[] = []
+    let next: 'ok' | 'invalid' | 'conflict' = 'ok'
+    const { ds } = source({
+      loadDocument: async () => ({ ...initial(), _status: 'draft' }),
+      saveDraft: async () =>
+        next === 'ok'
+          ? { ok: true }
+          : next === 'invalid'
+            ? { ok: false, status: 400, message: 'Title is required' }
+            : { ok: false, status: 409, message: 'changed' },
+    })
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`, media, (e) =>
+      events.push(e),
+    )
+    const api = hub.get()!
+    const key = 'c:pages:1' as const
+    const set = (v: string) => act(() => api.session.setValue(key, 'title', v))
+    set('A')
+    await waitFor(() => expect(events.map((e) => e.type)).toContain('saved'))
+    next = 'invalid'
+    set('')
+    await waitFor(() =>
+      expect(events).toContainEqual({
+        type: 'saveFailed',
+        ref: { kind: 'collection', slug: 'pages', id: 1 },
+        message: 'Title is required',
+      }),
+    )
+    next = 'conflict'
+    set('B')
+    await waitFor(() => expect(events.map((e) => e.type)).toContain('conflict'))
+    next = 'ok'
+    await act(() => api.session.reload(key))
+    await waitFor(() =>
+      expect(screen.getByTestId<HTMLButtonElement>('onpage-publish').disabled).toBe(false),
+    )
+    fireEvent.click(screen.getByTestId('onpage-publish'))
+    await waitFor(() => expect(events.map((e) => e.type)).toContain('published'))
   })
 })
 

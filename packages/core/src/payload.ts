@@ -11,6 +11,7 @@ import { stegaClean, stegaCleanDeep } from './stega.ts'
 import type {
   DataSource,
   Doc,
+  FieldError,
   MediaItem,
   MediaLibrary,
   PreviewLink,
@@ -39,18 +40,39 @@ const qs = (params: Record<string, string | number | boolean | undefined>) => {
 /** The best human-readable message from a Payload error response. */
 interface PayloadErrorBody {
   error?: string
-  errors?: Array<{ message?: string; data?: { errors?: Array<{ message?: string }> } }>
+  errors?: Array<{
+    message?: string
+    data?: { errors?: Array<{ message?: string; path?: string; field?: string }> }
+  }>
+}
+
+const readBody = async (res: Response): Promise<PayloadErrorBody | null> => {
+  try {
+    return (await res.clone().json()) as PayloadErrorBody
+  } catch {
+    return null
+  }
 }
 
 export async function errorMessage(res: Response): Promise<string> {
-  try {
-    const body = (await res.json()) as PayloadErrorBody
-    const first = body.errors?.[0]
-    const detail = first?.data?.errors?.[0]?.message
-    return [first?.message ?? body.error ?? res.statusText, detail].filter(Boolean).join(': ')
-  } catch {
-    return res.statusText || `HTTP ${res.status}`
-  }
+  const body = await readBody(res)
+  if (!body) return res.statusText || `HTTP ${res.status}`
+  const first = body.errors?.[0]
+  const detail = first?.data?.errors?.[0]?.message
+  return [first?.message ?? body.error ?? res.statusText, detail].filter(Boolean).join(': ')
+}
+
+/** Every field a Payload ValidationError names, with its message. */
+export async function fieldErrors(res: Response): Promise<FieldError[]> {
+  const body = await readBody(res)
+  return (body?.errors ?? []).flatMap((e) =>
+    (e.data?.errors ?? []).flatMap((d) => {
+      const path = d.path ?? d.field
+      return typeof path === 'string' && path
+        ? [{ path, message: typeof d.message === 'string' ? d.message : '' }]
+        : []
+    }),
+  )
 }
 
 interface ClientOptions {
@@ -107,7 +129,15 @@ export function payloadRest(
         body: JSON.stringify(body),
       }),
     )
-    if (!res.ok) return { ok: false, status: res.status, message: await errorMessage(res) }
+    if (!res.ok) {
+      const fields = await fieldErrors(res)
+      return {
+        ok: false,
+        status: res.status,
+        message: await errorMessage(res),
+        ...(fields.length ? { fields } : {}),
+      }
+    }
     const json = (await res.json().catch(() => ({}))) as { doc?: Doc; result?: Doc } & Doc
     const doc: Doc = json.doc ?? json.result ?? json
     return { ok: true, updatedAt: typeof doc.updatedAt === 'string' ? doc.updatedAt : undefined }
@@ -153,6 +183,24 @@ export function payloadRest(
           doc,
         }
       })
+    },
+    async lock(ref, action) {
+      const res = await f(
+        `${api}${prefix}${ROUTES.lock}`,
+        init({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: ref.kind,
+            slug: ref.slug,
+            id: ref.kind === 'collection' ? ref.id : undefined,
+            action,
+          }),
+        }),
+      )
+      if (!res.ok) throw new Error(await errorMessage(res))
+      const body = (await res.json()) as { lockedBy?: unknown }
+      return { lockedBy: typeof body.lockedBy === 'string' ? body.lockedBy : null }
     },
     async hiddenFields(ref, doc): Promise<string[]> {
       const res = await f(

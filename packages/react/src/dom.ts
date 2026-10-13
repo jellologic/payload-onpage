@@ -12,6 +12,8 @@ export const DOM_ATTR = {
   editing: 'data-onpage-editing',
   /** The editor's injected stylesheet. */
   styles: 'data-onpage-styles',
+  /** A field the server called invalid: the message. */
+  invalid: 'data-onpage-invalid',
 } as const
 
 export const HIDDEN = DOM_ATTR.hidden

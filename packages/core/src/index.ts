@@ -99,6 +99,7 @@ export {
   isOnPageMode,
   isTargetKind,
   type DataSource,
+  type FieldError,
   type Doc,
   type Locator,
   type MediaItem,

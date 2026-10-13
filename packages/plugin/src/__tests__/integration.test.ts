@@ -272,6 +272,59 @@ describe('schema endpoint', () => {
   })
 })
 
+describe("Payload's validation errors (what the editor reads per field)", () => {
+  it('name the invalid field by path', async () => {
+    const res = await call('PATCH', `/pages/${ids.editorPage}`, {
+      as: 'editor',
+      body: { title: '', _status: 'published' },
+    })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.errors[0].data.errors).toEqual(
+      expect.arrayContaining([expect.objectContaining({ path: 'title' })]),
+    )
+  })
+})
+
+describe('lock endpoint', () => {
+  const lockFor = (as: As, action: 'take' | 'release' = 'take', id: unknown = ids.editorPage) =>
+    call('POST', '/onpage/lock', {
+      as,
+      body: { kind: 'collection', slug: 'pages', id, action },
+    })
+  const locks = async () =>
+    (
+      await payload.find({
+        collection: 'payload-locked-documents',
+        where: { 'document.value': { equals: ids.editorPage } },
+        depth: 0,
+        overrideAccess: true,
+      })
+    ).docs
+  it("takes Payload's document lock, which the admin sees and which blocks others' saves", async () => {
+    expect(await (await lockFor('editor')).json()).toEqual({ lockedBy: null })
+    expect((await locks())[0]?.user).toMatchObject({ relationTo: 'users', value: ids.editor })
+    // Someone else: told who holds it, and nothing is taken.
+    expect(await (await lockFor('admin')).json()).toEqual({ lockedBy: 'editor@test.dev' })
+    expect((await locks())[0]?.user).toMatchObject({ value: ids.editor })
+    // Their REST save (as the admin would make it) is refused while the lock is live.
+    const save = await call('PATCH', `/pages/${ids.editorPage}?draft=true`, {
+      as: 'admin',
+      body: { title: 'Admin edit' },
+    })
+    expect(save.status).toBe(423)
+    // Released: the admin can take it.
+    expect(await (await lockFor('editor', 'release')).json()).toEqual({ lockedBy: null })
+    expect(await locks()).toHaveLength(0)
+    expect(await (await lockFor('admin')).json()).toEqual({ lockedBy: null })
+    await lockFor('admin', 'release')
+  })
+  it('only for documents the user may edit', async () => {
+    expect((await lockFor('editor', 'take', ids.adminPage)).status).toBe(403)
+    expect((await lockFor(null)).status).toBe(403)
+  })
+})
+
 describe('conditions endpoint', () => {
   const ask = (data: unknown, as: As = 'editor', id: unknown = ids.editorPage) =>
     call('POST', '/onpage/conditions', {

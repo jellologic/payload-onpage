@@ -15,6 +15,7 @@ export const ROUTES = {
   preview: '/preview',
   schedule: '/schedule',
   conditions: '/conditions',
+  lock: '/lock',
 } as const
 
 /**

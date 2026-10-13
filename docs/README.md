@@ -23,6 +23,8 @@ On-page editing and draft previews for **Payload CMS**, on **Next.js (App Router
 - [With Payload's plugins](guides/plugins.md): SEO, nested docs, redirects, search, form builder, multi-tenant, storage adapters.
 - [Annotations](guides/annotations.md): precise mapping for rows, lists, images and non-text fields.
 - [Page settings and publishing](guides/publishing.md): SEO and other page fields, choosing what to publish, scheduling.
+- [Several editors](guides/collaboration.md): document locks, conflicts and invalid fields.
+- [Logging and error reporting](guides/events.md): `onEvent`, with a Sentry recipe.
 - [Client mode](guides/client-mode.md): instant edits without a server round trip.
 - [Block thumbnails and previews](guides/block-picker.md): thumbnails in the section picker, and live previews in client mode.
 - [Globals and multiple documents](guides/globals-and-multiple-documents.md)

@@ -68,6 +68,7 @@ import {
 import type { Entry, OnPageOptions } from './options.ts'
 import { resolvePath } from './paths.ts'
 import { hasConditions, hiddenPaths } from './conditions.ts'
+import { applyLock } from './locks.ts'
 import { label, relationTargets, serializeFields } from './schema.ts'
 import { createPreviewToken, verifyPreviewToken } from './tokens.ts'
 
@@ -399,5 +400,26 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     },
   }
 
-  return [schema, enter, mode, exit, previewLink, preview, schedule, conditions]
+  /** Take, refresh or release Payload's document lock for the editor (see ./locks). */
+  const lock: Endpoint = {
+    path: `${prefix}${ROUTES.lock}`,
+    method: 'post',
+    handler: async (req) => {
+      const refused = rejectCrossSite(req)
+      if (refused) return refused
+      if (!req.headers.get('content-type')?.includes('application/json'))
+        throw new APIError('Expected a JSON body', 415)
+      await addDataAndFileToRequest(req)
+      if (!(await canUseOnPage(req, options))) throw new Forbidden(req.t)
+      const body: Record<string, unknown> = req.data ?? {}
+      const ref = readRef(req, body)
+      const entry = ref && ctx.entry(ref.kind, ref.slug)
+      const cfg = ref && entityConfig(req, ref.kind, ref.slug)
+      if (!ref || !entry || !cfg) throw new APIError('Unknown document', 400)
+      if (!(await canEditDocument(req, ref, options))) throw new Forbidden(req.t)
+      return json(await applyLock(req, ref, cfg, body.action === 'release' ? 'release' : 'take'))
+    },
+  }
+
+  return [schema, enter, mode, exit, previewLink, preview, schedule, conditions, lock]
 }

@@ -92,6 +92,7 @@ export const PO_CSS = `
 .po-opaque{display:inline-flex;align-items:center;gap:6px;margin:6px 0;padding:6px 10px;border:1px dashed #94a3b8;border-radius:8px;background:#f8fafc;color:#475569;font:12px system-ui,sans-serif;user-select:none}
 html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 [data-onpage-hidden="true"]{visibility:hidden!important}
+html[data-onpage-editing] [data-onpage-invalid]{outline:2px solid #dc2626!important;outline-offset:2px}
 .po-preview{position:fixed;left:50%;width:max-content;bottom:var(--po-dock-bottom,16px);transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;background:#0f172a;color:#fff;border-radius:12px;box-shadow:0 12px 40px #0f172a55;pointer-events:auto;max-width:calc(100vw - 24px);flex-wrap:wrap}
 .po-preview .po-status{padding:0 8px;font-size:12px;opacity:.85}
 .po-rel-item{display:flex;align-items:center;gap:6px;padding:4px 6px;border-radius:6px;background:#f1f5f9;font-size:12px;margin:0 0 4px}
@@ -107,6 +108,7 @@ html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 .po-error{color:#b91c1c;margin:6px 0}
 .po-center{text-align:center;margin-top:12px}
 .po-actions{display:flex;gap:6px}
+.po-chip-lock{background:#fde68a;color:#422006;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:600;white-space:nowrap}
 .po-split{min-width:22px;padding:0 4px;margin-left:-4px}
 .po-schedule{margin-top:14px}
 .po-alt{display:flex;flex-direction:column;gap:10px}

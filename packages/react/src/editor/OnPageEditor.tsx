@@ -19,6 +19,9 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { OnPageProvider, useSessionSnapshot } from '../context.tsx'
+import { useDocumentLocks } from './useDocumentLocks.ts'
+import { useInvalidTargets } from './useInvalidTargets.ts'
+import { useSessionEvents } from './useSessionEvents.ts'
 import { UI } from '../dom.ts'
 import { defaultEditors } from '../editors/index.ts'
 import { hub } from '../hub.ts'
@@ -36,6 +39,7 @@ import type {
   OnPageState,
   Panel,
   Selection,
+  OnPageEvent,
 } from '../types.ts'
 import { OnDemandPanels } from '../ui/OnDemand.tsx'
 import { Dock } from '../ui/Dock.tsx'
@@ -72,6 +76,11 @@ export interface OnPageEditorProps {
   messages?: Messages | undefined
   /** The language of the UI strings, for plurals, dates and times. Default "en"; set it with `messages`. */
   uiLocale?: string | undefined
+  /**
+   * Saves, conflicts, publishes and failures, for logging or error reporting
+   * (e.g. Sentry). Called after the editor has handled them.
+   */
+  onEvent?: ((event: OnPageEvent) => void) | undefined
 }
 
 /** How long a re-rendered page gets to land (and the locator to rescan) before ghosts are retired. */
@@ -111,6 +120,12 @@ export function OnPageEditor(props: OnPageEditorProps) {
     onSaved: (ref, seq) => void rerender([ref], seq),
   })
   const snap = useSessionSnapshot(session)
+  const report = useEvent((event: OnPageEvent) => {
+    if (props.onEvent) props.onEvent(event)
+    else if (event.type === 'error')
+      console.error(`[payload-onpage] ${event.where} failed`, event.error)
+  })
+  useSessionEvents(session, report)
   const targets = useTargets(locator, root)
   const { ghosts, add: addGhostEntry, rendered: ghostsRendered } = useGhosts(session ? snap : null)
 
@@ -132,7 +147,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
     try {
       await renderer.afterSave({ refs: stale })
     } catch (e) {
-      console.error('[payload-onpage] render after save failed', e)
+      report({ type: 'error', where: 'render', error: e })
     } finally {
       setRenders((n) => n - 1)
       const id = setTimeout(() => {
@@ -205,6 +220,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
         edit,
         rerender: (refs) => rerender(refs),
         notify,
+        report,
         addGhost,
       },
     [
@@ -219,12 +235,25 @@ export function OnPageEditor(props: OnPageEditorProps) {
       edit,
       rerender,
       notify,
+      report,
       addGhost,
     ],
   )
+  const lockedBy = useDocumentLocks(session, docKeys)
+  useInvalidTargets(snap, targets, docKeys)
   const state = useMemo<OnPageState>(
-    () => ({ snap, targets, panel, editing, selected, docKeys, rendering: renders > 0, flash }),
-    [snap, targets, panel, editing, selected, docKeys, renders, flash],
+    () => ({
+      snap,
+      targets,
+      panel,
+      editing,
+      selected,
+      docKeys,
+      lockedBy,
+      rendering: renders > 0,
+      flash,
+    }),
+    [snap, targets, panel, editing, selected, docKeys, lockedBy, renders, flash],
   )
 
   // Components outside the editor's tree (client-mode documents) reach it through the hub.
