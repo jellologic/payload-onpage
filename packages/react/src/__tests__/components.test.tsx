@@ -11,6 +11,7 @@ import type {
   SchemaField,
 } from '@payload-onpage/core'
 import { createTranslate, defaultMessages, relativeTime } from '../messages.ts'
+import { shortcut } from '../dom.ts'
 import { Dialog } from '../ui/Dialog.tsx'
 import { PreviewToolbar } from '../ui/PreviewToolbar.tsx'
 import { SelectEditor } from '../editors/SelectEditor.tsx'
@@ -61,6 +62,36 @@ describe('messages', () => {
     t('dock.publish', { x: 1 })
     expect(createTranslate({ 'dock.publish': 'Publicar' })('dock.publish')).toBe('Publicar')
     expect(Object.keys(defaultMessages).length).toBeGreaterThan(50)
+  })
+  it('picks plural forms by the UI locale, and exposes it', () => {
+    const en = createTranslate()
+    expect(en('dock.documents', { count: 1 })).toBe('1 document')
+    expect(en('dock.documents', { count: 3 })).toBe('3 documents')
+    expect(en.locale).toBe('en')
+    // Polish: one / few / many, each from its own override.
+    const pl = createTranslate(
+      {
+        'dock.documents': '{count} dokumentów',
+        'dock.documents.one': '{count} dokument',
+        'dock.documents.few': '{count} dokumenty',
+      },
+      'pl',
+    )
+    expect([1, 3, 5].map((count) => pl('dock.documents', { count }))).toEqual([
+      '1 dokument',
+      '3 dokumenty',
+      '5 dokumentów',
+    ])
+    expect(pl.locale).toBe('pl')
+  })
+  it('writes shortcuts the way the platform does', () => {
+    const platform = vi.spyOn(navigator, 'platform', 'get')
+    platform.mockReturnValue('MacIntel')
+    expect(shortcut('Z', { shift: true })).toBe('⇧⌘Z')
+    platform.mockReturnValue('Win32')
+    expect(shortcut('Z')).toBe('Ctrl+Z')
+    expect(shortcut('Z', { shift: true })).toBe('Ctrl+Shift+Z')
+    platform.mockRestore()
   })
   it('formats relative time', () => {
     expect(relativeTime(Date.now() - 5000, Date.now(), 'en')).toMatch(/5 seconds ago|now/)

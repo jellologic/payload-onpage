@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   stegaDecode,
+  stegaEncode,
   type DataSource,
   type DocumentSchema,
   type MediaLibrary,
@@ -94,14 +95,14 @@ const media: MediaLibrary = {
   }),
 }
 
-async function mountEditor(ds: DataSource, html: string) {
+async function mountEditor(ds: DataSource, html: string, mediaLibrary: MediaLibrary = media) {
   document.body.innerHTML = html
   const container = document.createElement('div')
   document.body.appendChild(container)
   render(
     <OnPageEditor
       dataSource={ds}
-      media={media}
+      media={mediaLibrary}
       links={{ exit: '/exit', mode: (m) => `/mode?mode=${m}` }}
       autosaveDelay={0}
     />,
@@ -180,6 +181,62 @@ describe('relationship and upload editors', () => {
     )
     fireEvent.click(document.querySelector('img')!)
     fireEvent.click(await screen.findByTestId('onpage-media-3', undefined, { timeout: 2000 }))
+    await waitFor(() => expect(saves.at(-1)).toEqual({ image: 3 }))
+  })
+  it('upload: asks for alt text before uploading a new file', async () => {
+    const { ds, saves } = source()
+    const upload = vi.fn<NonNullable<MediaLibrary['upload']>>(async () => ({
+      id: 9,
+      url: '/cat.png',
+      alt: 'A cat asleep',
+      doc: { id: 9, url: '/cat.png', alt: 'A cat asleep' },
+    }))
+    URL.createObjectURL ??= () => 'blob:x'
+    URL.revokeObjectURL ??= () => undefined
+    await mountEditor(
+      ds,
+      `<img alt="" ${ann('data-onpage-field="image" data-onpage-kind="media"')}>`,
+      { ...media, upload },
+    )
+    fireEvent.click(document.querySelector('img')!)
+    await screen.findByTestId('onpage-media-upload')
+    const input = document.querySelector<HTMLInputElement>('input[type=file]')!
+    fireEvent.change(input, { target: { files: [new File(['x'], 'IMG_2034.png')] } })
+    expect(upload).not.toHaveBeenCalled() // waits for the alt text
+    fireEvent.change(await screen.findByTestId('onpage-media-alt'), {
+      target: { value: '  A cat asleep ' },
+    })
+    fireEvent.submit(screen.getByTestId('onpage-media-alt-form'))
+    await waitFor(() => expect(saves.at(-1)).toEqual({ image: 9 }))
+    expect(upload).toHaveBeenCalledWith(expect.any(File), {
+      relationTo: 'media',
+      alt: 'A cat asleep',
+    })
+  })
+  it("upload: edits the current image's alt text on the media document", async () => {
+    const marked = stegaEncode('Old words', { ref: 'c:pages:1', path: 'image', kind: 'media' })
+    const { ds, saves } = source({
+      loadDocument: async () => ({ ...initial(), image: { id: 3, url: '/a.png', alt: marked } }),
+    })
+    const updateAlt = vi.fn<NonNullable<MediaLibrary['updateAlt']>>(async (id, { alt }) => ({
+      id,
+      url: '/a.png',
+      alt,
+      doc: { id, url: '/a.png', alt },
+    }))
+    await mountEditor(
+      ds,
+      `<img alt="" ${ann('data-onpage-field="image" data-onpage-kind="media"')}>`,
+      { ...media, updateAlt },
+    )
+    fireEvent.click(document.querySelector('img')!)
+    const field = await screen.findByTestId<HTMLInputElement>('onpage-media-alt-current')
+    expect(field.value).toBe('Old words') // without the marker
+    fireEvent.change(field, { target: { value: 'A red door' } })
+    fireEvent.submit(field.closest('form')!)
+    await waitFor(() =>
+      expect(updateAlt).toHaveBeenCalledWith(3, { relationTo: 'media', alt: 'A red door' }),
+    )
     await waitFor(() => expect(saves.at(-1)).toEqual({ image: 3 }))
   })
 })

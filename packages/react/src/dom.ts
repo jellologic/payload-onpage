@@ -17,6 +17,14 @@ export const DOM_ATTR = {
 export const HIDDEN = DOM_ATTR.hidden
 export const UI = DOM_ATTR.ui
 
+const apple = () =>
+  typeof navigator !== 'undefined' &&
+  /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+
+/** A keyboard shortcut as this platform writes it: ⇧⌘Z on Apple devices, Ctrl+Shift+Z elsewhere. */
+export const shortcut = (key: string, { shift = false } = {}): string =>
+  apple() ? `${shift ? '⇧' : ''}⌘${key}` : `Ctrl+${shift ? 'Shift+' : ''}${key}`
+
 /** Computed styles copied onto an inline editor so it looks like the element it replaces. */
 export const TYPOGRAPHY = [
   'fontFamily',

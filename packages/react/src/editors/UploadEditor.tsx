@@ -4,9 +4,17 @@
  * Image editor: pick from the upload collection (search, pages) or upload a
  * new file, through the MediaLibrary port. The chosen document goes into state
  * populated, so a client-rendered page shows it at once; saving sends its id.
+ * A new file asks for its alt text first; the current image's alt text can be
+ * changed here too (on the media document).
  */
-import { errorText, relationId, type MediaItem, type RelationField } from '@payload-onpage/core'
-import { useCallback, useRef, useState } from 'react'
+import {
+  errorText,
+  relationId,
+  stegaClean,
+  type MediaItem,
+  type RelationField,
+} from '@payload-onpage/core'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useOnPage } from '../context.tsx'
 import type { FieldEditorProps } from '../types.ts'
 import { Dialog } from '../ui/Dialog.tsx'
@@ -28,16 +36,51 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
   )
   const results = useDebouncedSearch<MediaItem>(media ? search : null)
   const currentId = relationId(value)
+  // The current image's alt text, without the marker it carries in edit mode.
+  const currentAlt =
+    value && typeof value === 'object' && 'alt' in value && typeof value.alt === 'string'
+      ? stegaClean(value.alt)
+      : null
+
+  // A file waiting for its alt text, with a preview URL.
+  const [pending, setPending] = useState<{ file: File; url: string } | null>(null)
+  const [alt, setAlt] = useState('')
+  useEffect(() => (pending?.url ? () => URL.revokeObjectURL(pending.url) : undefined), [pending])
+  // The alt step appears after the dialog opened, so `data-autofocus` doesn't reach it.
+  const altInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (pending) altInput.current?.focus()
+  }, [pending])
+  const [editedAlt, setEditedAlt] = useState(currentAlt ?? '')
+  const altId = useId()
 
   const choose = (m: MediaItem) => {
     commit(m.doc)
     close()
   }
-  const upload = async (file: File) => {
-    if (!media?.upload) return
+  const pick = (file: File) => {
+    setUploadError(null)
+    setAlt('')
+    // A preview only for images, and only from a blob: URL the browser made for this file.
+    const url = file.type.startsWith('image/') ? URL.createObjectURL(file) : ''
+    setPending({ file, url: /^blob:/.test(url) ? url : '' })
+  }
+  const upload = async () => {
+    if (!media?.upload || !pending) return
     setUploading(true)
     try {
-      choose(await media.upload(file, { relationTo }))
+      choose(await media.upload(pending.file, { relationTo, alt: alt.trim() }))
+    } catch (e) {
+      setUploadError(errorText(e))
+    } finally {
+      setUploading(false)
+    }
+  }
+  const saveAlt = async () => {
+    if (!media?.updateAlt || currentId == null) return
+    setUploading(true)
+    try {
+      choose(await media.updateAlt(currentId, { relationTo, alt: editedAlt.trim() }))
     } catch (e) {
       setUploadError(errorText(e))
     } finally {
@@ -72,7 +115,11 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
             type="file"
             accept="image/*"
             hidden
-            onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) pick(file)
+              e.target.value = '' // choosing the same file again still fires
+            }}
           />
         </>
       )}
@@ -101,28 +148,94 @@ export function UploadEditor({ field, value, commit, close, t }: FieldEditorProp
       testId="onpage-media-picker"
     >
       {(results.error ?? uploadError) && <p className="po-error">{results.error ?? uploadError}</p>}
-      <div className="po-grid">
-        {results.items.map((m) => (
-          <button
-            key={String(m.id)}
-            type="button"
-            className="po-tile"
-            onClick={() => choose(m)}
-            aria-current={String(m.id) === String(currentId)}
-            data-testid={`onpage-media-${m.id}`}
-          >
-            <img src={m.thumbnailUrl ?? m.url ?? ''} alt={m.alt ?? ''} loading="lazy" />
-            <span>{m.alt || m.filename}</span>
-          </button>
-        ))}
-      </div>
-      {!results.busy && !results.items.length && <p className="po-muted">{t('media.empty')}</p>}
-      {results.hasMore && (
-        <div className="po-center">
-          <button type="button" className="po-btn" onClick={results.more} disabled={results.busy}>
-            {t('media.more')}
-          </button>
-        </div>
+      {pending ? (
+        <form
+          className="po-alt"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void upload()
+          }}
+          data-testid="onpage-media-alt-form"
+        >
+          {pending.url && <img src={pending.url} alt="" />}
+          <div className="po-row">
+            <label htmlFor={altId}>{t('media.alt')}</label>
+            <input
+              ref={altInput}
+              id={altId}
+              className="po-input"
+              value={alt}
+              onChange={(e) => setAlt(e.target.value)}
+              aria-describedby={`${altId}-hint`}
+              data-testid="onpage-media-alt"
+            />
+            <small id={`${altId}-hint`}>{t('media.altHint')}</small>
+          </div>
+          <div className="po-actions">
+            <button type="submit" className="po-btn po-primary" disabled={uploading}>
+              {t('media.uploadFile', { name: pending.file.name })}
+            </button>
+            <button type="button" className="po-btn" onClick={() => setPending(null)}>
+              {t('common.cancel')}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <>
+          {media?.updateAlt && currentId != null && currentAlt !== null && (
+            <form
+              className="po-row po-alt-current"
+              onSubmit={(e) => {
+                e.preventDefault()
+                void saveAlt()
+              }}
+            >
+              <label htmlFor={altId}>{t('media.alt')}</label>
+              <div className="po-alt-line">
+                <input
+                  id={altId}
+                  className="po-input"
+                  value={editedAlt}
+                  onChange={(e) => setEditedAlt(e.target.value)}
+                  aria-describedby={`${altId}-hint`}
+                  data-testid="onpage-media-alt-current"
+                />
+                <button type="submit" className="po-btn" disabled={uploading}>
+                  {t('media.altSave')}
+                </button>
+              </div>
+              <small id={`${altId}-hint`}>{t('media.altHint')}</small>
+            </form>
+          )}
+          <div className="po-grid">
+            {results.items.map((m) => (
+              <button
+                key={String(m.id)}
+                type="button"
+                className="po-tile"
+                onClick={() => choose(m)}
+                aria-current={String(m.id) === String(currentId)}
+                data-testid={`onpage-media-${m.id}`}
+              >
+                <img src={m.thumbnailUrl ?? m.url ?? ''} alt={m.alt ?? ''} loading="lazy" />
+                <span>{m.alt || m.filename}</span>
+              </button>
+            ))}
+          </div>
+          {!results.busy && !results.items.length && <p className="po-muted">{t('media.empty')}</p>}
+          {results.hasMore && (
+            <div className="po-center">
+              <button
+                type="button"
+                className="po-btn"
+                onClick={results.more}
+                disabled={results.busy}
+              >
+                {t('media.more')}
+              </button>
+            </div>
+          )}
+        </>
       )}
       {(results.busy || uploading) && <p className="po-muted">{t('media.loading')}</p>}
     </Dialog>

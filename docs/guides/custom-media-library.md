@@ -25,8 +25,13 @@ export const cloudinaryLibrary = (): MediaLibrary => ({
       hasMore: body.hasMore,
     }
   },
-  // Optional: enables "Upload…"
+  // Optional: enables "Upload…". The editor asks for the alt text first.
   async upload(file, { relationTo, alt }) {
+    /* … */
+  },
+  // Optional: enables editing the current image's alt text. Strip markers
+  // (stegaClean) if the value goes back to Payload.
+  async updateAlt(id, { relationTo, alt }) {
     /* … */
   },
 })

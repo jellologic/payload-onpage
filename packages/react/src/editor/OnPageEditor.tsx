@@ -71,6 +71,8 @@ export interface OnPageEditorProps {
   root?: (() => ParentNode | null) | undefined
   /** Override any UI string (see `defaultMessages`). */
   messages?: Messages | undefined
+  /** The language of the UI strings, for plurals, dates and times. Default "en"; set it with `messages`. */
+  uiLocale?: string | undefined
 }
 
 /** How long a re-rendered page gets to land (and the locator to rescan) before ghosts are retired. */
@@ -81,7 +83,10 @@ export function OnPageEditor(props: OnPageEditorProps) {
   const renderer = useMemo(() => props.renderer ?? clientState(), [props.renderer])
   const locator = useMemo(() => props.locator ?? composite(annotations(), stega()), [props.locator])
   const editors = useMemo(() => mergeEditors(defaultEditors, props.editors), [props.editors])
-  const t = useMemo(() => createTranslate(props.messages), [props.messages])
+  const t = useMemo(
+    () => createTranslate(props.messages, props.uiLocale),
+    [props.messages, props.uiLocale],
+  )
   const rootProp = props.root
   const root = useCallback(
     () => (rootProp ? rootProp() : typeof document === 'undefined' ? null : document.body),

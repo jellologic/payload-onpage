@@ -65,6 +65,7 @@ export function NextEditor(props: OnPageMountProps) {
       links={links}
       locale={locale}
       messages={props.messages}
+      uiLocale={props.uiLocale}
     />
   )
 }
@@ -77,6 +78,7 @@ export function NextPreview(props: OnPageMountProps) {
       editHref={props.shared ? undefined : links.mode?.('edit')}
       shared={props.shared}
       messages={props.messages}
+      uiLocale={props.uiLocale}
     />
   )
 }

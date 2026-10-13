@@ -107,6 +107,10 @@ html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 .po-error{color:#b91c1c;margin:6px 0}
 .po-center{text-align:center;margin-top:12px}
 .po-actions{display:flex;gap:6px}
+.po-alt{display:flex;flex-direction:column;gap:10px}
+.po-alt img{max-height:160px;max-width:100%;align-self:flex-start;object-fit:contain;border-radius:4px}
+.po-alt-line{display:flex;gap:6px}
+.po-alt-line .po-input{flex:1}
 .po-inline-row{flex-direction:row;align-items:center}
 .po-search{width:240px}
 .po-picker{cursor:pointer;display:flex;align-items:center}
@@ -114,7 +118,7 @@ html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 .po-primary,.po-pop .po-primary,.po-panel .po-primary{background:#3b63e0;color:#fff}
 .po-primary:hover{background:#2f5bd9}
 .po-pop .po-btn,.po-panel .po-btn{color:#0f172a}
-.po-pop .po-btn.po-primary,.po-panel .po-btn.po-primary{color:#fff}
+.po-pop .po-btn.po-primary,.po-panel .po-btn.po-primary,.po-modal .po-btn.po-primary{color:#fff}
 .po-frame-close{all:unset;position:absolute;inset:0;cursor:pointer}
 .po-frame-bg iframe{position:relative}
 .po-input[aria-invalid="true"]{border-color:#dc2626}

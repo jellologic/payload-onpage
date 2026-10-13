@@ -7,6 +7,7 @@
  */
 import type { DocRef } from './docref.ts'
 import { DEFAULTS, HEADER } from './constants.ts'
+import { stegaClean } from './stega.ts'
 import type {
   DataSource,
   Doc,
@@ -215,7 +216,7 @@ const toItem = (doc: Doc): MediaItem => ({
 
 export function payloadUploads(
   opts: PayloadUploadsOptions = {},
-): MediaLibrary & Required<Pick<MediaLibrary, 'upload'>> {
+): MediaLibrary & Required<Pick<MediaLibrary, 'upload' | 'updateAlt'>> {
   const api = opts.apiBase ?? DEFAULTS.apiRoute
   const { f, init } = client(opts)
   return {
@@ -245,6 +246,20 @@ export function payloadUploads(
         JSON.stringify({ alt: alt ?? file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ') }),
       )
       const res = await f(`${api}/${relationTo}`, init({ method: 'POST', body: form }))
+      if (!res.ok) throw new Error(await errorMessage(res))
+      return toItem(((await res.json()) as { doc: Doc }).doc)
+    },
+    async updateAlt(id, { relationTo, alt }) {
+      const res = await f(
+        `${api}/${relationTo}/${encodeURIComponent(String(id))}?depth=0`,
+        init({
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          // The media collection may not be enabled for on-page editing, so no
+          // server hook strips markers from it: send clean text.
+          body: JSON.stringify({ alt: stegaClean(alt) }),
+        }),
+      )
       if (!res.ok) throw new Error(await errorMessage(res))
       return toItem(((await res.json()) as { doc: Doc }).doc)
     },

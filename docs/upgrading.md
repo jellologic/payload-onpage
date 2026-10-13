@@ -1,5 +1,48 @@
 # Upgrading
 
+## Versioning in 0.x
+
+All `@payload-onpage/*` packages are released together, at the same version. Until 1.0:
+
+- **Minor** (0.5 → 0.6) may change public APIs. Each change is listed here with what to do.
+- **Patch** (0.5.0 → 0.5.1) fixes bugs and security issues. It doesn't change APIs you call. It can still add an option, tighten a check (a security fix), or ask editors to re-enter edit mode.
+- **Public API** is what each package's entry points export and the docs describe: the plugin options, framework helpers, ports (`DataSource`, `SessionAdapter`, …), and `@payload-onpage/core`'s explicit export list. Anything else, such as CSS classes and `data-*` attributes other than the documented `data-testid`s, may change in any release.
+
+Keep all `@payload-onpage/*` packages on the same version.
+
+## 0.5.0 → 0.5.1
+
+A security release. No code changes for most sites.
+
+| Change                                                                                                                                                         | What to do                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The editor's `onpage` mode cookie is sealed with the plugin secret. Mode cookies set by 0.5.0 aren't accepted                                                  | Editors press **Edit on page** again once after the upgrade                                                                                                |
+| TanStack Start: reads verify that seal with `tanstackSession({ secret })`, and show no drafts without it                                                       | Make sure `tanstackSession({ secret })` gets the plugin's secret (Payload's `secret` by default)                                                           |
+| Next.js on Vercel: the proxy is strict by default. A draft cookie is kept only on a preview link's page, or for an editor who entered through **Edit on page** | If your own preview route turns on draft mode (Payload's website template does), pass `allowDraft: (request) => isPayloadUser(request, { secret })`        |
+| The documented proxy matcher changed, so page paths with dots are guarded                                                                                      | Copy the new matcher from [Getting started](getting-started.md#5-add-the-proxy-required-for-preview-links)                                                 |
+| `SessionAdapter.enable(mode, opts)` receives `opts.sealMode`                                                                                                   | Custom adapters only: store `await createModeCookie(mode, { sealMode, expiresAt, bindTo, token })`, and read with `readModeCookie(raw, getCookie, secret)` |
+| Fields with `admin.readOnly` are no longer editable on the page. Field access is evaluated against the document being edited                                   | Nothing                                                                                                                                                    |
+| `secret` can be a keyring, `[new, old]`                                                                                                                        | Optional: see [Rotating the secret](concepts/security.md#rotating-the-secret)                                                                              |
+| The plugin's peer range accepts Payload 4 betas                                                                                                                | Nothing                                                                                                                                                    |
+
+## 0.4 → 0.5
+
+| Change                                                                                                      | What to do                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| The block picker shows Payload's block thumbnails and groups, and previews blocks in place in client mode   | Nothing. Optionally add `admin.images.thumbnail` and sample content: see [Block thumbnails and previews](guides/block-picker.md) |
+| `SchemaBlock` gains optional `thumbnail`, `group`, `example` and `insertExample`; core exports `previewRow` | Custom data sources that build schemas themselves may fill them in                                                               |
+
+## 0.3 → 0.4
+
+| Change                                                                                                                                                              | What to do                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| The schema endpoint answers 403 when update access is definitively denied, or when an access check throws                                                           | Nothing, unless an access function throws on purpose                                              |
+| `/mode` requires the user to be able to edit at least one enabled document                                                                                          | Nothing                                                                                           |
+| The CSRF guard refuses `sec-fetch-site: none` (a request no page started, such as one from a bookmark)                                                              | Use the built-in buttons                                                                          |
+| An empty `secret` option fails when the config is built                                                                                                             | Omit `secret` to use Payload's                                                                    |
+| `SEAL_PURPOSE.editBinding` removed                                                                                                                                  | Nothing (it was unused)                                                                           |
+| 0.4.1: preview links on Vercel. `nextSession({ cdnBypass })`, on by default on Vercel, and the proxy's `allowDraft`. `SessionAdapter.disable()` receives `{ path }` | Custom session adapters: accept `disable({ path })`, and clear any credential scoped to that path |
+
 ## 0.2 → 0.3
 
 0.3 makes the compiler catch more mistakes and fixes several bugs. Most sites only notice the first two rows.

@@ -1,7 +1,9 @@
 /**
  * Every string the editor shows, with English defaults. Override any subset
- * with the `messages` prop (e.g. from your site's translations). `{name}`
- * placeholders are filled from the variables passed to `t()`.
+ * with the `messages` prop (e.g. from your site's translations), and pass
+ * `uiLocale` with them. `{name}` placeholders are filled from the variables
+ * passed to `t()`. A message with `{count}` can have plural forms keyed by
+ * `Intl.PluralRules` category: `'dock.documents.one': '{count} document'`.
  */
 export const defaultMessages = {
   'dock.label': 'Page editor',
@@ -15,6 +17,7 @@ export const defaultMessages = {
   'dock.saved': 'Draft saved {ago}',
   'dock.editing': 'Editing draft',
   'dock.documents': '{count} documents',
+  'dock.documents.one': '{count} document',
   'dock.localeNotice':
     'Editing {locale}: text changes apply to this language only; adding, moving or removing sections changes every language.',
   'dock.reload': 'Reload latest',
@@ -44,7 +47,7 @@ export const defaultMessages = {
   'row.moveDown': 'Move down',
   'row.duplicate': 'Duplicate',
   'row.settings': 'Settings',
-  'row.delete': 'Delete (undo with ⌘Z)',
+  'row.delete': 'Delete (undo with {undo})',
   'row.addSection': 'Add section',
   'row.addSectionAbove': 'Add section above',
   'row.addSectionBelow': 'Add section below',
@@ -58,6 +61,7 @@ export const defaultMessages = {
   'blocks.title': 'Add section',
   'blocks.previewHint': 'Point at a section to preview it on the page.',
   'common.close': 'Close',
+  'common.cancel': 'Cancel',
   'common.apply': 'Apply',
   'common.clear': 'Clear',
   'common.remove': 'Remove',
@@ -71,6 +75,11 @@ export const defaultMessages = {
   'media.empty': 'No images found.',
   'media.more': 'Load more',
   'media.loading': 'Loading…',
+  'media.alt': 'Alt text',
+  'media.altHint':
+    'Describe the image for people who can’t see it. Leave it empty only if the image is decorative.',
+  'media.altSave': 'Save alt text',
+  'media.uploadFile': 'Upload {name}',
   'inline.label': 'Edit {field}',
   'preview.label': 'Draft preview',
   'preview.badge': 'Draft',
@@ -99,7 +108,14 @@ export const defaultMessages = {
 } as const
 
 export type MessageKey = keyof typeof defaultMessages
-export type Messages = Partial<Record<MessageKey, string>>
+
+/** Messages with a `{count}`: they may have plural forms. */
+type CountKey = {
+  [K in MessageKey]: 'count' extends Placeholders<(typeof defaultMessages)[K]> ? K : never
+}[MessageKey]
+
+/** Overrides for any message, and plural forms (`'dock.documents.few'`) for counted ones. */
+export type Messages = Partial<Record<MessageKey | `${CountKey}.${Intl.LDMLPluralRule}`, string>>
 
 /** The {placeholders} of a message: `Placeholders<'Saved {when}'>` is `'when'`. */
 export type Placeholders<S extends string> = S extends `${string}{${infer Name}}${infer Rest}`
@@ -117,22 +133,29 @@ export type MessageVars<K extends MessageKey> = Record<
  * variables (`t('dock.saved', { ago })`); one without takes none. Unknown keys
  * don't compile: show raw text without `t`.
  */
-export type Translate = <K extends MessageKey>(
+export type Translate = (<K extends MessageKey>(
   key: K,
   ...vars: [Placeholders<(typeof defaultMessages)[K]>] extends [never] ? [] : [vars: MessageVars<K>]
-) => string
+) => string) & {
+  /** The language of the UI strings: plurals, dates and times follow it. */
+  readonly locale: string
+}
 
-export function createTranslate(overrides: Messages = {}): Translate {
-  const table: Record<string, string> = { ...defaultMessages, ...overrides }
-  return (key: string, vars?: Record<string, string | number>) => {
-    const template = table[key] ?? key
+export function createTranslate(overrides: Messages = {}, locale = 'en'): Translate {
+  const table: Record<string, string | undefined> = { ...defaultMessages, ...overrides }
+  const plural = new Intl.PluralRules(locale)
+  const t = (key: string, vars?: Record<string, string | number>) => {
+    const form =
+      typeof vars?.count === 'number' ? table[`${key}.${plural.select(vars.count)}`] : undefined
+    const template = form ?? table[key] ?? key
     return vars
       ? template.replace(/\{(\w+)\}/g, (m, name: string) => (name in vars ? String(vars[name]) : m))
       : template
   }
+  return Object.assign(t, { locale })
 }
 
-/** "5 seconds ago", "2 minutes ago", in the browser's language. */
+/** "5 seconds ago", "2 minutes ago", in `locale` (the UI's: `t.locale`). */
 export function relativeTime(ts: number, now = Date.now(), locale?: string): string {
   const s = Math.round((ts - now) / 1000)
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' })

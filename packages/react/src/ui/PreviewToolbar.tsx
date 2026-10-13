@@ -20,6 +20,8 @@ export interface PreviewToolbarProps {
   /** Opened from a shared preview link. */
   shared?: boolean | undefined
   messages?: Messages | undefined
+  /** The language of the UI strings. Default "en". */
+  uiLocale?: string | undefined
 }
 
 const DEVICES = [
@@ -34,10 +36,16 @@ export const inPreviewFrame = (): boolean =>
   typeof window !== 'undefined' &&
   (window.self !== window.top || new URLSearchParams(window.location.search).has(FRAME_PARAM))
 
-export function PreviewToolbar({ exitHref, editHref, shared, messages }: PreviewToolbarProps) {
+export function PreviewToolbar({
+  exitHref,
+  editHref,
+  shared,
+  messages,
+  uiLocale,
+}: PreviewToolbarProps) {
   const [device, setDevice] = useState<(typeof DEVICES)[number] | null>(null)
   const mounted = useIsClient()
-  const t = useMemo(() => createTranslate(messages), [messages])
+  const t = useMemo(() => createTranslate(messages, uiLocale), [messages, uiLocale])
   useEditorStyles()
   useEffect(() => {
     if (!device) return

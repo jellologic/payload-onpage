@@ -61,6 +61,7 @@ export function TanstackEditor(props: OnPageMountProps) {
       links={links}
       locale={locale}
       messages={props.messages}
+      uiLocale={props.uiLocale}
     />
   )
 }
@@ -91,6 +92,7 @@ export function TanstackPreview(props: OnPageMountProps) {
       editHref={props.shared ? undefined : links.mode?.('edit')}
       shared={props.shared}
       messages={props.messages}
+      uiLocale={props.uiLocale}
     />
   )
 }

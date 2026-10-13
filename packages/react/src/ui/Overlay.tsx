@@ -21,7 +21,7 @@ import {
 } from '@payload-onpage/core'
 import { useEffect, useState } from 'react'
 import { useOnPage } from '../context.tsx'
-import { isOurs } from '../dom.ts'
+import { isOurs, shortcut } from '../dom.ts'
 import { belowList, GEOMETRY, inViewport, outlineBox, toolbarPosition } from '../geometry.ts'
 import { useLayoutTick } from '../layout.ts'
 import { ToolbarButton } from './ToolbarButton.tsx'
@@ -150,7 +150,7 @@ function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item
         />
       )}
       <ToolbarButton
-        label={t('row.delete')}
+        label={t('row.delete', { undo: shortcut('Z') })}
         icon={<CloseIcon />}
         danger
         disabled={!ops.canRemove}

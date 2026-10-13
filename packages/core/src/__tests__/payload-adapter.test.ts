@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { HEADER } from '../constants.ts'
 import { errorMessage, payloadRest, payloadUploads } from '../payload.ts'
+import { stegaEncode } from '../stega.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } })
@@ -115,6 +116,23 @@ describe('payloadUploads', () => {
     expect(item.id).toBe(9)
     const form = calls[1]!.init?.body as FormData
     expect(JSON.parse(form.get('_payload') as string)).toEqual({ alt: 'my photo 1' })
+    // The alt text the editor typed wins over the filename.
+    await media.upload(new File(['x'], 'IMG_2034.png'), { relationTo: 'media', alt: 'A red door' })
+    expect(JSON.parse((calls[2]!.init?.body as FormData).get('_payload') as string)).toEqual({
+      alt: 'A red door',
+    })
+  })
+  it('updates alt text on the media document, without markers', async () => {
+    const { f, calls } = fetchSpy(() => json({ doc: { id: 3, url: '/a.png', alt: 'New' } }))
+    const marked = stegaEncode('New', { ref: 'c:pages:1', path: 'image', kind: 'media' })
+    const item = await payloadUploads({ fetch: f }).updateAlt(3, {
+      relationTo: 'media',
+      alt: marked,
+    })
+    expect(item).toMatchObject({ id: 3, alt: 'New' })
+    expect(calls[0]!.url).toBe('/api/media/3?depth=0')
+    expect(calls[0]!.init?.method).toBe('PATCH')
+    expect(JSON.parse(calls[0]!.init?.body as string)).toEqual({ alt: 'New' })
   })
 })
 

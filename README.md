@@ -11,7 +11,7 @@ _The visual, WYSIWYG inline editor for Payload CMS: live draft preview, click-to
 - **Add sections visually:** the block picker shows your blocks' Payload thumbnails, and in client mode previews a section in place before you add it.
 - **Built-in field editors:** text, rich text (Lexical), images, select, date, number, relationship, color. Replace any of them, or add your own.
 - **Ports and adapters:** data source, media library, locator, renderer, session and field editors are all swappable.
-- **Fast:** visitors load about 0.3 KB, and the editor (about 29 KB gz) loads only for editors.
+- **Fast:** visitors load about 0.3 KB. The editor (about 30 KB, brotli) loads only for editors, and rich-text editing adds Lexical (about 70 KB) the first time an editor opens a rich-text field.
 - **Accessible:** keyboard editing, managed focus and WCAG AA contrast, checked with axe in CI.
 - **Secure by design:** Payload's own access checks, CSRF-safe endpoints, a stale-write guard, and share links that never expose Next's draft secret.
 
