@@ -52,6 +52,10 @@
     "./editor-kit": {
       "types": "./dist/editor-kit.d.ts",
       "default": "./dist/editor-kit.js"
+    },
+    "./locales/*": {
+      "types": "./dist/locales/*.d.ts",
+      "default": "./dist/locales/*.js"
     }
   },
   "main": "./dist/index.js",

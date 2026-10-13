@@ -117,7 +117,7 @@ function RowToolbar({ row, variant }: { row: ActiveRow; variant: 'block' | 'item
   return (
     <div
       className={`po-bar${variant === 'item' ? ' is-item' : ''}`}
-      style={toolbarPosition(r)}
+      style={toolbarPosition(r, getComputedStyle(el).direction === 'rtl')}
       role="toolbar"
       aria-label={t('row.toolbar', { label })}
       data-testid={`onpage-${variant}-toolbar`}

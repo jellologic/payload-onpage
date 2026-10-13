@@ -21,6 +21,10 @@ export const DOM_ATTR = {
 export const HIDDEN = DOM_ATTR.hidden
 export const UI = DOM_ATTR.ui
 
+/** Languages written right to left (the editor UI takes its direction from `uiLocale`). */
+export const isRtlLocale = (locale: string): boolean =>
+  /^(ar|he|fa|ur|ps|yi|dv|ku|sd|ug|ckb)(-|$)/i.test(locale)
+
 const apple = () =>
   typeof navigator !== 'undefined' &&
   /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
@@ -40,6 +44,8 @@ export const TYPOGRAPHY = [
   'wordSpacing',
   'textTransform',
   'textAlign',
+  // The inline editor writes in the element's direction (right to left for Arabic, Hebrew…).
+  'direction',
   'textIndent',
   'color',
   'paddingTop',

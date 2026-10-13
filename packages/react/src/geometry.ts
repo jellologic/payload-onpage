@@ -37,11 +37,16 @@ export const outlineBox = (r: Rect) => ({
   height: r.height + 2 * outline,
 })
 
-/** A row toolbar: top-right inside the row, kept below the header and above the row's end. */
-export const toolbarPosition = (r: Rect) => ({
-  top: Math.min(Math.max(r.top + margin, toolbarMinTop), r.bottom - toolbar),
-  right: Math.max(window.innerWidth - r.right + margin, margin),
-})
+/**
+ * A row toolbar: at the top end of the row (top-right; top-left on a
+ * right-to-left page), kept below the header and above the row's end.
+ */
+export const toolbarPosition = (r: Rect, rtl = false) => {
+  const top = Math.min(Math.max(r.top + margin, toolbarMinTop), r.bottom - toolbar)
+  return rtl
+    ? { top, left: Math.max(r.left + margin, margin) }
+    : { top, right: Math.max(window.innerWidth - r.right + margin, margin) }
+}
 
 /**
  * How far the dock sits from the bottom: `--po-dock-bottom` (default 16px). A site
@@ -70,6 +75,8 @@ export function popoverPosition(
   const r = el.getBoundingClientRect()
   const below = r.bottom + margin
   const top = below + size.height < vh ? below : Math.max(margin, r.top - margin - size.height)
-  const left = Math.min(Math.max(margin, r.left), vw - size.width - margin)
+  // Aligned with the element's start: its left edge, or its right edge on a right-to-left page.
+  const start = getComputedStyle(el).direction === 'rtl' ? r.right - size.width : r.left
+  const left = Math.min(Math.max(margin, start), vw - size.width - margin)
   return { top, left }
 }

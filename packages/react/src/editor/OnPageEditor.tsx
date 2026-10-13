@@ -22,7 +22,7 @@ import { OnPageProvider, useSessionSnapshot } from '../context.tsx'
 import { useDocumentLocks } from './useDocumentLocks.ts'
 import { useInvalidTargets } from './useInvalidTargets.ts'
 import { useSessionEvents } from './useSessionEvents.ts'
-import { UI } from '../dom.ts'
+import { isRtlLocale, UI } from '../dom.ts'
 import { defaultEditors } from '../editors/index.ts'
 import { hub } from '../hub.ts'
 import { notifyLayout } from '../layout.ts'
@@ -277,7 +277,7 @@ export function OnPageEditor(props: OnPageEditorProps) {
         document.body,
       )}
       {createPortal(
-        <div className="po-layer" {...{ [UI]: '' }}>
+        <div className="po-layer" dir={isRtlLocale(t.locale) ? 'rtl' : 'ltr'} {...{ [UI]: '' }}>
           <Overlay />
           <OnDemandPanels />
           <FieldHost mode="popover" />

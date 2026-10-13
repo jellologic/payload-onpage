@@ -146,7 +146,8 @@ export function Dialog({
           ...popoverPosition(anchor?.() ?? null, { width: width ?? 300, height }),
           width: width ?? 300,
         }
-      : { top: 72, right: 16 }
+      : // The panel sits at the end of the UI: right, or left in a right-to-left UI.
+        { top: 72, insetInlineEnd: 16 }
   return (
     <div
       ref={box}
