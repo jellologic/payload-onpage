@@ -24,6 +24,7 @@ import {
   samePath,
   SEAL_PURPOSE,
   seal,
+  stegaClean,
   stegaCleanDeep,
   type DocRef,
   type DocumentSchema,
@@ -69,6 +70,8 @@ import type { Entry, OnPageOptions } from './options.ts'
 import { resolvePath } from './paths.ts'
 import { hasConditions, hiddenPaths } from './conditions.ts'
 import { applyLock } from './locks.ts'
+import { hasSlugField, slugify, uniqueSlug } from './pages.ts'
+import { MAX_PATTERN_BYTES, PATTERNS } from './patterns.ts'
 import {
   boundedText,
   COMMENTS,
@@ -213,6 +216,7 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
         ...(hasScheduledPublishEnabled(cfg) ? { schedulePublish: true } : {}),
         ...(hasConditions(cfg.fields, req.payload.config.blocks) ? { conditions: true } : {}),
         ...(options.comments ? { comments: true } : {}),
+        ...(options.patterns ? { patterns: true } : {}),
         ...(ref || kind === 'global'
           ? {
               canPublish: await canPublishDocument(req, ref ?? { kind: 'global', slug }, options),
@@ -651,6 +655,136 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     },
   }
 
+  /**
+   * A new page from the page: a copy of a document (`action: 'duplicate'`), or
+   * a blank one titled `title`. Created as a draft with a unique slug; Payload
+   * checks the user's create access. Answers with the new page's id and path.
+   */
+  const pages: Endpoint = {
+    path: `${prefix}${ROUTES.pages}`,
+    method: 'post',
+    handler: async (req) => {
+      const refused = rejectCrossSite(req)
+      if (refused) return refused
+      const body = await jsonBody(req)
+      if (!req.user || !(await canUseOnPage(req, options))) throw new Forbidden(req.t)
+      const slug = typeof body.slug === 'string' ? body.slug : ''
+      const entry = ctx.entry('collection', slug)
+      const cfg = req.payload.collections[slug]?.config
+      if (!entry || entry.kind !== 'collection' || !cfg)
+        throw new APIError('Unknown collection', 400)
+      const titleField = cfg.admin?.useAsTitle
+      const title = body.title === undefined ? null : boundedText(body.title, 200)
+      if (body.title !== undefined && !title) throw new APIError('Give the page a title', 400)
+      const withAddress = async (t: string) => ({
+        ...(titleField && titleField !== 'id' ? { [titleField]: t } : {}),
+        ...(hasSlugField(cfg) ? { slug: await uniqueSlug(req, slug, slugify(t)) } : {}),
+      })
+      let created: { id: string | number }
+      if (body.action === 'duplicate') {
+        const ref = readRef(req, { kind: 'collection', slug, id: body.id })
+        if (!ref || ref.kind !== 'collection') throw new APIError('Which page?', 400)
+        const source = await req.payload
+          .findByID({
+            collection: slug,
+            id: ref.id,
+            draft: true,
+            depth: 0,
+            req,
+            overrideAccess: false,
+          })
+          .catch(() => null)
+        if (!source) throw new NotFound(req.t)
+        const named: unknown = titleField
+          ? (source as Record<string, unknown>)[titleField]
+          : undefined
+        const copyTitle =
+          title ?? `${typeof named === 'string' ? stegaClean(named) : 'Page'} (copy)`
+        created = await req.payload.duplicate({
+          collection: slug,
+          id: ref.id,
+          data: await withAddress(copyTitle),
+          draft: true,
+          req,
+          overrideAccess: false,
+        })
+      } else {
+        if (!title) throw new APIError('Give the page a title', 400)
+        created = await req.payload.create({
+          collection: slug,
+          data: { ...(await withAddress(title)), _status: 'draft' },
+          draft: true,
+          req,
+          overrideAccess: false,
+        })
+      }
+      const path = await resolvePath(req, { kind: 'collection', slug, id: created.id }, entry)
+      return json({ id: created.id, path })
+    },
+  }
+
+  /** Saved sections, for editors: the ones whose block type `blocks` allows (all without it). */
+  const listPatterns: Endpoint = {
+    path: `${prefix}${ROUTES.patterns}`,
+    method: 'get',
+    handler: async (req) => {
+      if (!req.user || !(await canUseOnPage(req, options))) throw new Forbidden(req.t)
+      const allowed = req.searchParams.get('blocks')?.split(',').filter(Boolean)
+      const { docs } = await req.payload.find({
+        collection: PATTERNS,
+        ...(allowed?.length ? { where: { blockType: { in: allowed } } } : {}),
+        sort: 'name',
+        limit: 200,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })
+      return json({
+        patterns: docs.map((doc) => {
+          const d = doc as Record<string, unknown>
+          return {
+            id: d.id,
+            name: typeof d.name === 'string' ? d.name : '',
+            blockType: typeof d.blockType === 'string' ? d.blockType : '',
+            data: d.data,
+          }
+        }),
+      })
+    },
+  }
+
+  /** Save a section's content under a name. */
+  const savePattern: Endpoint = {
+    path: `${prefix}${ROUTES.patterns}`,
+    method: 'post',
+    handler: async (req) => {
+      const refused = rejectCrossSite(req)
+      if (refused) return refused
+      const body = await jsonBody(req)
+      if (!req.user || !(await canUseOnPage(req, options))) throw new Forbidden(req.t)
+      const name = boundedText(body.name, 120)
+      if (!name) throw new APIError('Name the section', 400)
+      const block = body.block
+      if (
+        !block ||
+        typeof block !== 'object' ||
+        Array.isArray(block) ||
+        typeof (block as { blockType?: unknown }).blockType !== 'string'
+      )
+        throw new APIError('Expected a block with a blockType', 400)
+      const data = stegaCleanDeep(block as Record<string, unknown>)
+      if (JSON.stringify(data).length > MAX_PATTERN_BYTES)
+        throw new APIError('This section is too large to save', 413)
+      const created = await req.payload.create({
+        collection: PATTERNS,
+        data: { name, blockType: data.blockType, data },
+        overrideAccess: true,
+        req,
+      })
+      return json({ id: created.id })
+    },
+  }
+
   const commentEndpoints = options.comments
     ? [listComments, addComment, guestStatus, resolveComment, review]
     : []
@@ -665,6 +799,8 @@ export function createEndpoints(ctx: EndpointContext): Endpoint[] {
     schedule,
     conditions,
     lock,
+    pages,
+    ...(options.patterns ? [listPatterns, savePattern] : []),
     ...commentEndpoints,
   ]
 }

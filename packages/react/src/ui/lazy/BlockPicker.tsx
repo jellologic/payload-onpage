@@ -1,15 +1,18 @@
 'use client'
 
 import {
+  cloneRow,
   fieldAtPath,
   insertItem,
   isReady,
   newBlockRow,
   previewRow,
   updateArray,
+  type DataSource,
   type Doc,
   type EditorSession,
   type RefKey,
+  type SavedSection,
   type SchemaBlock,
 } from '@payload-onpage/core'
 import { useEffect, useRef, useState } from 'react'
@@ -67,8 +70,25 @@ function Picker({
   doc: Doc
   live: boolean
 }) {
-  const { session, targets, setPanel, setSelected, t } = useOnPage()
+  const { session, snap, targets, setPanel, setSelected, t } = useOnPage()
   const preview = usePreview(session, targets, docKey, listPath, index, doc, live)
+  const saved = useSavedSections(
+    snap.docs[docKey]?.schema?.patterns ? session.dataSource : null,
+    blocks,
+  )
+  /** A saved section as a new row: its content, with fresh row ids. */
+  const savedRow = (p: SavedSection) => {
+    const block = blocks.find((b) => b.slug === p.blockType)
+    return block ? cloneRow({ ...p.data, blockType: block.slug }, block.fields) : null
+  }
+  const chooseSaved = (p: SavedSection) => {
+    const row = savedRow(p)
+    if (!row) return
+    preview.revert()
+    const next = insertRow(session, docKey, listPath, index, row)
+    setPanel(null)
+    setSelected(next)
+  }
 
   const choose = (block: SchemaBlock) => {
     preview.revert()
@@ -102,15 +122,72 @@ function Picker({
                 first={g === 0 && i === 0}
                 previewing={preview.shown === b.slug}
                 onChoose={() => choose(b)}
-                onPreview={live ? preview.show : undefined}
+                onPreview={
+                  live ? (via) => preview.show(b.slug, () => previewRow(b), via) : undefined
+                }
                 onKey={preview.arm}
               />
             ))}
           </div>
         </section>
       ))}
+      {saved.length > 0 && (
+        <section className="po-blocks-group" data-testid="onpage-saved-sections">
+          <h3 className="po-h4">{t('blocks.saved')}</h3>
+          <div className={`po-blocks${live ? ' is-narrow' : ''}`}>
+            {saved.map((p) => {
+              const block = blocks.find((b) => b.slug === p.blockType)
+              const id = `saved:${String(p.id)}`
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  className={`po-block-card${preview.shown === id ? ' is-previewing' : ''}`}
+                  onClick={() => chooseSaved(p)}
+                  onPointerEnter={
+                    live ? () => preview.show(id, () => savedRow(p), 'pointer') : undefined
+                  }
+                  onFocus={live ? () => preview.show(id, () => savedRow(p), 'focus') : undefined}
+                  onKeyDown={preview.arm}
+                  data-testid={`onpage-saved-${String(p.id)}`}
+                >
+                  {block?.thumbnail ? (
+                    <img src={block.thumbnail.url} alt="" loading="lazy" />
+                  ) : (
+                    <span className="po-block-thumb" aria-hidden="true">
+                      {p.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <span className="po-block-label">
+                    {p.name}
+                    {block && <small> · {block.labels.singular}</small>}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
     </Dialog>
   )
+}
+
+/** The saved sections this list accepts (none without saved sections on). */
+function useSavedSections(ds: DataSource | null, blocks: SchemaBlock[]): SavedSection[] {
+  const [list, setList] = useState<SavedSection[]>([])
+  const slugs = blocks.map((b) => b.slug).join(',')
+  useEffect(() => {
+    if (!ds?.listPatterns || !slugs) return
+    let live = true
+    ds.listPatterns({ blocks: slugs.split(',') }).then(
+      (p) => live && setList(p),
+      () => undefined, // saved sections are extra: the picker works without them
+    )
+    return () => {
+      live = false
+    }
+  }, [ds, slugs])
+  return list
 }
 
 function BlockCard({
@@ -127,7 +204,7 @@ function BlockCard({
   /** This block is the one shown on the page. */
   previewing: boolean
   onChoose: () => void
-  onPreview?: ((block: SchemaBlock, via: 'pointer' | 'focus') => void) | undefined
+  onPreview?: ((via: 'pointer' | 'focus') => void) | undefined
   onKey: () => void
 }) {
   const name = block.labels.singular
@@ -136,8 +213,8 @@ function BlockCard({
       type="button"
       className={`po-block-card${previewing ? ' is-previewing' : ''}`}
       onClick={onChoose}
-      onPointerEnter={onPreview && (() => onPreview(block, 'pointer'))}
-      onFocus={onPreview && (() => onPreview(block, 'focus'))}
+      onPointerEnter={onPreview && (() => onPreview('pointer'))}
+      onFocus={onPreview && (() => onPreview('focus'))}
       onKeyDown={onKey}
       {...(first ? { 'data-autofocus': '' } : {})}
       data-testid={`onpage-block-${block.slug}`}
@@ -202,15 +279,16 @@ function usePreview(
     session.apply(key, () => initial, { transient: true })
   })
 
-  const show = (block: SchemaBlock, via: 'pointer' | 'focus') => {
+  /** Show a row on the page: `id` names the card (a block slug, or a saved section). */
+  const show = (id: string, makeRow: () => unknown, via: 'pointer' | 'focus') => {
     if (via === 'focus' && !keyed.current) return
     clearTimeout(timer.current)
     timer.current = setTimeout(() => {
-      if (shown.current === block.slug) return
-      shown.current = block.slug
-      setShownSlug(block.slug)
+      if (shown.current === id) return
+      shown.current = id
+      setShownSlug(id)
       scrollTo.current = true
-      const row = previewRow(block)
+      const row = makeRow()
       session.apply(key, () => updateArray(initial, listPath, (a) => insertItem(a, index, row)), {
         transient: true,
       })

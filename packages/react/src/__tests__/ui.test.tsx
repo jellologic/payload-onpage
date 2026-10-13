@@ -491,6 +491,92 @@ describe('comments panel', () => {
   })
 })
 
+describe('saved sections and new pages', () => {
+  beforeEach(() => {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      top: 100,
+      bottom: 400,
+      left: 0,
+      right: 800,
+      width: 800,
+      height: 300,
+      x: 0,
+      y: 100,
+      toJSON: () => ({}),
+    })
+  })
+  afterEach(() => vi.restoreAllMocks())
+  const html = `<div ${ann('data-onpage-list="layout"')}><section ${ann('data-onpage-row="layout.0"')}><h2 ${ann('data-onpage-field="layout.0.heading"')}>Big</h2></section></div>`
+  it('saves a section, and inserts saved ones from the picker with new ids', async () => {
+    const savePattern = vi.fn<NonNullable<DataSource['savePattern']>>(async () => {})
+    const { ds, saves } = source({
+      loadSchema: async () => ({ ...schema, patterns: true }),
+      savePattern,
+      listPatterns: async () => [
+        {
+          id: 7,
+          name: 'Launch hero',
+          blockType: 'hero',
+          data: { id: 'old', blockType: 'hero', heading: 'Saved!' },
+        },
+      ],
+    })
+    await mountEditor(ds, html)
+    fireEvent.click(document.querySelector('section')!)
+    fireEvent.click(await screen.findByTestId('onpage-block-save'))
+    const name = await screen.findByTestId<HTMLInputElement>('onpage-save-section-name')
+    expect(name.value).toBe('Hero')
+    fireEvent.change(name, { target: { value: 'Launch hero' } })
+    fireEvent.click(screen.getByTestId('onpage-save-section-save'))
+    await waitFor(() =>
+      expect(savePattern).toHaveBeenCalledWith(
+        'Launch hero',
+        expect.objectContaining({ blockType: 'hero', heading: 'Big' }),
+      ),
+    )
+    fireEvent.click(document.querySelector('section')!)
+    fireEvent.click(await screen.findByTestId('onpage-insert-below'))
+    fireEvent.click(await screen.findByTestId('onpage-saved-7'))
+    await waitFor(() => {
+      const layout = saves.at(-1)?.layout as Array<{ id: string; heading?: string }> | undefined
+      expect(layout?.[1]?.heading).toBe('Saved!')
+      expect(layout?.[1]?.id).not.toBe('old')
+    })
+  })
+  for (const action of ['duplicate', 'create'] as const) {
+    it(`${action === 'duplicate' ? 'duplicates the page' : 'creates a page'} and opens it`, async () => {
+      const assign = vi.fn()
+      vi.stubGlobal('location', { ...window.location, assign })
+      try {
+        const duplicatePage = vi.fn<NonNullable<DataSource['duplicatePage']>>(async () => ({
+          id: 9,
+          path: '/home-copy',
+        }))
+        const createPage = vi.fn<NonNullable<DataSource['createPage']>>(async () => ({
+          id: 10,
+          path: '/news',
+        }))
+        const { ds } = source({ duplicatePage, createPage })
+        await mountEditor(ds, html)
+        fireEvent.click(screen.getByTestId('onpage-page-settings-open'))
+        if (action === 'duplicate') {
+          fireEvent.click(await screen.findByTestId('onpage-page-duplicate'))
+          await waitFor(() => expect(assign).toHaveBeenCalledWith('/home-copy'))
+        } else {
+          fireEvent.change(await screen.findByTestId('onpage-page-new-title'), {
+            target: { value: 'News' },
+          })
+          fireEvent.click(screen.getByTestId('onpage-page-create'))
+          await waitFor(() => expect(createPage).toHaveBeenCalledWith('pages', { title: 'News' }))
+          await waitFor(() => expect(assign).toHaveBeenCalledWith('/news'))
+        }
+      } finally {
+        vi.unstubAllGlobals()
+      }
+    })
+  }
+})
+
 describe('documents without drafts', () => {
   it('says that changes go live', async () => {
     const { ds } = source({ loadSchema: async () => ({ ...schema, drafts: false }) })

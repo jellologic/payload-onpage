@@ -108,6 +108,28 @@ export interface DataSource {
     ref: DocRef,
     opts: { note?: Opt<string>; locale?: Opt<string> },
   ): Promise<{ url: string; expiresAt: string }>
+  /** A new draft page: a copy of `ref`, titled `title` (default: "… (copy)"). Optional. */
+  duplicatePage?(ref: DocRef, opts: { title?: Opt<string> }): Promise<NewPage>
+  /** A new, blank draft page in `collection`. Optional. */
+  createPage?(collection: string, opts: { title: string }): Promise<NewPage>
+  /** Saved sections the given block types accept (the plugin's `patterns` option). Optional. */
+  listPatterns?(opts: { blocks?: Opt<string[]> }): Promise<SavedSection[]>
+  /** Save a section's content (a block row) under a name. Optional. */
+  savePattern?(name: string, block: Doc): Promise<void>
+}
+
+/** A page made from the page: its id, and where it lives (null: no page to open). */
+export interface NewPage {
+  id: string | number
+  path: string | null
+}
+
+/** A section saved to insert again: a block row under a name. */
+export interface SavedSection {
+  id: string | number
+  name: string
+  blockType: string
+  data: Doc
 }
 
 /** A comment on a page, from an editor or a share-link viewer. */

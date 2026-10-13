@@ -1,5 +1,14 @@
 # Page settings, history and publishing
 
+## New pages
+
+**Page settings** also has **This page**:
+
+- **Duplicate this page** copies the page as a draft titled "… (copy)", at a free address made from the title (`home-copy`), and opens it.
+- **New page** creates a blank draft with the title you give, and opens it.
+
+Payload checks the editor's create access. Both keep you in edit mode on the new page.
+
 ## Documents without drafts
 
 A collection or global without `versions.drafts` has no draft: each on-page change is published as soon as it saves. The dock says so ("Header: changes go live"), and the plugin warns at startup. Add `versions: { drafts: true }` to keep changes as drafts.

@@ -71,6 +71,12 @@ export interface OnPageOptions {
    * notify your reviewers (email, Slack…). `url` is a fresh share link to the
    * page; the request is also kept as a comment.
    */
+  /**
+   * Saved sections: editors save a section's content under a name and insert it
+   * again from the block picker. Stored in an `onpage-patterns` collection
+   * (adds it to your config: generate a migration). Default off.
+   */
+  patterns?: boolean | undefined
   onReviewRequest?:
     | ((args: {
         req: PayloadRequest

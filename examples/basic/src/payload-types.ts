@@ -70,6 +70,7 @@ export interface Config {
     pages: Page;
     media: Media;
     users: User;
+    'onpage-patterns': OnpagePattern;
     'onpage-comments': OnpageComment;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
@@ -82,6 +83,7 @@ export interface Config {
     pages: PagesSelect<false> | PagesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    'onpage-patterns': OnpagePatternsSelect<false> | OnpagePatternsSelect<true>;
     'onpage-comments': OnpageCommentsSelect<false> | OnpageCommentsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
@@ -251,6 +253,26 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "onpage-patterns".
+ */
+export interface OnpagePattern {
+  id: number;
+  name: string;
+  blockType: string;
+  data:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "onpage-comments".
  */
 export interface OnpageComment {
@@ -403,6 +425,10 @@ export interface PayloadLockedDocument {
         value: number | User;
       } | null)
     | ({
+        relationTo: 'onpage-patterns';
+        value: number | OnpagePattern;
+      } | null)
+    | ({
         relationTo: 'onpage-comments';
         value: number | OnpageComment;
       } | null);
@@ -549,6 +575,17 @@ export interface UsersSelect<T extends boolean = true> {
         createdAt?: T;
         expiresAt?: T;
       };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "onpage-patterns_select".
+ */
+export interface OnpagePatternsSelect<T extends boolean = true> {
+  name?: T;
+  blockType?: T;
+  data?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

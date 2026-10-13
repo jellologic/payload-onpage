@@ -165,6 +165,8 @@ export interface DocumentSchema {
   comments?: boolean
   /** May this user publish this document? (Sent when the schema is asked for a document.) */
   canPublish?: boolean
+  /** Saved sections are on (the plugin's `patterns` option). */
+  patterns?: boolean
   /** Collections rich-text links can point to (the site's pages); they're in `relations` too. */
   linkTargets?: string[]
   /** Collections that relationship fields point to: how to search and show them. */

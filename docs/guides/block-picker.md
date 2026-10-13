@@ -29,6 +29,12 @@ export const Hero: Block = {
 - Groups come first, in config order, then ungrouped blocks, as in Payload's block drawer.
 - Relative URLs resolve against the site, so put the images in the site's `public/` folder (see the [example](../../examples/basic/public/blocks)).
 
+## Saved sections
+
+With the plugin's `patterns: true`, a section's toolbar has **Save this section**. Give it a name, and it's listed under **Saved sections** in the picker of every list that accepts its block type. Choosing one inserts a copy, with fresh row ids. In client mode it previews like any block.
+
+Saved sections are kept in an `onpage-patterns` collection the plugin adds (generate a migration), so you can rename or delete them in the admin.
+
 ## Live previews (client mode)
 
 For a document rendered with [`<OnPageClient>`](client-mode.md), the picker opens as a side panel. Pointing at a block, or focusing it with the keyboard, shows it **on the page, at the insertion point**.
