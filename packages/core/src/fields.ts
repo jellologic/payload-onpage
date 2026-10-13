@@ -375,3 +375,66 @@ export function toText(value: unknown): string {
       ? String(value)
       : ''
 }
+
+const sameValue = (field: SchemaField, a: unknown, b: unknown): boolean => {
+  if (field.type === 'relationship' || field.type === 'upload') {
+    const ids = (v: unknown) =>
+      JSON.stringify(
+        Array.isArray(v) ? v.map((x) => relationId(x) ?? null) : (relationId(v) ?? null),
+      )
+    return ids(a) === ids(b)
+  }
+  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+}
+
+/**
+ * The paths whose values differ between two versions of a document (`after`'s
+ * row indexes), for "what changed since published". A row that's new in
+ * `after` is reported as a whole (`layout.2`); rows are matched by id, then
+ * by position. A list whose length changed is reported too (`layout`).
+ */
+export function changedPaths(
+  before: Record<string, unknown> | null | undefined,
+  after: Record<string, unknown> | null | undefined,
+  fields: SchemaField[],
+  base = '',
+): string[] {
+  const out: string[] = []
+  for (const field of fields) {
+    const path = base ? `${base}.${field.name}` : field.name
+    const a = before?.[field.name]
+    const b = after?.[field.name]
+    switch (field.type) {
+      case 'group':
+        out.push(...changedPaths(asDoc(a), asDoc(b), field.fields, path))
+        break
+      case 'array':
+      case 'blocks': {
+        const prev = Array.isArray(a) ? a : []
+        const next = Array.isArray(b) ? b : []
+        if (prev.length !== next.length) out.push(path)
+        next.forEach((row, i) => {
+          const r = asDoc(row)
+          const id = r?.id
+          const match = asDoc(
+            (id !== undefined ? prev.find((p) => asDoc(p)?.id === id) : undefined) ?? prev[i],
+          )
+          const rowFields =
+            field.type === 'array'
+              ? field.fields
+              : field.blocks.find((bk) => bk.slug === r?.blockType)?.fields
+          if (!match || !rowFields || (field.type === 'blocks' && match.blockType !== r?.blockType))
+            out.push(`${path}.${i}`)
+          else out.push(...changedPaths(match, r, rowFields, `${path}.${i}`))
+        })
+        break
+      }
+      default:
+        if (!sameValue(field, a, b)) out.push(path)
+    }
+  }
+  return out
+}
+
+const asDoc = (v: unknown): Record<string, unknown> | undefined =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined

@@ -266,6 +266,28 @@ describe('EditorSession', () => {
     expect(s.get('c:pages:1')!.save.status).toBe('saved')
   })
 
+  it('restores a version: saves pending edits first, then continues from the restored draft', async () => {
+    const docs: Record<string, Doc> = base()
+    const order: string[] = []
+    const ds: DataSource = {
+      loadSchema: async () => pageSchema,
+      loadDocument: async () => structuredClone(docs['c:pages:1']!),
+      saveDraft: async (_r, data) => (order.push(`save ${JSON.stringify(data)}`), { ok: true }),
+      publish: async () => ({ ok: true }),
+      restoreVersion: async (_r, id) => {
+        order.push(`restore ${id}`)
+        docs['c:pages:1'] = { ...docs['c:pages:1']!, title: 'From v1', updatedAt: 'v9' }
+      },
+    }
+    const s = new EditorSession({ dataSource: ds, autosaveDelay: 10_000 })
+    await s.open({ kind: 'collection', slug: 'pages', id: 1 })
+    s.setValue('c:pages:1', 'title', 'Unsaved')
+    await s.restoreVersion('c:pages:1', 'v1')
+    expect(order).toEqual(['save {"title":"Unsaved"}', 'restore v1'])
+    expect(s.get('c:pages:1')!.doc!.title).toBe('From v1')
+    expect(s.getSnapshot().canUndo).toBe(false) // history continues from the restored draft
+  })
+
   it('records the fields a failed save or publish names, and clears them when it succeeds', async () => {
     let fail = true
     const fields = [{ path: 'title', message: 'Required' }]

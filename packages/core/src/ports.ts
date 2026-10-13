@@ -93,6 +93,20 @@ export interface DataSource {
    * taken, and their lock blocks saves). Optional.
    */
   lock?(ref: DocRef, action: 'take' | 'release'): Promise<{ lockedBy: string | null }>
+  /** A document's saved versions, newest first (Payload versions). Optional. */
+  listVersions?(ref: DocRef, opts: { limit?: Opt<number> }): Promise<VersionSummary[]>
+  /** Make a version the current draft again (it isn't published). Optional. */
+  restoreVersion?(ref: DocRef, versionId: string | number): Promise<void>
+}
+
+/** One saved version of a document. */
+export interface VersionSummary {
+  id: string | number
+  /** When it was saved (ISO). */
+  updatedAt: string
+  status?: 'draft' | 'published' | undefined
+  /** Saved by autosave (rather than a publish or an explicit save). */
+  autosave?: boolean | undefined
 }
 
 export interface ScheduledPublish {

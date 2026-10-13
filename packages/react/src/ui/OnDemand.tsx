@@ -18,6 +18,7 @@ export const ON_DEMAND: ReadonlySet<PanelKind> = new Set<PanelKind>([
   'blocks',
   'settings',
   'page',
+  'versions',
 ])
 
 export function OnDemandPanels() {

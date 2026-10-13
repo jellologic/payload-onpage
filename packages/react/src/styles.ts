@@ -92,6 +92,7 @@ export const PO_CSS = `
 .po-opaque{display:inline-flex;align-items:center;gap:6px;margin:6px 0;padding:6px 10px;border:1px dashed #94a3b8;border-radius:8px;background:#f8fafc;color:#475569;font:12px system-ui,sans-serif;user-select:none}
 html[data-onpage-editing] [data-onpage-field]{cursor:pointer}
 [data-onpage-hidden="true"]{visibility:hidden!important}
+html[data-onpage-editing] [data-onpage-changed]{outline:2px dashed #d97706!important;outline-offset:2px}
 html[data-onpage-editing] [data-onpage-invalid]{outline:2px solid #dc2626!important;outline-offset:2px}
 .po-preview{position:fixed;left:50%;width:max-content;bottom:var(--po-dock-bottom,16px);transform:translateX(-50%);display:flex;align-items:center;gap:6px;padding:6px;background:#0f172a;color:#fff;border-radius:12px;box-shadow:0 12px 40px #0f172a55;pointer-events:auto;max-width:calc(100vw - 24px);flex-wrap:wrap}
 .po-preview .po-status{padding:0 8px;font-size:12px;opacity:.85}
@@ -114,6 +115,9 @@ html[data-onpage-editing] [data-onpage-invalid]{outline:2px solid #dc2626!import
 .po-drop{position:fixed;background:#3b63e0;border-radius:2px;pointer-events:none;box-shadow:0 0 0 2px #fff}
 .po-array-row{border:1px solid #e2e8f0;border-radius:6px;padding:8px;margin:0 0 8px}
 .po-array-head{display:flex;align-items:center;justify-content:space-between;font-weight:600;font-size:12px;margin:0 0 6px}
+.po-versions{list-style:none;margin:10px 0 0;padding:0}
+.po-versions li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #e2e8f0;font-size:12px}
+.po-chip-live{background:#fecaca;color:#450a0a}
 .po-split{min-width:22px;padding:0 4px;margin-left:-4px}
 .po-schedule{margin-top:14px}
 .po-alt{display:flex;flex-direction:column;gap:10px}

@@ -154,6 +154,37 @@ describe('payloadUploads', () => {
   })
 })
 
+describe('versions', () => {
+  it("lists a document's versions newest first, and restores one as a draft", async () => {
+    const { f, calls } = fetchSpy(() =>
+      json({
+        docs: [
+          {
+            id: 'v2',
+            updatedAt: '2026-10-12T10:00:00Z',
+            autosave: true,
+            version: { _status: 'draft' },
+          },
+          { id: 'v1', updatedAt: '2026-10-11T10:00:00Z', version: { _status: 'published' } },
+        ],
+      }),
+    )
+    const rest = payloadRest({ fetch: f })
+    expect(await rest.listVersions!({ kind: 'collection', slug: 'pages', id: 3 }, {})).toEqual([
+      { id: 'v2', updatedAt: '2026-10-12T10:00:00Z', status: 'draft', autosave: true },
+      { id: 'v1', updatedAt: '2026-10-11T10:00:00Z', status: 'published', autosave: false },
+    ])
+    expect(decodeURIComponent(calls[0]!.url)).toBe(
+      '/api/pages/versions?sort=-updatedAt&limit=20&depth=0&where[parent][equals]=3',
+    )
+    await rest.listVersions!({ kind: 'global', slug: 'header' }, { limit: 5 })
+    expect(calls[1]!.url).toBe('/api/globals/header/versions?sort=-updatedAt&limit=5&depth=0')
+    await rest.restoreVersion!({ kind: 'collection', slug: 'pages', id: 3 }, 'v1')
+    expect(calls[2]!.url).toBe('/api/pages/versions/v1?draft=true&depth=0')
+    expect(calls[2]!.init?.method).toBe('POST')
+  })
+})
+
 describe('validation errors', () => {
   it("reads every field Payload's ValidationError names, and keeps them on a failed save", async () => {
     const body = {

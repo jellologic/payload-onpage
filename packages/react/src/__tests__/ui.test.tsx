@@ -387,6 +387,44 @@ describe('save failures', () => {
   })
 })
 
+describe('history panel', () => {
+  it('lists versions, outlines changes since published, and restores one', async () => {
+    const restoreVersion = vi.fn<NonNullable<DataSource['restoreVersion']>>(async () => {})
+    const { ds } = source({
+      loadDocument: async (_r, o) => (o.draft ? { ...initial(), title: 'Draft title' } : initial()),
+      listVersions: async () => [
+        { id: 'v2', updatedAt: new Date().toISOString(), status: 'draft' },
+        { id: 'v1', updatedAt: new Date(Date.now() - 3600_000).toISOString(), status: 'published' },
+      ],
+      restoreVersion,
+    })
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Draft title</span>`)
+    fireEvent.click(screen.getByTestId('onpage-versions-open'))
+    const older = await screen.findByTestId('onpage-version-1')
+    expect(older.textContent).toContain('published')
+    expect(screen.getByTestId('onpage-version-0').textContent).toContain('current')
+    fireEvent.click(screen.getByTestId('onpage-versions-highlight'))
+    const span = document.querySelector('span[data-onpage-field]')!
+    await waitFor(() => expect(span.hasAttribute('data-onpage-changed')).toBe(true))
+    expect(screen.getByTestId('onpage-versions').textContent).toContain('1 change')
+    const restore = screen.getByTestId('onpage-version-restore-1')
+    fireEvent.click(restore)
+    expect(restore.textContent).toBe('Restore as draft?')
+    fireEvent.click(restore)
+    await waitFor(() => expect(restoreVersion).toHaveBeenCalledWith(expect.anything(), 'v1'))
+    fireEvent.click(screen.getByTestId('onpage-versions-highlight'))
+    await waitFor(() => expect(span.hasAttribute('data-onpage-changed')).toBe(false))
+  })
+})
+
+describe('documents without drafts', () => {
+  it('says that changes go live', async () => {
+    const { ds } = source({ loadSchema: async () => ({ ...schema, drafts: false }) })
+    await mountEditor(ds, `<span ${ann('data-onpage-field="title"')}>Hello</span>`)
+    expect((await screen.findByTestId('onpage-live-doc')).textContent).toBe('Page: changes go live')
+  })
+})
+
 describe('document locks', () => {
   it('takes the lock while editing, refreshes it after saves, and says who else holds one', async () => {
     const calls: string[] = []
