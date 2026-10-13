@@ -190,6 +190,15 @@ export const defaultMessages = {
   'rt.linkPage': 'Page',
   'rt.linkSearch': 'Search pages…',
   'rt.linkCollection': 'Collection',
+  'assist.label': 'Writing assistant',
+  'assist.shorter': 'Shorter',
+  'assist.clearer': 'Clearer',
+  'assist.friendlier': 'Friendlier',
+  'assist.fix': 'Fix spelling',
+  'assist.custom': 'Or say what to change…',
+  'assist.ask': 'Ask',
+  'assist.working': 'Writing…',
+  'assist.hint': 'The answer replaces the text: Enter keeps it, Escape drops it.',
 } as const
 
 export type MessageKey = keyof typeof defaultMessages

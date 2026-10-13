@@ -26,6 +26,8 @@ On-page editing and draft previews for **Payload CMS**, on **Next.js (App Router
 - [Comments and review requests](guides/comments-and-review.md): discuss a page on the page; ask for a review; comments from share links.
 - [Several editors](guides/collaboration.md): document locks, conflicts and invalid fields.
 - [Logging and error reporting](guides/events.md): `onEvent`, with a Sentry recipe.
+- [Writing assistant](guides/assist.md): bring your own AI for rewriting text fields.
+- [Testing your integration](guides/testing.md): an in-memory data source, and end-to-end recipes.
 - [Client mode](guides/client-mode.md): instant edits without a server round trip.
 - [Block thumbnails and previews](guides/block-picker.md): thumbnails in the section picker, and live previews in client mode.
 - [Globals and multiple documents](guides/globals-and-multiple-documents.md)

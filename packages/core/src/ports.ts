@@ -278,3 +278,24 @@ export interface SessionAdapter {
   disable(opts?: { path?: string }): Promise<void>
   getMode(): Promise<OnPageMode | null>
 }
+
+/**
+ * A writing assistant (the AssistPort): rewrite a field's text as asked.
+ * payload-onpage bundles no AI vendor; implement it with your own server
+ * route, which calls the model and checks that the caller is signed in.
+ */
+export interface AssistPort {
+  /** The new text for `text`, following `instruction` ("Make it shorter"). */
+  rewrite(input: {
+    text: string
+    instruction: string
+    /** The field being edited. */
+    field: { name: string; label: string; type: string }
+    /** The content locale being edited, if any. */
+    locale?: Opt<string>
+    ref: DocRef
+    path: string
+    /** Aborted when the editor gives up on this answer. */
+    signal?: Opt<AbortSignal>
+  }): Promise<string>
+}

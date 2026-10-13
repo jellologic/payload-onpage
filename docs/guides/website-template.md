@@ -2,6 +2,15 @@
 
 Payload's [website template](https://github.com/payloadcms/payload/tree/main/templates/website) (`npx create-payload-app -t website`) has its own preview route, cached globals and Live Preview. This guide adds payload-onpage to it alongside them. Follow [Getting started](../getting-started.md) for the general steps; the template-specific parts are below.
 
+## 0. Install
+
+```bash
+npm i @payload-onpage/plugin @payload-onpage/next @payload-onpage/react @payload-onpage/core @payload-onpage/lexical
+npm i next@^16.3.8   # the template pins an older 16.3 release; payload-onpage needs the patched one
+```
+
+The template's `.npmrc` sets `legacy-peer-deps=true`, so npm won't flag the Next version for you.
+
 ## 1. The plugin: say where pages live
 
 The template's `admin.preview` returns its preview route, `/next/preview?path=/about&previewSecret=…`, not the page. payload-onpage uses the `path` from it, and logs a warning. Set `url` to skip the guesswork:
@@ -24,7 +33,7 @@ export const plugins: Plugin[] = [
 ]
 ```
 
-**Header and footer have no drafts** (`versions: false`), so on-page edits to them would go live as they autosave, and the plugin warns about that at startup. Either give them drafts:
+**Header and footer have no drafts**, so on-page edits to them would go live as they autosave, and the plugin warns about that at startup. Either give them drafts:
 
 ```ts
 // src/Header/config.ts and src/Footer/config.ts
@@ -32,6 +41,8 @@ versions: { drafts: true },
 ```
 
 or leave them out of `globals` so only pages and posts are edited on the page.
+
+The plugin adds the **Edit on page** button to the admin, so regenerate the import map: `npx payload generate:importmap`.
 
 ## 2. Mount the editor
 
@@ -140,7 +151,7 @@ Live Preview keeps working: payload-onpage's editor stays out of the admin's pre
 
 ## 5. Sections and links
 
-The template wraps every block in `RenderBlocks` with a `<div className="my-16">`, so each section maps to its block without annotations. Text in `CMSLink` maps too: `link.label` is a text field, and `link.url` is skipped because its name looks like a URL.
+The hero's title and text are Lexical rich text, so clicking them opens the rich-text editor with its formatting toolbar. The template wraps every block in `RenderBlocks` with a `<div className="my-16">`, so each section maps to its block without annotations. Text in `CMSLink` maps too: `link.label` is a text field, and `link.url` is skipped because its name looks like a URL.
 
 A section's fields that aren't rendered as text are in its settings panel (**Edit section**). Field conditions apply there as in the admin, so a link shows `url` or `reference` depending on its type. Images (`Media`) map through their `<img>`. Rows you want to select that render no text or image, such as the archive block's, need an annotation: see [Annotations](annotations.md).
 

@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react'
 import { OnPage } from '@payload-onpage/next'
 import { SiteHeader } from '@/components/SiteHeader'
+import { Mount } from './onpage-mount'
 import './styles.css'
 
 export const metadata = { title: 'payload-onpage example' }
@@ -17,7 +18,7 @@ export default function FrontendLayout({ children }: { children: React.ReactNode
         </footer>
         {/* Renders nothing unless an editor turned on edit or preview mode. */}
         <Suspense fallback={null}>
-          <OnPage />
+          <OnPage mount={Mount} />
         </Suspense>
       </body>
     </html>

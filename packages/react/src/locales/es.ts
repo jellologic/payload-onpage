@@ -193,4 +193,13 @@ export const es = {
   'saveSection.name': 'Nombre',
   'saveSection.save': 'Guardar',
   'pages.noPath': 'La página nueva no tiene dirección que abrir: búscala en el admin',
+  'assist.label': 'Asistente de escritura',
+  'assist.shorter': 'Más corto',
+  'assist.clearer': 'Más claro',
+  'assist.friendlier': 'Más cercano',
+  'assist.fix': 'Corregir ortografía',
+  'assist.custom': 'O di qué cambiar…',
+  'assist.ask': 'Pedir',
+  'assist.working': 'Escribiendo…',
+  'assist.hint': 'La respuesta sustituye el texto: Intro la conserva, Escape la descarta.',
 } satisfies Record<MessageKey, string> & Messages

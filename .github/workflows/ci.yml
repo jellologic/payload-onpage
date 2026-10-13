@@ -102,7 +102,10 @@ jobs:
         if: failure()
         with:
           name: playwright-report-${{ matrix.example }}
-          path: e2e/playwright-report
+          # The HTML report, and the traces of failed tests (open with `npx playwright show-trace`).
+          path: |
+            e2e/playwright-report
+            test-results
 
   tanstack-build:
     name: TanStack example builds

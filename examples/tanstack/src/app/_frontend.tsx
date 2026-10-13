@@ -2,6 +2,7 @@ import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { OnPage } from '@payload-onpage/tanstack-start'
 import { getHeaderData } from '@/functions/frontend.functions'
 import { SiteHeader } from '@/components/SiteHeader'
+import { Mount } from '@/components/OnPageMount'
 import './styles.css'
 
 export const Route = createFileRoute('/_frontend')({
@@ -20,7 +21,7 @@ function FrontendLayout() {
         <b>Edit on page</b>.
       </footer>
       {/* Renders nothing unless an editor turned on edit or preview mode. */}
-      <OnPage />
+      <OnPage mount={Mount} />
     </>
   )
 }

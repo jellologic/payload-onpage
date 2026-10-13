@@ -99,6 +99,7 @@ export {
 export {
   isOnPageMode,
   isTargetKind,
+  type AssistPort,
   type DataSource,
   type FieldError,
   type Doc,

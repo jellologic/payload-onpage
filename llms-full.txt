@@ -15,11 +15,15 @@ _The visual, WYSIWYG inline editor for Payload CMS: live draft preview, click-to
 
 - **Drop-in:** four edits to an existing site, and no component changes. Text maps to its fields automatically.
 - **Any collection or global**, and several documents on one page with one undo history.
-- **Add sections visually:** the block picker shows your blocks' Payload thumbnails, and in client mode previews a section in place before you add it.
-- **Built-in field editors:** text, rich text (Lexical), images, select, date, number, relationship, color. Replace any of them, or add your own.
+- **Add sections visually:** the block picker shows your blocks' Payload thumbnails, and in client mode previews a section in place before you add it. Drag sections to reorder them, and save a section to reuse it.
+- **The whole page, not just its text:** page settings (SEO, dates, references), lists the page doesn't show, field conditions as in the admin, links to other pages in rich text, and new or duplicated pages.
+- **Publish with care:** choose what to publish or schedule it, see what changed since published, restore an earlier version.
+- **Teams:** Payload's document locks, "keep my changes" on a conflict, comments and review requests, and comments from people you share a link with.
+- **Bring your own AI:** a writing assistant for text fields (shorter, clearer, translate…) through a port, with no vendor bundled.
+- **Built-in field editors:** text, rich text (Lexical), images (with alt text), select, date, number, relationship, color. Replace any of them, or add your own.
 - **Ports and adapters:** data source, media library, locator, renderer, session and field editors are all swappable.
 - **Fast:** visitors load about 0.3 KB. The editor (about 30 KB, brotli) loads only for editors, and rich-text editing adds Lexical (about 70 KB) the first time an editor opens a rich-text field.
-- **Accessible:** keyboard editing, managed focus and WCAG AA contrast, checked with axe in CI.
+- **Accessible and translated:** keyboard editing, managed focus and WCAG AA contrast, checked with axe in CI. The editor ships in English, Spanish, French and German, and works right to left.
 - **Secure by design:** Payload's own access checks, CSRF-safe endpoints, a stale-write guard, and share links that never expose Next's draft secret.
 
 ![Editing a Payload CMS page in place: click the heading on the Next.js page, type, and the change autosaves as a draft](docs/media/edit-text.gif)

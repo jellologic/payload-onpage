@@ -252,9 +252,13 @@ test.describe('in a short window', () => {
 test('client mode updates live while typing', async ({ context }) => {
   const page = await editPage(context, '/admin/collections/pages/2')
   const h1 = page.locator('h1').first()
-  await h1.click()
   const inline = page.getByTestId('onpage-inline-text')
-  await expect(inline).toBeFocused()
+  // This page registers its document as it renders (client mode), after the
+  // header global loaded: a click before then only says "Loading…".
+  await expect(async () => {
+    await h1.click()
+    await expect(inline).toBeFocused({ timeout: 1000 })
+  }).toPass()
   // Put the caret at the very end, whatever the platform's End key does.
   await inline.evaluate((el) => {
     const range = document.createRange()
@@ -560,6 +564,26 @@ test('save a section and insert it again; duplicate the page', async ({ context 
   await page.getByTestId('onpage-page-duplicate').click()
   await page.waitForURL(/-copy/)
   await expect(page.getByTestId('onpage-dock')).toBeVisible()
+})
+
+test('writing assistant: rewrite a heading, keep it, undo', async ({ context }) => {
+  const page = await editPage(context)
+  const h1 = page.locator('h1').first()
+  const before = clean(await h1.textContent())
+  await h1.click()
+  const text = page.getByTestId('onpage-inline-text')
+  await expect(text).toBeFocused()
+  await page.getByTestId('onpage-assist-open').click()
+  await page.getByTestId('onpage-assist-shorter').click()
+  // The example's offline assistant halves the words; the answer is in the editor, not yet kept.
+  const words = before.split(/\s+/)
+  const shorter = words.slice(0, Math.ceil(words.length / 2)).join(' ')
+  await expect(text).toHaveText(shorter)
+  await expect(text).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect.poll(async () => clean(await h1.textContent())).toBe(shorter)
+  await page.keyboard.press('ControlOrMeta+z')
+  await expect.poll(async () => clean(await h1.textContent())).toBe(before)
 })
 
 // Last: restoring a version rewinds the page's draft.
