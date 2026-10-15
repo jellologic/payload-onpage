@@ -1,6 +1,6 @@
 {
   "name": "@payload-onpage/tanstack-start",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "payload-onpage for TanStack Start: cookie session adapter, <OnPage />, onpageContext() and refresh rendering.",
   "license": "MIT",
   "type": "module",
