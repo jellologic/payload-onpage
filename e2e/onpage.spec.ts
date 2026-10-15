@@ -7,11 +7,17 @@ const isTanstack = process.env.ONPAGE_EXAMPLE === 'tanstack'
 
 const clean = (s: string | null) => (s ?? '').replace(/[\u200b-\u200d\u2060-\u2064]/g, '')
 
-/** Sign in (the example auto-logs in on /admin) and open a page in edit mode via the admin button. */
+/** Sign in and open a page in edit mode via the admin button. */
 async function editPage(
   context: BrowserContext,
   collectionPath = '/admin/collections/pages/1',
 ): Promise<Page> {
+  // The context's requests share its cookies. Dev servers would also sign in
+  // automatically; the TanStack example runs its production build, which doesn't.
+  const login = await context.request.post('/api/users/login', {
+    data: { email: 'dev@example.com', password: 'test' },
+  })
+  expect(login.ok()).toBe(true)
   const admin = await context.newPage()
   await admin.goto(collectionPath)
   const button = admin.getByTestId('onpage-edit-on-page').first()
@@ -177,6 +183,9 @@ test('rich text: link a word to another page of the site', async ({ context }) =
       }),
     )
     .toBe(true)
+  // The page renders it as a link to the other page's URL.
+  await page.reload()
+  await expect(page.locator('.content a[href="/about"]').first()).toBeVisible()
 })
 
 test('keyboard: Enter edits, ⌥↓ moves a row, ⌘Z undoes', async ({ context }) => {

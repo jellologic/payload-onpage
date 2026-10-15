@@ -39,9 +39,7 @@ jobs:
             @payloadcms/tanstack-start@$v @payloadcms/ui@$v
       - run: bunx playwright install --with-deps chromium
       - run: bun run build
-      - name: Build the example
-        working-directory: examples/tanstack
-        run: bun run build
+      # Builds the example and runs its production server (see e2e/playwright.config.ts).
       - run: bunx playwright test -c e2e/playwright.config.ts
         env:
           CI: '1'
@@ -50,7 +48,10 @@ jobs:
         if: failure()
         with:
           name: playwright-report-${{ matrix.tag }}
-          path: e2e/playwright-report
+          # The HTML report, and the traces of failed tests (open with `npx playwright show-trace`).
+          path: |
+            e2e/playwright-report
+            test-results
       - name: Report the failure
         if: failure() && github.event_name == 'schedule'
         env:
@@ -61,3 +62,13 @@ jobs:
         run: |
           n=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
           if [ -n "$n" ]; then gh issue comment "$n" --body "$BODY"; else gh issue create --title "$TITLE" --body "$BODY"; fi
+      - name: Close the issue once it passes again
+        if: success() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: 'Upcoming Payload (${{ matrix.tag }}) breaks the TanStack example'
+          BODY: |
+            payload@${{ steps.version.outputs.payload }} passes the nightly run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          n=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
+          if [ -n "$n" ]; then gh issue close "$n" --comment "$BODY"; fi
