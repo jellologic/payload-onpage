@@ -1,5 +1,12 @@
 # @payload-onpage/plugin
 
+## 0.6.1
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @payload-onpage/core@0.6.1
+
 ## 0.6.0
 
 ### Minor Changes

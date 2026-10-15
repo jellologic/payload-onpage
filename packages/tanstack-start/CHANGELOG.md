@@ -1,5 +1,15 @@
 # @payload-onpage/tanstack-start
 
+## 0.6.1
+
+### Patch Changes
+
+- [#38](https://github.com/jellologic/payload-onpage/pull/38) [`456411b`](https://github.com/jellologic/payload-onpage/commit/456411ba78a36bbb1360817d01a58f1cf123e14a) Thanks [@jellologic](https://github.com/jellologic)! - The package now includes its MIT license file, like the other packages. 0.6.0 and earlier were published without it.
+- Updated dependencies []:
+  - @payload-onpage/core@0.6.1
+  - @payload-onpage/lexical@0.6.1
+  - @payload-onpage/react@0.6.1
+
 ## 0.6.0
 
 ### Minor Changes
