@@ -5,7 +5,11 @@
  * can't reach: non-text values (date, relationship, color, select).
  */
 import React from 'react'
-import { RichText } from '@payloadcms/richtext-lexical/react'
+import {
+  LinkJSXConverter,
+  RichText,
+  type JSXConvertersFunction,
+} from '@payloadcms/richtext-lexical/react'
 import type { Editable } from '@payload-onpage/react/annotations'
 
 type Doc = Record<string, any>
@@ -15,6 +19,21 @@ const date = (iso?: string | null) =>
   iso
     ? new Intl.DateTimeFormat('en-US', { dateStyle: 'long', timeZone: 'UTC' }).format(new Date(iso))
     : 'No date'
+
+/**
+ * Internal links point at the linked page's URL. The page arrives populated
+ * (depth 1); a link added in client mode holds only its id until the next load.
+ */
+const converters: JSXConvertersFunction = ({ defaultConverters }) => ({
+  ...defaultConverters,
+  ...LinkJSXConverter({
+    internalDocToHref: ({ linkNode }) => {
+      const doc: unknown = linkNode.fields.doc?.value
+      const slug = doc && typeof doc === 'object' && 'slug' in doc ? String(doc.slug) : ''
+      return slug ? (slug === 'home' ? '/' : `/${slug}`) : '#'
+    },
+  }),
+})
 
 export function PageView({ page, e }: { page: Doc; e: Editable }) {
   const author =
@@ -79,7 +98,7 @@ function Block({ block, path, e }: { block: Doc; path: string; e: Editable }) {
     case 'content':
       return (
         <section className="content" {...e.row(path, 'Content')}>
-          {block.body && <RichText data={block.body} />}
+          {block.body && <RichText data={block.body} converters={converters} />}
         </section>
       )
     default:

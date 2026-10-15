@@ -10,7 +10,7 @@ Guidance for coding agents working **on this repository**. To add payload-onpage
 | `bun run check`                     | Everything CI's quality job runs: format, lint, typecheck, tests with coverage gates, build, size budgets                   |
 | `bun run test` / `bun run coverage` | Vitest (unit, component, Payload integration), against source                                                               |
 | `bun run e2e`                       | Build, then Playwright against `examples/basic` on :3101 with a fresh SQLite DB. Stop any dev server for the example first. |
-| `bun run e2e:tanstack` / `e2e:all`  | Same suite against `examples/tanstack` on :3105 / both in sequence.                                                         |
+| `bun run e2e:tanstack` / `e2e:all`  | Same suite against the production build of `examples/tanstack` on :3105 / both in sequence.                                 |
 | `bun run build`                     | `tsc -b` → `packages/*/dist`                                                                                                |
 | `bun run dev:example`               | Example site on :3100                                                                                                       |
 | `bun run docs:media`                | Regenerate docs screenshots and GIFs (`docs/media/`) from examples/basic; needs ffmpeg                                      |

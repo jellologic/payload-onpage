@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "vite dev --port 3102",
     "build": "vite build",
+    "start": "node .output/server/index.mjs",
+    "prepare:db": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload run scripts/prepare-db.ts",
     "typecheck": "tsc --noEmit",
     "payload": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload",
     "generate:importmap": "cross-env PAYLOAD_CONFIG_PATH=src/payload.config.ts payload generate:importmap",

@@ -8,6 +8,19 @@ import { pathToFileURL } from 'node:url'
 const BUNDLER_ONLY = new Set(['@payload-onpage/plugin/admin'])
 
 const failures = []
+
+// Every file a package lists in `files` (README, LICENSE…) exists, so npm packs it.
+for (const pkg of readdirSync('packages')) {
+  const dir = join('packages', pkg)
+  if (!existsSync(join(dir, 'package.json'))) continue
+  const { name, files = [] } = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
+  for (const file of files.filter((f) => !f.startsWith('!') && !f.includes('*'))) {
+    if (existsSync(join(dir, file))) continue
+    failures.push(`${name}: ${file}`)
+    console.error(`FAIL ${name}: lists "${file}" in files, but it is missing`)
+  }
+}
+
 for (const pkg of ['core', 'plugin', 'react', 'lexical', 'next']) {
   const dir = join('packages', pkg)
   const manifest = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'))
