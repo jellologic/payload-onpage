@@ -1,5 +1,14 @@
 # @payload-onpage/tanstack-start
 
+## 0.7.0
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @payload-onpage/core@0.7.0
+  - @payload-onpage/lexical@0.7.0
+  - @payload-onpage/react@0.7.0
+
 ## 0.6.1
 
 ### Patch Changes

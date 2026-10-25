@@ -1,5 +1,11 @@
 # @payload-onpage/core
 
+## 0.7.0
+
+### Minor Changes
+
+- Compatibility with payload 4.0.0-beta.4, proven by the nightly TanStack example run: the example's Payload REST route now calls `handleAPIRoute` directly (the `payloadApiHandlers` helper was removed in 4.0.0-beta.4; `handleAPIRoute` exists since 4.0.0-beta.0), and the "Upcoming Payload" workflow regenerates the example's import map for each Payload version it tests, since Payload renames its admin components between releases (`RecentlyViewedWidget` became `ActivityWidget` in 4.0.0-beta.4).
+
 ## 0.6.1
 
 No changes in this release.
