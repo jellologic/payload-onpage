@@ -37,15 +37,16 @@ jobs:
           echo "payload=$v" >> "$GITHUB_OUTPUT"
           bun add payload@$v @payloadcms/db-sqlite@$v @payloadcms/richtext-lexical@$v \
             @payloadcms/tanstack-start@$v @payloadcms/ui@$v
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run build
       # The committed import map matches the example's pinned version; Payload
       # renames its admin components between releases (RecentlyViewedWidget
       # became ActivityWidget in 4.0.0-beta.4), so regenerate it for the
-      # version this leg just installed.
+      # version this leg just installed. Needs the workspace build first: the
+      # config imports @payload-onpage/* from packages/*/dist.
       - name: Regenerate the import map
         working-directory: examples/tanstack
         run: bun run generate:importmap
-      - run: bunx playwright install --with-deps chromium
-      - run: bun run build
       # Builds the example and runs its production server (see e2e/playwright.config.ts).
       - run: bunx playwright test -c e2e/playwright.config.ts
         env:
